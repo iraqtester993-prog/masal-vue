@@ -1,0 +1,1050 @@
+/* Fluid application shell and shared, stable header for all 28 screens. */
+html {
+  font-size: 16px;
+  scroll-padding-top: 112px;
+}
+body {
+  font-size: 16px;
+  line-height: 1.7;
+}
+.shell {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 20px;
+  gap: 24px;
+  grid-template-columns: 264px minmax(0, 1fr);
+}
+.main {
+  max-width: none;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+.sidebar {
+  top: 20px;
+  height: calc(100dvh - 40px);
+  padding: 24px 14px;
+  border-radius: 24px;
+}
+.brand {
+  gap: 12px;
+  padding-bottom: 24px;
+}
+.brand strong {
+  font-size: 21px;
+}
+.eyebrow {
+  font-size: 10px;
+}
+.navitem {
+  font-size: 14px;
+  min-height: 46px;
+  padding: 10px 12px;
+  gap: 10px;
+  font-weight: 600;
+}
+.navgroup {
+  font-size: 12px;
+  margin-top: 23px;
+}
+.navicon {
+  font-size: 19px;
+}
+.sidebarfoot {
+  font-size: 12px;
+}
+.topbar {
+  position: sticky;
+  top: 20px;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: minmax(230px, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  height: 88px;
+  min-height: 88px;
+  padding: 16px 24px;
+  flex-wrap: nowrap;
+  background: var(--panel);
+  box-shadow: 0 6px 24px #0b1e360a;
+}
+.breadcrumb {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  justify-content: start;
+  gap: 0 12px;
+  white-space: nowrap;
+}
+.breadcrumb strong {
+  font-size: 23px;
+  line-height: 1.4;
+}
+.breadcrumb .badge {
+  justify-self: start;
+  font-size: 10px;
+}
+.breadcrumb small {
+  grid-column: 1/-1;
+  font-size: 11px;
+  line-height: 1.5;
+  margin-top: 4px;
+}
+.toptools {
+  margin: 0;
+  gap: 10px;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+.toptools .search {
+  width: 220px;
+  max-width: 220px;
+  font-size: 13px;
+  height: 44px;
+  padding: 9px 12px;
+  display: block;
+}
+.toptools select {
+  width: 160px;
+  max-width: 160px;
+  font-size: 13px;
+  height: 44px;
+  padding: 8px 10px;
+}
+.iconbtn {
+  height: 42px;
+  width: 42px;
+  min-height: 42px;
+  min-width: 42px;
+  display: inline-grid;
+  place-items: center;
+}
+.iconbtn svg {
+  width: 20px;
+  height: 20px;
+}
+.avatar {
+  width: 40px;
+  height: 40px;
+  font-size: 16px;
+}
+.menuToggle {
+  display: none;
+}
+.localbar {
+  font-size: 12px;
+  padding: 11px 17px;
+  min-height: 48px;
+  line-height: 1.7;
+  gap: 8px;
+}
+.pagehead {
+  min-height: 92px;
+  margin: 24px 0;
+  align-items: center;
+  gap: 20px;
+}
+.pagehead > div:first-child {
+  min-width: 0;
+}
+.pagehead h1 {
+  font-size: 32px;
+  line-height: 1.5;
+  margin-bottom: 6px;
+  gap: 12px;
+}
+.pagehead h1 small {
+  font-size: 13px;
+}
+.pagehead p {
+  font-size: 14px;
+  line-height: 1.8;
+}
+.pagehead > .actions {
+  width: auto;
+  flex-shrink: 0;
+}
+.actions {
+  gap: 10px;
+}
+.btn {
+  font-size: 14px;
+  padding: 10px 18px;
+  min-height: 44px;
+  font-weight: 700;
+  border-radius: 14px;
+}
+.btn.small {
+  font-size: 12px;
+  min-height: 34px;
+  padding: 6px 11px;
+  border-radius: 10px;
+}
+.card {
+  padding: 24px;
+  border-radius: 24px;
+}
+.card h2,
+h2 {
+  font-size: 19px;
+  line-height: 1.6;
+}
+.card h2 small {
+  font-size: 12px;
+  display: inline;
+}
+.cardhead {
+  gap: 12px;
+}
+.caption,
+.help,
+.metricsub {
+  font-size: 13px;
+  line-height: 1.8;
+}
+.metriclabel {
+  font-size: 14px;
+}
+.metricvalue {
+  font-size: 36px;
+  line-height: 1.35;
+}
+.metricvalue small {
+  font-size: 13px;
+}
+.badge {
+  font-size: 12px;
+  padding: 4px 9px;
+}
+.reference-metrics {
+  gap: 20px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.metric-stack {
+  gap: 16px;
+}
+.sales-hero,
+.purchase-card {
+  padding: 22px;
+}
+.sales-hero .cardhead,
+.purchase-card .cardhead {
+  font-size: 13px;
+  line-height: 1.8;
+}
+.sales-hero .metricvalue {
+  font-size: 36px;
+}
+.sales-main {
+  gap: 12px;
+}
+.sales-chip {
+  font-size: 11px;
+  line-height: 1.8;
+}
+.sales-breakdown {
+  font-size: 11px;
+  gap: 12px;
+}
+.card-bottom {
+  font-size: 12px;
+  line-height: 1.8;
+  padding-top: 16px;
+  margin-top: 20px;
+}
+.card-bottom b {
+  font-size: 12px;
+}
+.growth-card,
+.volume-card {
+  min-height: 370px;
+}
+.reference-tabs button {
+  font-size: 13px;
+  min-height: 38px;
+  padding: 7px 10px;
+}
+.growth-value {
+  margin-top: 25px;
+}
+.growth-value .metricvalue {
+  font-size: 46px;
+}
+.progress-labels {
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+.wallet-pill {
+  font-size: 12px;
+}
+.gauge {
+  margin-top: 28px;
+  max-width: 280px;
+}
+.gauge-label strong {
+  font-size: 46px;
+}
+.gauge-label span {
+  font-size: 12px;
+}
+.pos-summary {
+  font-size: 13px;
+  flex-wrap: wrap;
+  padding: 13px;
+}
+.reference-bottom {
+  gap: 20px;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+}
+.statistics-body {
+  grid-template-columns: minmax(100px, 3fr) minmax(0, 9fr);
+  gap: 22px;
+}
+.chart-stat {
+  display: block;
+}
+.chart-stat .metricvalue {
+  font-size: 30px;
+}
+.chart-stat .caption {
+  max-width: none;
+}
+.chart-stat .badge {
+  margin: 10px 0 20px;
+}
+.chart {
+  height: 245px;
+  gap: 12px;
+}
+.barcol small {
+  font-size: 11px;
+}
+.chartlabels {
+  font-size: 12px;
+}
+.region-row {
+  padding: 16px;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.region-row .rowidentity {
+  flex: 1;
+  min-width: 160px;
+}
+.rowidentity b {
+  font-size: 14px;
+  line-height: 1.7;
+}
+.rowidentity small,
+.region-row .rowidentity small {
+  font-size: 12px;
+  line-height: 1.7;
+}
+.rowidentity {
+  gap: 12px;
+}
+.region-row .square {
+  width: 44px;
+  height: 44px;
+}
+.province-pill {
+  font-size: 13px;
+}
+.region-flag {
+  font-size: 15px;
+}
+.dashboardgrid {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+}
+.rowline {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.chartfoot {
+  font-size: 13px;
+}
+.empty {
+  font-size: 15px;
+  line-height: 2;
+}
+.notice {
+  font-size: 14px;
+  padding: 15px 18px;
+}
+.toolbar {
+  gap: 14px;
+}
+.tabs button {
+  font-size: 14px;
+  padding: 9px 16px;
+}
+.tablewrap {
+  border-radius: 16px;
+}
+table {
+  font-size: 14px;
+}
+th {
+  font-size: 13px;
+  padding: 15px 16px;
+}
+td {
+  padding: 16px;
+  line-height: 1.8;
+}
+.tablewrap .caption {
+  font-size: 12px;
+}
+.formgrid {
+  gap: 20px;
+}
+label {
+  font-size: 14px;
+  font-weight: 600;
+}
+input:not([type="checkbox"]):not([type="color"]),
+select,
+textarea {
+  font-size: 15px;
+  padding: 11px 13px;
+  min-height: 46px;
+}
+input[type="color"] {
+  width: 56px;
+  height: 40px;
+}
+.formfoot {
+  flex-wrap: wrap;
+}
+.step {
+  font-size: 14px;
+}
+.product b {
+  font-size: 18px;
+}
+.product small {
+  font-size: 13px;
+}
+.treenode b {
+  font-size: 15px;
+}
+.treenode small {
+  font-size: 13px;
+}
+.treenode {
+  max-width: none;
+}
+.ticket p {
+  font-size: 14px;
+}
+.toggleline span {
+  font-size: 15px;
+}
+.toggleline small {
+  font-size: 13px;
+}
+.permission {
+  font-size: 13px;
+}
+.footer {
+  font-size: 12px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.toast {
+  font-size: 15px;
+}
+.modal h2 {
+  font-size: 22px;
+}
+.modal pre {
+  font-size: 13px;
+}
+.modal {
+  width: min(800px, 100%);
+  padding: 28px;
+}
+.receipt {
+  font-size: 12px;
+}
+.receipt h2 {
+  font-size: 17px;
+}
+.receipt .badge {
+  font-size: 10px;
+}
+.receipt .pin {
+  font-size: 15px;
+}
+.receipt small {
+  font-size: 11px;
+}
+.mobile-shade {
+  display: none;
+}
+@media (min-width: 1900px) {
+  .shell {
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 28px;
+    padding: 24px;
+  }
+  .sidebar {
+    top: 24px;
+    height: calc(100dvh - 48px);
+  }
+  .topbar {
+    top: 24px;
+  }
+  .reference-metrics,
+  .reference-bottom,
+  .dashboardgrid {
+    gap: 24px;
+  }
+  .card {
+    padding: 28px;
+  }
+  .toptools .search {
+    width: 280px;
+    max-width: 280px;
+  }
+  .gauge {
+    max-width: 290px;
+  }
+}
+@media (max-width: 1450px) {
+  .shell {
+    grid-template-columns: 244px minmax(0, 1fr);
+    gap: 20px;
+    padding: 16px;
+  }
+  .sidebar {
+    top: 16px;
+    height: calc(100dvh - 32px);
+  }
+  .topbar {
+    top: 16px;
+    padding: 16px 20px;
+    grid-template-columns: minmax(210px, 1fr) auto;
+    gap: 12px;
+  }
+  .toptools .search {
+    display: none;
+  }
+  .breadcrumb .badge {
+    display: none;
+  }
+  .breadcrumb strong {
+    font-size: 22px;
+  }
+  .toptools select {
+    width: 155px;
+    max-width: 155px;
+  }
+  .pagehead h1 {
+    font-size: 29px;
+  }
+  .pagehead h1 small {
+    font-size: 12px;
+  }
+  .reference-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .metric-stack {
+    grid-column: 1/-1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+  }
+  .sales-hero,
+  .purchase-card {
+    min-height: 205px;
+  }
+  .growth-card,
+  .volume-card {
+    min-height: 335px;
+  }
+  .growth-card .cardhead,
+  .volume-card .cardhead {
+    margin-bottom: 12px;
+  }
+  .growth-value {
+    margin-top: 15px;
+  }
+  .gauge {
+    max-width: 235px;
+    margin: 16px auto 10px;
+  }
+  .reference-bottom {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  }
+  .statistics-body {
+    grid-template-columns: 1fr;
+  }
+  .chart-stat {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .chart-stat .caption {
+    max-width: 220px;
+    margin: 0;
+  }
+  .chart-stat .badge {
+    margin: 0;
+  }
+  .chart-stat .metricvalue {
+    font-size: 28px;
+  }
+  .reference-bottom .cardhead {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .card h2 small {
+    display: block;
+    margin-right: 0;
+  }
+  .reference-bottom .card h2 {
+    font-size: 18px;
+  }
+  .region-row .rowidentity {
+    min-width: 0;
+  }
+  .three {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 1100px) {
+  .shell {
+    display: block;
+    padding: 16px;
+  }
+  .sidebar {
+    display: none;
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    bottom: 16px;
+    z-index: 35;
+    width: 280px;
+    height: calc(100dvh - 32px);
+  }
+  .sidebar.open {
+    display: flex;
+  }
+  .mobile-shade {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: #06142680;
+    backdrop-filter: blur(3px);
+    z-index: 34;
+    border: 0;
+    border-radius: 0;
+  }
+  .menuToggle {
+    display: inline-grid;
+  }
+  .topbar {
+    grid-template-columns: 42px minmax(180px, 1fr) auto;
+    top: 16px;
+    gap: 16px;
+    height: 84px;
+    min-height: 84px;
+  }
+  .breadcrumb {
+    display: grid;
+  }
+  .toptools {
+    max-width: none;
+  }
+  .toptools .avatar {
+    display: none;
+  }
+  .pagehead {
+    margin: 22px 0;
+  }
+  .reference-bottom {
+    grid-template-columns: 1fr 1fr;
+  }
+  .dashboardgrid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .main {
+    padding: 0;
+  }
+  .two {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 760px) {
+  .shell {
+    padding: 12px;
+  }
+  .topbar {
+    top: 12px;
+    height: 76px;
+    min-height: 76px;
+    padding: 12px;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    gap: 10px;
+    border-radius: 18px;
+  }
+  .iconbtn {
+    min-width: 40px;
+    min-height: 40px;
+    width: 40px;
+    height: 40px;
+  }
+  .breadcrumb {
+    display: block;
+  }
+  .breadcrumb strong {
+    font-size: 19px;
+    white-space: nowrap;
+  }
+  .breadcrumb small {
+    display: none;
+  }
+  .toptools {
+    gap: 7px;
+    max-width: none;
+  }
+  .toptools select {
+    width: 130px;
+    max-width: 130px;
+    font-size: 12px;
+    min-height: 40px;
+    height: 40px;
+    padding: 6px 8px;
+  }
+  .toptools > .iconbtn:not(.theme-toggle) {
+    display: none;
+  }
+  .toptools .avatar {
+    display: none;
+  }
+  .sidebar {
+    right: 12px;
+    top: 12px;
+    height: calc(100dvh - 24px);
+  }
+  .pagehead {
+    min-height: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    margin: 22px 0;
+  }
+  .pagehead h1 {
+    font-size: 27px;
+  }
+  .pagehead p {
+    font-size: 14px;
+  }
+  .pagehead > .actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .pagehead .btn {
+    font-size: 13px;
+  }
+  .localbar {
+    margin-top: 14px;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  .localbar > span:last-child {
+    display: none;
+  }
+  .localbar span:first-child .badge {
+    display: inline-flex;
+  }
+  .card {
+    padding: 22px;
+    border-radius: 20px;
+  }
+  .reference-metrics {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .metric-stack {
+    display: flex;
+    grid-column: auto;
+    gap: 16px;
+  }
+  .reference-bottom,
+  .dashboardgrid,
+  .two,
+  .three {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .reference-bottom {
+    margin-bottom: 16px;
+  }
+  .card h2 {
+    font-size: 19px;
+  }
+  .card h2 small {
+    display: inline;
+    font-size: 11px;
+  }
+  .growth-card,
+  .volume-card {
+    min-height: 330px;
+  }
+  .reference-tabs button {
+    font-size: 14px;
+    padding: 8px;
+  }
+  .chart-stat .metricvalue {
+    font-size: 27px;
+  }
+  .chart-stat .caption {
+    max-width: 180px;
+  }
+  .chart {
+    gap: 9px;
+    height: 225px;
+  }
+  .chartlabels {
+    font-size: 11px;
+  }
+  .barcol small {
+    font-size: 10px;
+    padding: 3px;
+  }
+  .card-bottom {
+    font-size: 12px;
+    gap: 10px;
+  }
+  .card-bottom .btn {
+    white-space: normal;
+    text-align: start;
+    padding-inline: 0;
+  }
+  .card-bottom b {
+    font-size: 12px;
+  }
+  .region-row {
+    padding: 14px;
+    flex-wrap: wrap;
+  }
+  .region-row .rowidentity {
+    min-width: 180px;
+  }
+  .rowline {
+    gap: 10px;
+  }
+  .formgrid {
+    grid-template-columns: 1fr;
+  }
+  .formgrid .full {
+    grid-column: auto;
+  }
+  .products {
+    grid-template-columns: 1fr 1fr;
+  }
+  .product {
+    padding: 14px;
+  }
+  .product b {
+    font-size: 16px;
+  }
+  .product .badge {
+    font-size: 10px;
+  }
+  .metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+  .metricvalue {
+    font-size: 28px;
+  }
+  .metricvalue small {
+    font-size: 12px;
+  }
+  .metrics .metric {
+    padding: 16px;
+  }
+  .metriclabel {
+    font-size: 13px;
+  }
+  .modal {
+    padding: 22px;
+  }
+  .overlay {
+    padding: 12px;
+  }
+  .modal h2 {
+    font-size: 21px;
+  }
+  .toolbar > input,
+  .toolbar > select {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+  .tabs {
+    max-width: 100%;
+    width: 100%;
+    gap: 4px;
+  }
+  .tabs button {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+  .steps {
+    gap: 5px;
+  }
+  .step {
+    font-size: 12px;
+    padding: 8px 5px;
+  }
+  .footer {
+    font-size: 11px;
+  }
+  .treebranch {
+    margin-right: 8px;
+    padding-right: 12px;
+  }
+  .treenode {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .treenode[style] {
+    margin-right: 0 !important;
+  }
+  .treebranch[style] {
+    margin-right: 8px !important;
+  }
+}
+@media (max-width: 450px) {
+  .topbar {
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    gap: 8px;
+    padding: 10px;
+    height: 70px;
+    min-height: 70px;
+  }
+  .breadcrumb strong {
+    font-size: 16px;
+  }
+  .toptools {
+    gap: 5px;
+  }
+  .toptools select {
+    width: 106px;
+    max-width: 106px;
+    font-size: 11px;
+    padding: 5px;
+  }
+  .theme-toggle {
+    min-width: 34px;
+    width: 34px;
+  }
+  .menuToggle {
+    min-width: 36px;
+    width: 36px;
+  }
+  .pagehead h1 {
+    font-size: 25px;
+  }
+  .pagehead h1 small {
+    display: none;
+  }
+  .sales-hero .metricvalue {
+    font-size: 31px;
+  }
+  .purchase-card .metricvalue {
+    font-size: 29px;
+  }
+  .metrics .metricvalue {
+    font-size: 23px;
+  }
+  .metricsub {
+    font-size: 12px;
+  }
+  .reference-tabs button {
+    font-size: 13px;
+  }
+  .caption,
+  .help {
+    font-size: 12px;
+  }
+  .products {
+    grid-template-columns: 1fr;
+  }
+  .modal {
+    padding: 18px;
+  }
+  .modal .formfoot .btn {
+    flex: 1;
+  }
+  .formfoot {
+    gap: 8px;
+  }
+  .topbar .iconbtn svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+@media print {
+  .topbar,
+  .mobile-shade {
+    display: none !important;
+  }
+  .shell {
+    padding: 0;
+    display: block;
+  }
+  .main {
+    width: 100%;
+  }
+  .receipt h2 {
+    font-size: 17px;
+  }
+  .receipt {
+    font-size: 12px;
+  }
+}
+@media (min-width: 1360px) and (max-width: 1450px) {
+  .reference-metrics {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .metric-stack {
+    grid-column: auto;
+    display: flex;
+    gap: 16px;
+  }
+  .growth-card,
+  .volume-card {
+    min-height: 370px;
+  }
+  .sales-hero,
+  .purchase-card {
+    min-height: 185px;
+  }
+  .sales-hero .metricvalue,
+  .purchase-card .metricvalue {
+    font-size: 30px;
+  }
+  .card h2 {
+    font-size: 17px;
+  }
+  .card h2 small {
+    font-size: 11px;
+  }
+  .reference-tabs button {
+    font-size: 12px;
+    padding: 7px;
+  }
+  .growth-value .badge {
+    font-size: 11px;
+  }
+  .gauge {
+    max-width: 245px;
+  }
+}

@@ -1,0 +1,113 @@
+.agent-product-picker {
+  margin: 18px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.agent-product-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+.agent-product-tools input[type="search"] {
+  flex: 1;
+  min-width: 180px;
+}
+.agent-product-tools h3 {
+  margin: 0;
+}
+.agent-product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 10px;
+}
+.agent-product-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  cursor: pointer;
+}
+.agent-product-item.is-selected {
+  border-color: #079db6;
+  background: rgba(7, 157, 182, 0.08);
+}
+.agent-product-item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  accent-color: #079db6;
+}
+.agent-product-item span {
+  display: grid;
+  gap: 5px;
+}
+.agent-product-item small {
+  opacity: 0.75;
+}
+
+.agent-product-dialog {
+  width: min(1000px, 94vw);
+  max-height: 88vh;
+  overflow: auto;
+  background: var(--panel);
+  color: inherit;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 22px;
+  box-sizing: border-box;
+}
+.agent-product-dialog::backdrop {
+  background: rgba(8, 24, 40, 0.6);
+}
+.agent-product-dialog:not([open]) {
+  display: none;
+}
+.agent-product-grid {
+  max-height: 48vh;
+  overflow: auto;
+  padding: 3px;
+}
+.agent-product-footer {
+  margin-top: 16px;
+  justify-content: center;
+}
+.agent-product-item {
+  min-width: 0;
+}
+.agent-product-item b {
+  overflow-wrap: anywhere;
+}
+.agent-product-tools select {
+  width: auto;
+  max-width: 100%;
+}
+[data-theme="dark"] .agent-product-dialog {
+  background: var(--panel);
+  color: var(--ink);
+}
+@media (max-width: 600px) {
+  .agent-product-dialog {
+    padding: 12px;
+  }
+  .agent-product-grid {
+    grid-template-columns: 1fr;
+  }
+  .agent-product-tools input[type="search"] {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+.agent-product-item.is-selected {
+  background: var(--blue-bg);
+  border-color: var(--sky);
+}
+.agent-product-item small {
+  color: var(--muted);
+  opacity: 1;
+}

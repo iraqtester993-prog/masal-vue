@@ -1,0 +1,164 @@
+.operations-panel {
+  margin-bottom: 24px;
+}
+.operations-panel > .card,
+.operations-panel > .two {
+  margin-bottom: 20px;
+}
+.operations-panel .cardhead select {
+  max-width: 330px;
+}
+.ops-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.ops-stats > div {
+  padding: 20px;
+  border: 1px solid var(--line, #dbe5ec);
+  border-radius: 18px;
+  background: linear-gradient(130deg, #0ea5e916, #14b8a611);
+}
+.ops-stats span {
+  display: block;
+  font-size: 15px;
+}
+.ops-stats strong {
+  display: block;
+  font-size: 28px;
+  margin-top: 8px;
+}
+.ops-account-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0;
+}
+.ops-account-grid .card {
+  border-top: 3px solid #14b8a6;
+}
+.ops-account-grid small {
+  display: block;
+}
+.ops-number {
+  display: block;
+  font-size: 27px;
+  margin: 10px 0;
+  font-variant-numeric: tabular-nums;
+}
+.ops-negative {
+  color: #dc5368;
+  font-weight: 700;
+}
+.ops-request,
+.ops-file {
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line, #b0baca44);
+  display: grid;
+  gap: 10px;
+}
+.ops-checks {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+  max-height: 300px;
+  overflow: auto;
+}
+.ops-checks label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #8b9eb833;
+  border-radius: 12px;
+}
+.operations-panel input[type="checkbox"] {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+}
+.operations-panel .actions {
+  flex-wrap: wrap;
+  margin-top: 16px;
+}
+.operations-panel .actions input {
+  max-width: 220px;
+}
+.operations-panel p {
+  line-height: 1.9;
+}
+.operations-panel textarea {
+  margin: 8px 0;
+}
+.operations-panel h3 {
+  margin: 14px 0;
+}
+.ops-thumbnail {
+  width: 90px;
+  height: 90px;
+  object-fit: contain;
+  border-radius: 14px;
+  margin: 16px;
+}
+.operations-panel summary {
+  cursor: pointer;
+  font-weight: 700;
+  padding: 16px 0;
+}
+.operations-panel table {
+  min-width: 650px;
+}
+.operations-panel label {
+  min-width: 0;
+}
+.operations-panel .rowline {
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.operations-panel .ops-file b {
+  overflow-wrap: anywhere;
+}
+.operations-panel select {
+  max-width: 100%;
+}
+@media (max-width: 800px) {
+  .ops-stats,
+  .ops-account-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .ops-checks {
+    grid-template-columns: 1fr 1fr;
+  }
+  .operations-panel .cardhead {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 520px) {
+  .ops-stats,
+  .ops-account-grid,
+  .ops-checks {
+    grid-template-columns: 1fr;
+  }
+  .operations-panel .actions > .btn {
+    width: 100%;
+  }
+  .operations-panel .cardhead select {
+    width: 100%;
+  }
+}
+
+.security-dialog {
+  z-index: 2000;
+}
+.security-dialog .modal {
+  max-height: 90vh;
+  overflow: auto;
+}
+.security-dialog .formgrid {
+  margin: 18px 0;
+}
+.security-dialog .modal > label {
+  margin: 14px 0;
+}

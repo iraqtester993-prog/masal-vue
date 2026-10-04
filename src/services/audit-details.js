@@ -1,0 +1,192 @@
+(function (root) {
+  "use strict";
+  const labels = {
+    id: "المعرف",
+    time: "وقت الإجراء",
+    user: "المستخدم",
+    name: "الاسم",
+    action: "الإجراء",
+    entity: "القسم أو السجل",
+    before: "قبل الإجراء",
+    after: "بعد الإجراء",
+    source: "المصدر",
+    sections: "أقسام التقرير",
+    rows: "عدد الصفوف",
+    count: "العدد",
+    agent: "الوكيل",
+    pos: "نقطة البيع",
+    product: "الفئة",
+    provider: "المزود",
+    price: "السعر",
+    old: "السعر السابق",
+    cost: "التكلفة",
+    total: "الإجمالي",
+    quantity: "الكمية",
+    reason: "السبب",
+    status: "الحالة",
+    changes: "التغييرات",
+    creator: "مقدم الطلب",
+    approver: "معتمد التغيير",
+    effective: "تاريخ سريان السعر",
+    role: "الدور",
+    active: "التفعيل",
+    email: "البريد الإلكتروني",
+    assigned: "الوكلاء المكلف بهم",
+    access: "إعدادات الوصول",
+    overrides: "الصلاحيات المخصصة",
+    scope: "نطاق البيانات",
+    roots: "الوكلاء المحددون",
+    descendants: "تضمين الفروع",
+    permissions: "الصلاحيات",
+    permissionProfileId: "نوع الصلاحية",
+    passwordChanged: "تغيير كلمة المرور",
+    hasPassword: "كلمة المرور محددة",
+    affectedUsers: "المستخدمون المتأثرون",
+    version: "الإصدار",
+    filename: "اسم الملف",
+    amount: "المبلغ",
+    account: "الحساب",
+    from: "من",
+    to: "إلى",
+    balance: "الرصيد",
+    batch: "الدفعة",
+    rejected: "عدد البطاقات المرفوضة",
+    expenses: "مصاريف التوريد",
+    attempt: "رقم المحاولة",
+    attempts: "محاولات الطباعة",
+    device: "الجهاز",
+    cards: "البطاقات",
+    serial: "الرقم التسلسلي",
+    internal: "المعرف الداخلي",
+    pin: "رمز الشحن",
+    cvc: "رمز التحقق",
+    reference: "المرجع",
+    expiry: "تاريخ الانتهاء",
+    created: "وقت الإنشاء",
+    settled: "وقت التسوية",
+    reprints: "عدد إعادات الطباعة",
+    title: "العنوان",
+    body: "المحتوى",
+    target: "الجهة المستهدفة",
+    city: "المحافظة",
+    phone: "الهاتف",
+    address: "العنوان",
+    type: "النوع",
+    parent: "الوكيل الأعلى",
+    min: "أقل سعر بيع مسموح",
+    limit: "حد العملية",
+    dailyQty: "حد الكمية اليومي",
+    dailyAmount: "الحد المالي اليومي",
+    fields: "حقول البطاقة",
+    fieldPolicy: "الحقول المطلوبة",
+    currency: "العملة",
+    face: "القيمة الاسمية",
+    order: "ترتيب الظهور",
+    supplier: "المجهز",
+    organizer: "الجهة المنظمة",
+    connection: "نوع الربط",
+    key: "مفتاح العملية",
+    exposed: "إصدار رمز البطاقة",
+    credentials: "بيانات الدخول",
+    password: "كلمة المرور",
+    hash: "بصمة كلمة المرور",
+    salt: "بيانات الحماية",
+    sales: "المبيعات",
+    inventory: "المخزون",
+    reports: "التقارير",
+    users: "المستخدمون",
+    wallets: "المحافظ",
+    printing: "الطباعة",
+    registration: "تسجيل الوكلاء",
+    login: "تسجيل الدخول",
+    app: "تشغيل التطبيق",
+    velocity: "الفاصل بين العمليات",
+    expiryDays: "مهلة تنبيه الانتهاء",
+    providerDaily: "الحد اليومي للمزود",
+    reprint: "حد إعادة الطباعة",
+    minVersion: "أقل إصدار للتطبيق",
+    idle: "مهلة الخمول",
+    blockedIPs: "عناوين الشبكة المحظورة",
+  };
+  const values = {
+    sales: "المبيعات",
+    reports: "التقارير",
+    inventory: "المخزون",
+    wallets: "المحافظ",
+    network: "شبكة التوزيع",
+    prices: "الأسعار",
+    claims: "المطالبات",
+    support: "الدعم الفني",
+    users: "المستخدمون",
+    audit: "سجل التدقيق",
+    operations: "التشغيل",
+    owner: "مدير النظام",
+    supervisor: "مشرف",
+    main: "وكيل رئيسي",
+    sub: "وكيل فرعي",
+    pos: "نقطة بيع",
+    employee: "موظف النظام",
+    all: "الجميع",
+    allow: "سماح",
+    deny: "منع",
+    required: "مطلوب",
+    optional: "اختياري",
+    unused: "غير مستخدم",
+    voucher: "رصيد البطاقات التشغيلي",
+    topup: "محفظة الشحن الإلكتروني",
+    cash: "محفظة النقد والتعويضات",
+    IQD: "دينار عراقي",
+    USD: "دولار أمريكي",
+    API: "ربط برمجي",
+    true: "نعم",
+    false: "لا",
+  };
+  const Fields = {
+    name: "AuditFields",
+    props: ["value", "labelFor", "displayValue", "tr", "fieldKey"],
+  };
+  function install(o) {
+    o.components = { ...o.components, AuditFields: Fields };
+    Object.assign(o.methods, {
+      auditLabel(key) {
+        const p = MasalAccess.catalog.find((p) => p.key === key);
+        return labels[key] || (p ? p.group + " — " + p.label : key);
+      },
+      auditValue(value, key) {
+        if (value === null || value === undefined || value === "")
+          return this.tr("لا توجد بيانات");
+        if (typeof value === "boolean") return this.tr(value ? "نعم" : "لا");
+        if (
+          ["time", "created", "settled"].includes(key) &&
+          !isNaN(Date.parse(value))
+        )
+          return this.formatTime(value);
+        if (value === "••••") return this.tr("بيانات محمية");
+        const lists = {
+          agent: "agents",
+          parent: "agents",
+          assigned: "agents",
+          roots: "agents",
+          pos: "pos",
+          device: "pos",
+          user: "users",
+          creator: "users",
+          approver: "users",
+          affectedUsers: "users",
+          product: "products",
+          provider: "providers",
+          permissionProfileId: "permissionProfiles",
+        };
+        if (lists[key]) return this.nameOf(lists[key], value);
+        const permission = MasalAccess.catalog.find((p) => p.key === value);
+        if (permission)
+          return this.tr(permission.group) + " — " + this.tr(permission.label);
+        const nav = NAV.flatMap((g) => g.items).find((n) => n.id === value);
+        return this.tr(
+          values[value] || nav?.label || statusNames[value] || value,
+        );
+      },
+    });
+  }
+  root.MasalAuditDetails = { install };
+})(globalThis);
