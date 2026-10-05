@@ -91,9 +91,13 @@ export default options;
         >
       </div>
       <button
-        v-if="!node.context &amp;&amp; node.record.type==='رئيسي'"
+        v-if="!node.context"
         class="btn small"
-        @click="$root.previewAgentProducts(node.record)"
+        @click="
+          $root.canManageCategories('agents', node.record.id)
+            ? $root.openNetworkCategories('agents', node.record.id)
+            : $root.previewAgentProducts(node.record)
+        "
       >
         {{ $root.tr("الفئات") }}</button
       ><button v-if="canReset()" class="btn small" @click="requestReset()">

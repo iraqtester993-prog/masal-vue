@@ -41,8 +41,10 @@ import TicketDialog from "./components/dialogs/TicketDialog.vue";
 import InventoryManagerDialog from "./components/dialogs/InventoryManagerDialog.vue";
 import InventoryActionDialog from "./components/dialogs/InventoryActionDialog.vue";
 import ConfirmationDialog from "./components/dialogs/ConfirmationDialog.vue";
+import DigitalServicesView from "./views/DigitalServicesView.vue";
 const options = globalThis.MasalAppOptions;
 Object.assign(options.components, {
+  DigitalServicesView,
   DashboardView,
   CatalogView,
   ImportView,
@@ -85,7 +87,16 @@ export default options;
 </script>
 
 <template>
-  <div id="app" v-cloak="" :style="{ '--accent': s.settings.theme }">
+  <div
+    id="app"
+    :class="{
+      'digital-workspace': ['digital', 'integrations'].includes(page),
+      'pos-mobile-app': posMobileEnabled,
+      'pos-simple-app': posMobileEnabled,
+    }"
+    v-cloak=""
+    :style="{ '--accent': s.settings.theme }"
+  >
     <location-gate></location-gate><password-reset-panel></password-reset-panel
     ><document-image-preview></document-image-preview>
     <section v-if="loginScreen" class="login-page" dir="rtl">
@@ -480,7 +491,8 @@ export default options;
         </div>
       </aside>
       <main class="main" :data-page="page">
-        <header class="topbar">
+        <pos-mobile-header v-if="posMobileEnabled"></pos-mobile-header>
+        <header v-else class="topbar">
           <button
             class="iconbtn menuToggle"
             @click="toggleSidebar"
@@ -629,41 +641,61 @@ export default options;
           </div>
         </header>
 
-        <div
-          v-if="dashboardFilter&amp;&amp;dashboardFilter.page===page"
-          class="dashboard-filter-bar"
-        >
-          <span
-            >{{ tr(dashboardFilter.title)
-            }}<small
-              v-if="
-                ['sales', 'quantity', 'profit'].includes(dashboardFilter.key)
-              "
-            >
-              · {{ $root.tr(dashboardFilter.day) }}</small
-            ></span
-          ><button class="btn small" @click="clearDashboardFilter">
-            {{ tr("عرض الكل") }}
-          </button>
-        </div>
-        <funding-request-settings></funding-request-settings
-        ><account-time-settings></account-time-settings
-        ><print-policy-settings></print-policy-settings
-        ><operation-control></operation-control
-        ><company-page ref="companyPage"></company-page
-        ><governorates-page></governorates-page><order-sources></order-sources
-        ><branding-switcher></branding-switcher><card-designer></card-designer
-        ><completion-panel ref="completion"></completion-panel
-        ><operations-panel
-          v-if="!['inventory', 'pos', 'claims', 'exports'].includes(page)"
-          ref="operations"
-        ></operations-panel
-        ><workflow-panel
-          v-if="!['claims', 'exports'].includes(page)"
-          ref="workflow"
-        ></workflow-panel>
+        <template
+          v-if="!posMobileCatalog&amp;&amp;!(posMobileEnabled&amp;&amp;page==='sales')"
+          ><div
+            v-if="dashboardFilter&amp;&amp;dashboardFilter.page===page"
+            class="dashboard-filter-bar"
+          >
+            <span
+              >{{ tr(dashboardFilter.title)
+              }}<small
+                v-if="
+                  ['sales', 'quantity', 'profit'].includes(dashboardFilter.key)
+                "
+              >
+                · {{ $root.tr(dashboardFilter.day) }}</small
+              ></span
+            ><button class="btn small" @click="clearDashboardFilter">
+              {{ tr("عرض الكل") }}
+            </button>
+          </div>
+          <funding-request-settings></funding-request-settings
+          ><account-time-settings></account-time-settings
+          ><print-policy-settings></print-policy-settings
+          ><operation-control></operation-control
+          ><company-page ref="companyPage"></company-page
+          ><governorates-page></governorates-page><order-sources></order-sources
+          ><branding-switcher></branding-switcher><card-designer></card-designer
+          ><completion-panel ref="completion"></completion-panel
+          ><operations-panel
+            v-if="
+              ![
+                'inventory',
+                'pos',
+                'claims',
+                'exports',
+                'integrations',
+              ].includes(page)
+            "
+            ref="operations"
+          ></operations-panel
+          ><workflow-panel
+            v-if="!['claims', 'exports'].includes(page)"
+            ref="workflow"
+          ></workflow-panel
+        ></template>
+
         <!-- Dashboard -->
-        <DashboardView v-if="page === 'dashboard'" />
+        <template v-if="posMobileCatalog"
+          ><pos-mobile-catalog
+            :key="'pos-catalog-' + currentUser"
+          ></pos-mobile-catalog></template
+        ><template v-else-if="posMobileEnabled&amp;&amp;page==='sales'"
+          ><pos-mobile-operations
+            :key="'pos-operations-' + currentUser"
+          ></pos-mobile-operations></template
+        ><DashboardView v-else-if="page === 'dashboard'" />
         <!-- Generic managed entities -->
         <CatalogView v-else-if="schema" />
         <!-- Import wizard -->
@@ -671,7 +703,97 @@ export default options;
         <!-- Inventory and batches -->
         <InventoryView v-else-if="['inventory', 'batches'].includes(page)" />
         <!-- Wallets -->
-
+        <template v-else-if="false"
+          ><div class="two">
+            <div class="card">
+              <div class="cardhead">
+                <span class="badge neutral">{{ tr("بالدينار العراقي") }}</span>
+              </div>
+              <form
+                v-permit="can('wallets.transfer')"
+                @submit.prevent="reviewTransfer"
+              >
+                <div class="formgrid">
+                  <label
+                    >{{ tr("من محفظة")
+                    }}<select v-model="transferForm.from">
+                      <option v-for="a in visibleAgents" :value="a.id">
+                        {{ tr(a.name) }} • {{ tr(money(engine.balance(a.id))) }}
+                      </option>
+                    </select></label
+                  ><label
+                    >{{ tr("إلى محفظة")
+                    }}<select v-model="transferForm.to">
+                      <option v-for="a in accounts" :value="a.id">
+                        {{ tr(a.name) }}
+                      </option>
+                    </select></label
+                  ><label class="full"
+                    >{{ tr("المبلغ")
+                    }}<input
+                      type="text"
+                      inputmode="decimal"
+                      v-money=""
+                      min="1"
+                      required=""
+                      v-model.number="transferForm.amount"
+                  /></label>
+                </div>
+                <div class="formfoot">
+                  <button class="btn primary">{{ tr("تنفيذ التحويل") }}</button>
+                </div>
+              </form>
+            </div>
+            <div class="card">
+              <div class="cardhead">
+                <button
+                  v-if="can('wallets.deposit')"
+                  class="btn small"
+                  v-permit="can('wallets.deposit')"
+                  @click="openDeposit"
+                >
+                  {{ tr("＋ إيداع") }}
+                </button>
+              </div>
+              <div v-for="a in accounts" class="rowline">
+                <span>{{ tr(a.name) }}</span
+                ><strong class="mono"
+                  >{{ tr(money(engine.balance(a.id))) }}
+                  <small>{{ tr("د.ع") }}</small></strong
+                >
+              </div>
+            </div>
+          </div>
+          <div class="card" style="margin-top: 20px">
+            <div class="tablewrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>{{ tr("المرجع") }}</th>
+                    <th>{{ tr("الحساب") }}</th>
+                    <th>{{ tr("الحركة") }}</th>
+                    <th>{{ tr("المبلغ") }}</th>
+                    <th>{{ tr("التاريخ") }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="l in visibleLedger.slice().reverse()">
+                    <td class="mono">{{ tr(l.group) }}</td>
+                    <td>{{ tr(accountName(l.account)) }}</td>
+                    <td>{{ tr(l.kind) }}</td>
+                    <td
+                      class="mono"
+                      :style="{color:l.amount&lt;0?'#c14b5a':'#0f8a72'}"
+                    >
+                      {{ tr(money(l.amount)) }}
+                    </td>
+                    <td>{{ tr(formatTime(l.time)) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div></template
+        >
         <!-- Pricing -->
         <PricesView v-else-if="page === 'prices'" />
         <!-- Sales terminal -->
@@ -684,6 +806,7 @@ export default options;
         <PermissionsView v-else-if="page === 'permissions'" />
         <!-- Integrations -->
         <IntegrationsView v-else-if="page === 'integrations'" />
+        <DigitalServicesView v-else-if="page === 'digital'" />
         <!-- Notifications -->
         <NotificationsView v-else-if="page === 'notifications'" />
         <!-- Support -->
@@ -699,9 +822,9 @@ export default options;
         <!-- Monitoring -->
         <MonitoringView v-else-if="page === 'monitoring'" />
         <!-- Security -->
-
+        <template v-else-if="page === 'security'"></template>
         <!-- Branding -->
-
+        <template v-else-if="page === 'branding'"></template>
         <!-- Landing and CMS -->
         <!-- Backup -->
         <BackupView v-else-if="page === 'backup'" />
@@ -719,6 +842,7 @@ export default options;
             }}</span
           >
         </footer>
+        <pos-mobile-nav v-if="posMobileEnabled"></pos-mobile-nav>
       </main>
     </div>
     <!-- Forms modal -->
@@ -909,6 +1033,21 @@ export default options;
           v-else-if="modal.kind === 'permissionReview'"
         /><QuickActionsDialog v-else-if="modal.kind === 'quick'" />
         <TransferReviewDialog v-else-if="modal.kind === 'transferReview'" />
+        <form
+          v-else-if="modal.kind === 'networkCategories'"
+          @submit.prevent="saveNetworkCategories"
+        >
+          <agent-product-picker
+            :agent="networkCategoryDraft"
+            :available-ids="networkCategoryAvailableIds"
+            inline
+          ></agent-product-picker>
+          <div class="formfoot">
+            <button type="button" class="btn" @click="closeModal">
+              {{ tr("إلغاء") }}</button
+            ><button class="btn primary">{{ tr("حفظ الفئات") }}</button>
+          </div>
+        </form>
         <form
           v-else-if="modal.kind === 'networkPermissions'"
           @submit.prevent="saveNetworkPermissions"

@@ -44,6 +44,11 @@
       throw Error("الحساب المؤرشف لا يقبل التعديل");
     root.MasalFeatureUpdates.attachment(v.image);
     if (
+      JSON.stringify(v.productRules || {}) !==
+      JSON.stringify(old?.productRules || {})
+    )
+      throw Error("تعديل الفئات يتم من نافذة فئات التابع");
+    if (
       JSON.stringify(v.networkRules || {}) !==
       JSON.stringify(old?.networkRules || {})
     )
@@ -63,6 +68,12 @@
       !root.MasalRegions.isActive(e.s, v.city)
     )
       throw Error("اختر محافظة مفعلة");
+    if (
+      page === "pos" &&
+      JSON.stringify(v.allowedProductIds) !==
+        JSON.stringify(old?.allowedProductIds)
+    )
+      throw Error("تعديل الفئات يتم من نافذة فئات التابع");
     if (page === "agents") {
       if (
         JSON.stringify(v.allowedProductIds) !==
@@ -251,12 +262,17 @@
     rules[authority][key] = value ? "allow" : "deny";
     return rules;
   }
+  function targetCan(user, key, state) {
+    return ["main", "sub"].includes(user.role)
+      ? A.canDelegate(user, key, state)
+      : A.can(user, key, state);
+  }
   function canEnable(e, page, id, key, draft = {}) {
     try {
       const target = permissionTarget(e, page, id);
       if (
         !A.defaults(target.user.role, key) ||
-        (e.actor().role !== "owner" && !e.can(key))
+        (e.actor().role !== "owner" && !A.canDelegate(e.actor(), key, e.s))
       )
         return false;
       const candidate = {
@@ -280,7 +296,7 @@
         ...e.s,
         [page]: e.s[page].map((r) => (r.id === id ? candidate : r)),
       };
-      return A.can({ ...target.user, active: true }, key, state);
+      return targetCan({ ...target.user, active: true }, key, state);
     } catch {
       return false;
     }
@@ -307,7 +323,11 @@
         !A.defaults(target.user.role, key)
       )
         throw Error("صلاحية غير قابلة للإسناد لهذا الدور");
-      if (value && e.actor().role !== "owner" && !e.can(key))
+      if (
+        value &&
+        e.actor().role !== "owner" &&
+        !A.canDelegate(e.actor(), key, e.s)
+      )
         throw Error("لا يمكنك منح صلاحية لا تملكها");
       candidate.networkRules = candidateRules(
         temp,
@@ -317,7 +337,7 @@
       );
     }
     for (const [key, value] of entries)
-      if (value && !A.can({ ...target.user, active: true }, key, state))
+      if (value && !targetCan({ ...target.user, active: true }, key, state))
         throw Error("هذه الصلاحية ممنوعة من الأعلى أو تتطلب صلاحية عرض القسم");
     const before = M.clone(target.record.networkRules || {});
     target.record.networkRules = candidate.networkRules;
@@ -362,7 +382,7 @@
             .filter((p) => A.defaults(target.user.role, p.key))
             .map((p) => [
               p.key,
-              A.can({ ...target.user, active: true }, p.key, this.s),
+              targetCan({ ...target.user, active: true }, p.key, this.s),
             ]),
         );
         this.networkPermissionInitial = { ...this.networkPermissionDraft };
@@ -613,4 +633,5 @@
     canEnable,
     saveNetworkPermissions,
   };
+  if (typeof module !== "undefined") module.exports = root.MasalNetworkAccounts;
 })(globalThis);

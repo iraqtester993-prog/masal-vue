@@ -6,7 +6,6 @@ export default {
   mixins: [viewContext],
 };
 </script>
-
 <template>
   <div
     class="card workspace-card"
@@ -249,6 +248,12 @@ export default {
                     @click="askArchiveNetwork(page, row.id)"
                   >
                     {{ $root.tr("حذف") }}</button
+                  ><button
+                    v-if="['agents','pos'].includes(page)&amp;&amp;canManageCategories(page,row.id)"
+                    class="btn small"
+                    @click="openNetworkCategories(page, row.id)"
+                  >
+                    {{ tr("الفئات") }}</button
                   ><button
                     v-if="['agents','pos'].includes(page)&amp;&amp;canManageNetwork(page,row.id)"
                     class="btn small"

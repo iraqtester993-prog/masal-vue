@@ -8,7 +8,6 @@ export default {
 </script>
 <template>
   <digital-service-panel
-    initial-tab="settings"
-    :key="'digital-settings-' + currentUser"
+    :key="'digital-' + currentUser"
   ></digital-service-panel>
 </template>

@@ -192,6 +192,7 @@
         const u = MasalNetworkAccounts.linked(this.vm.s, "pos", p.id);
         if (u) this.vm.requestPasswordReset(u.id);
       };
+      void 0;
       o.components["network-points-table"] = table;
     },
     created,

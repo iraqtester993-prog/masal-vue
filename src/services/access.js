@@ -51,6 +51,7 @@
     ["company", "موقع الشركة", "عرض،تعديل"],
     ["governorates", "المحافظات", "عرض،تفعيل"],
     ["backup", "النسخ الاحتياطي", "عرض،تنزيل،استعادة"],
+    ["digital", "الخدمات الإلكترونية", "عرض،بيع،عرض الوصل،تصدير"],
     ["data", "البيانات الحساسة", "التكلفة،الربح،رموز البطاقات"],
   ];
   const verbs = {
@@ -114,26 +115,35 @@
     "رموز البطاقات": "pin",
   };
   const catalog = groups.flatMap(([module, group, labels]) =>
-    labels.split("،").map((label) => ({
-      key: module + "." + verbs[label],
-      module,
-      group,
-      label,
-      sensitive:
-        ["data", "permissions", "backup", "security"].includes(module) ||
-        [
-          "approve",
-          "reverse",
-          "deposit",
-          "cancel",
-          "encrypt",
-          "role",
-          "scope",
-          "settle",
-          "createMain",
-        ].includes(verbs[label]),
-    })),
+    labels
+      .split("،")
+      .map((label) => ({
+        key: module + "." + verbs[label],
+        module,
+        group,
+        label,
+        sensitive:
+          ["data", "permissions", "backup", "security"].includes(module) ||
+          [
+            "approve",
+            "reverse",
+            "deposit",
+            "cancel",
+            "encrypt",
+            "role",
+            "scope",
+            "settle",
+            "createMain",
+          ].includes(verbs[label]),
+      })),
   );
+  catalog.push({
+    key: "digital.refund",
+    module: "digital",
+    group: "الخدمات الإلكترونية",
+    label: "إرجاع عملية تجريبية",
+    sensitive: true,
+  });
   catalog.find((p) => p.key === "company.edit").label =
     "إدارة وتعديل موقع الشركة";
   catalog.find((p) => p.key === "company.edit").sensitive = true;
@@ -200,6 +210,13 @@
       sensitive: true,
     });
   }
+  catalog.push({
+    key: "agents.categories",
+    module: "agents",
+    group: "الوكلاء والشجرة",
+    label: "تحديد فئات التابعين",
+    sensitive: true,
+  });
   catalog.push({
     key: "agents.permissions",
     module: "agents",
@@ -291,6 +308,7 @@
   const rolePages = {
     owner: groups.map((g) => g[0]),
     supervisor: [
+      "digital",
       "dashboard",
       "reports",
       "sell",
@@ -317,6 +335,7 @@
       "security",
     ],
     main: [
+      "digital",
       "dashboard",
       "reports",
       "sell",
@@ -343,6 +362,7 @@
       "branding",
     ],
     sub: [
+      "digital",
       "users",
       "dashboard",
       "reports",
@@ -359,6 +379,7 @@
       "permissions",
     ],
     pos: [
+      "digital",
       "wallets",
       "dashboard",
       "reports",
@@ -389,6 +410,9 @@
       ].includes(key)
     )
       return false;
+    if (key === "digital.refund") return false;
+    if (role === "pos" && p.module === "notifications")
+      return ["notifications.view", "notifications.export"].includes(key);
     if (p.module === "map") return false;
     if (p.module === "company") return key === "company.view";
     if (key === "prices.policy" && role === "main") return true;
@@ -546,7 +570,25 @@
     }
     return out.length ? out : null;
   }
-  function can(user, key, state) {
+  function can(user, key, state, delegating = false) {
+    if (
+      user?.role === "pos" &&
+      [
+        "notifications.send",
+        "notifications.broadcast",
+        "notifications.attach",
+        "notifications.translations",
+      ].includes(key)
+    )
+      return false;
+    if (
+      ["digital.create", "integrations.transact"].includes(key) &&
+      user?.role !== "pos" &&
+      !(delegating && ["main", "sub"].includes(user?.role))
+    )
+      return false;
+    if (key.startsWith("posTypes.") && managementRole(state, user) !== "owner")
+      return false;
     if (
       key.startsWith("map.") &&
       !["owner", "employee", "supervisor"].includes(user?.role)
@@ -572,7 +614,8 @@
         "sell.result",
         "sell.reprint",
       ].includes(key) &&
-      !["sub", "pos"].includes(managementRole(state, user))
+      !["sub", "pos"].includes(managementRole(state, user)) &&
+      !(delegating && user?.role === "main")
     )
       return false;
     if (key.startsWith("governorates.") && user?.role !== "owner") return false;
@@ -583,7 +626,7 @@
       module !== "data" &&
       action !== "view" &&
       key !== "sell.receipt" &&
-      !can(user, module + ".view", state)
+      !can(user, module + ".view", state, delegating)
     )
       return false;
     const path = networkPath(state, user);
@@ -711,5 +754,7 @@
     detailParents,
     staffAccount,
     managementRole,
+    canDelegate: (user, key, state) => can(user, key, state, true),
   };
+  if (typeof module !== "undefined") module.exports = root.MasalAccess;
 })(globalThis);

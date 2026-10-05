@@ -1,0 +1,1134 @@
+.digital-services {
+  display: grid;
+  gap: 18px;
+}
+.digital-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.digital-heading h2,
+.digital-heading p {
+  margin: 0;
+}
+.digital-heading p {
+  margin-top: 8px;
+  color: var(--muted);
+}
+.digital-tabs {
+  padding: 12px 18px;
+}
+.digital-tabs .tabs button.active {
+  background: var(--accent);
+  color: #fff;
+}
+.digital-tabs .tabs button:not(.active) {
+  background: transparent;
+  color: var(--text);
+}
+.digital-workspace .app-footer {
+  position: static !important;
+  width: auto !important;
+  margin-top: 20px;
+}
+.digital-services h4 {
+  margin: 22px 0 10px;
+}
+.digital-config {
+  margin: 20px 0;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.digital-checks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  max-height: 220px;
+  overflow: auto;
+}
+.digital-checks label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 9px;
+  padding: 10px;
+  background: var(--raised);
+  border-radius: 8px;
+}
+.digital-checks input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.digital-offer-config {
+  margin: 14px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.digital-offer-config > b {
+  display: block;
+  margin-bottom: 12px;
+}
+.digital-credential {
+  margin-top: 16px;
+}
+.digital-sale-summary,
+.digital-confirm {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.digital-sale-summary {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.digital-sale-summary strong {
+  font-size: 25px;
+}
+.digital-scenario {
+  max-width: 340px;
+  margin-top: 18px;
+}
+.digital-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  margin: 18px 0;
+}
+.digital-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.digital-totals > div {
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+  background: var(--raised);
+  border-radius: 12px;
+}
+.digital-totals b {
+  font-size: 20px;
+}
+.digital-services td small {
+  display: block;
+  color: var(--muted);
+  margin-top: 5px;
+  max-width: 260px;
+  overflow-wrap: anywhere;
+}
+.digital-services td .mono {
+  overflow-wrap: anywhere;
+}
+.digital-receipt-content {
+  text-align: center;
+}
+.digital-code {
+  font-size: 22px;
+  padding: 16px;
+  border: 1px dashed var(--line);
+  overflow-wrap: anywhere;
+}
+.digital-receipt-actions {
+  justify-content: center;
+  margin-top: 20px;
+}
+@media (max-width: 700px) {
+  .digital-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .digital-config {
+    padding: 12px;
+  }
+  .digital-filters {
+    grid-template-columns: 1fr 1fr;
+  }
+  .digital-services .tabs {
+    display: flex;
+    width: 100%;
+  }
+  .digital-services .tabs button {
+    flex: 1;
+  }
+}
+@media print {
+  body.digital-printing #app {
+    visibility: hidden;
+  }
+  body.digital-printing .digital-receipt,
+  body.digital-printing .digital-receipt * {
+    visibility: visible;
+  }
+  body.digital-printing .digital-receipt {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+    border: 0;
+  }
+  body.digital-printing .digital-receipt-actions {
+    display: none;
+  }
+}
+
+/* Keep all electronic-service controls compact and aligned. */
+.digital-services .formgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 220px));
+  gap: 12px 16px;
+  align-items: start;
+}
+.digital-services label {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  font-size: 13px;
+}
+.digital-services input:not([type="checkbox"]),
+.digital-services select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  min-height: 44px;
+  padding: 6px 10px;
+  margin: 0;
+  font-size: 13px;
+  border-radius: 8px;
+}
+.digital-services select {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.digital-services .digital-config {
+  margin: 16px 0;
+  padding: 16px;
+}
+.digital-category-picker {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 16px 0 10px;
+}
+.digital-category-picker > label {
+  width: min(100%, 300px);
+}
+.digital-category-picker > .caption {
+  padding-bottom: 9px;
+}
+.digital-services .digital-offer-config {
+  padding: 12px;
+  margin: 10px 0;
+}
+.digital-offer-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.digital-offer-heading b {
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.digital-services .inline-check,
+.digital-services .digital-checks label {
+  flex-direction: row;
+  align-items: center;
+}
+.digital-services .inline-check {
+  margin-top: 14px;
+}
+.digital-services input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  margin: 0;
+}
+.digital-services .formfoot {
+  margin-top: 16px;
+  gap: 8px;
+}
+.digital-services .digital-filters {
+  grid-template-columns: repeat(auto-fit, minmax(145px, 200px));
+  gap: 12px;
+}
+@media (max-width: 700px) {
+  .digital-services .formgrid,
+  .digital-services .digital-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .digital-services .digital-config {
+    padding: 12px;
+  }
+  .digital-category-picker > label {
+    width: 100%;
+  }
+}
+@media (max-width: 360px) {
+  .digital-services .formgrid,
+  .digital-services .digital-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 701px) {
+  .digital-services .digital-offer-config .formgrid {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 180px));
+  }
+}
+
+@media (max-width: 700px) {
+  .pos-mobile-app .shell {
+    display: block;
+  }
+  .pos-mobile-app .shell .main {
+    margin: 0 !important;
+    padding: 0 14px calc(86px + env(safe-area-inset-bottom)) !important;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  .pos-mobile-app .app-footer {
+    display: none !important;
+  }
+  .pos-phone-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 24;
+    background: var(--raised);
+    border-bottom: 1px solid var(--line);
+    padding: 12px 14px;
+    margin: 0 0 18px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+  .pos-phone-header > div {
+    flex: 1;
+    min-width: 0;
+    display: grid;
+    gap: 3px;
+  }
+  .pos-phone-header strong {
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .pos-phone-header small {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .pos-phone-header .iconbtn {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+  }
+  .pos-phone-header svg {
+    width: 22px;
+    height: 22px;
+  }
+  .pos-phone-settings summary {
+    cursor: pointer;
+    padding: 6px;
+    font-size: 22px;
+    list-style: none;
+  }
+  .pos-phone-settings summary::-webkit-details-marker {
+    display: none;
+  }
+  .pos-phone-settings > div {
+    position: absolute;
+    inset-inline-end: 14px;
+    top: 65px;
+    width: 230px;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--raised);
+    box-shadow: 0 10px 30px #0002;
+    display: grid;
+    gap: 10px;
+  }
+  .pos-phone-nav {
+    position: fixed;
+    bottom: 0;
+    inset-inline: 0;
+    z-index: 25;
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    background: var(--raised);
+    border-top: 1px solid var(--line);
+    box-shadow: 0 -4px 20px #00000008;
+  }
+  .pos-phone-nav button {
+    flex: 1;
+    display: grid;
+    justify-items: center;
+    gap: 4px;
+    padding: 7px 4px;
+    background: transparent;
+    color: var(--muted);
+    border: 0;
+    border-radius: 10px;
+    font-size: 11px;
+  }
+  .pos-phone-nav button.active {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+  .pos-phone-nav svg {
+    width: 22px;
+    height: 22px;
+  }
+  .pos-phone-catalog {
+    display: grid;
+    gap: 16px;
+  }
+  .pos-phone-summary {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .pos-phone-summary article {
+    display: grid;
+    gap: 9px;
+    padding: 15px 12px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--raised);
+    min-width: 0;
+  }
+  .pos-phone-summary span {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .pos-phone-summary strong {
+    font-size: 21px;
+    overflow-wrap: anywhere;
+  }
+  .pos-phone-summary small {
+    font-size: 11px;
+  }
+  .pos-phone-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .pos-phone-title h2,
+  .pos-phone-operations h2 {
+    font-size: 18px;
+    margin: 0;
+  }
+  .pos-phone-companies {
+    display: grid;
+    gap: 10px;
+  }
+  .pos-phone-companies > button {
+    display: grid;
+    grid-template-columns: 44px 1fr auto;
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 3px 12px;
+    text-align: start;
+    padding: 14px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--raised);
+    color: var(--text);
+  }
+  .pos-company-mark {
+    grid-row: span 2;
+    width: 44px;
+    height: 44px;
+    display: grid;
+    place-items: center;
+    font-size: 21px;
+    font-weight: 700;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
+  }
+  .pos-phone-companies strong {
+    font-size: 15px;
+  }
+  .pos-phone-companies small {
+    grid-column: 2;
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .pos-company-arrow {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    font-size: 20px;
+    color: var(--accent);
+  }
+  .pos-phone-type-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 5px;
+    background: var(--raised);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .pos-phone-type-tabs button {
+    flex: 1;
+    border: 0;
+    background: transparent;
+    color: var(--muted);
+    border-radius: 8px;
+    padding: 9px 4px;
+    font-size: 13px;
+  }
+  .pos-phone-type-tabs button.active {
+    background: var(--accent);
+    color: white;
+  }
+  .pos-phone-products {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .pos-phone-products > button {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    text-align: start;
+    padding: 14px 12px;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    background: var(--raised);
+    color: var(--text);
+    min-width: 0;
+  }
+  .pos-phone-products strong {
+    font-size: 14px;
+    line-height: 1.7;
+    overflow-wrap: anywhere;
+  }
+  .pos-phone-products b {
+    color: var(--accent);
+    font-size: 18px;
+  }
+  .pos-phone-products b small {
+    font-size: 11px;
+  }
+  .pos-phone-products > button > span:last-child {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .pos-mobile-app input,
+  .pos-mobile-app select {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .pos-phone-sale {
+    padding: 16px;
+  }
+  .pos-phone-sale form {
+    display: grid;
+    gap: 16px;
+    margin-top: 18px;
+  }
+  .pos-phone-sale .formgrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .pos-phone-sale-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 0;
+    border-block: 1px solid var(--line);
+  }
+  .pos-phone-confirm {
+    border-top: 1px solid var(--line);
+    margin-top: 16px;
+  }
+  .pos-phone-confirm .btn {
+    width: 100%;
+  }
+  .pos-phone-operations {
+    display: grid;
+    gap: 12px;
+  }
+  .pos-phone-operations article {
+    display: grid;
+    gap: 10px;
+    padding: 14px;
+  }
+  .pos-phone-operations article > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+  .pos-phone-operations article strong {
+    font-size: 14px;
+  }
+  .pos-phone-operations article > small {
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .pos-mobile-app .digital-services .card {
+    padding: 16px;
+  }
+  .pos-mobile-app .digital-services .formgrid {
+    grid-template-columns: 1fr;
+  }
+  .pos-mobile-app .digital-services .formfoot .btn.primary {
+    width: 100%;
+  }
+  .pos-mobile-app .modal {
+    max-height: calc(100dvh - 24px);
+    overflow: auto;
+  }
+}
+@media print {
+  .pos-phone-header,
+  .pos-phone-nav {
+    display: none !important;
+  }
+}
+
+@media (max-width: 700px) {
+  body:has(.pos-mobile-app) .toast {
+    bottom: calc(94px + env(safe-area-inset-bottom));
+  }
+  .pos-mobile-app .sidebar {
+    z-index: 35 !important;
+  }
+  .pos-mobile-app .mobile-shade {
+    z-index: 34 !important;
+  }
+}
+
+.digital-grant-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 6px 0;
+  cursor: pointer;
+  white-space: nowrap;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  min-height: 44px;
+}
+.digital-grant-switch:hover .digital-switch-track {
+  filter: brightness(1.08);
+}
+.digital-grant-switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 8px;
+}
+.digital-switch-track {
+  display: block;
+  direction: ltr;
+  width: 56px;
+  height: 30px;
+  border-radius: 20px;
+  background: #c64151;
+  position: relative;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.digital-switch-track > span {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 1px 3px #0003;
+  transition: transform 0.15s;
+}
+.digital-grant-switch.enabled .digital-switch-track {
+  background: #16a34a;
+}
+.digital-grant-switch.enabled .digital-switch-track > span {
+  transform: translateX(26px);
+}
+@media (prefers-reduced-motion: reduce) {
+  .digital-switch-track,
+  .digital-switch-track > span {
+    transition: none;
+  }
+}
+
+.digital-company-catalog {
+  margin: 16px 0;
+}
+.digital-company-category {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.digital-company-category > div {
+  display: grid;
+  gap: 5px;
+}
+.digital-company-category small {
+  color: var(--muted);
+}
+.digital-company-category > label {
+  width: min(100%, 280px);
+}
+@media (max-width: 600px) {
+  .digital-company-category {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+/* One selling surface for points of sale on every screen size. */
+.pos-phone-catalog {
+  display: grid;
+  gap: 16px;
+}
+.pos-phone-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.pos-phone-title h2 {
+  margin: 0;
+  font-size: 23px;
+}
+.pos-phone-catalog .pos-phone-companies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.pos-phone-catalog .pos-phone-companies > button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 18px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--raised);
+  color: var(--text);
+  min-height: 48px;
+}
+.pos-phone-catalog .pos-phone-companies > button.active {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
+}
+.pos-phone-catalog .pos-phone-companies small {
+  color: inherit;
+  font-size: 12px;
+}
+.pos-phone-type-tabs {
+  display: flex;
+  gap: 6px;
+  max-width: 440px;
+}
+.pos-phone-type-tabs button {
+  flex: 1;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--raised);
+  color: var(--text);
+  padding: 10px;
+}
+.pos-phone-type-tabs button.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.pos-phone-search {
+  max-width: 440px;
+  min-height: 44px;
+}
+.pos-phone-products {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 14px;
+}
+.pos-phone-products > button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 13px;
+  text-align: start;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--raised);
+  color: var(--text);
+  min-width: 0;
+}
+.pos-phone-products > button:hover {
+  border-color: var(--accent);
+}
+.pos-phone-products strong {
+  font-size: 17px;
+  line-height: 1.6;
+}
+.pos-phone-products b {
+  font-size: 24px;
+  color: var(--accent);
+}
+.pos-phone-products small {
+  font-size: 12px;
+}
+.pos-phone-products > button > span:last-child {
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 700;
+}
+.pos-phone-catalog .pos-phone-sale,
+.pos-phone-catalog .digital-services {
+  max-width: 700px;
+  width: 100%;
+  box-sizing: border-box;
+}
+.pos-phone-sale form {
+  display: grid;
+  gap: 18px;
+  margin-top: 20px;
+}
+.pos-phone-sale-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  border-block: 1px solid var(--line);
+}
+.pos-phone-confirm {
+  margin-top: 18px;
+}
+.pos-phone-catalog .digital-services .formgrid {
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+.pos-phone-catalog .digital-services input {
+  min-height: 50px;
+  font-size: 18px;
+}
+.pos-phone-catalog .digital-services .btn.primary,
+.pos-phone-sale .btn.primary {
+  min-height: 48px;
+  font-size: 16px;
+}
+.pos-phone-operations {
+  display: grid;
+  gap: 14px;
+}
+.pos-phone-operations article {
+  display: grid;
+  gap: 12px;
+  max-width: 900px;
+  padding: 18px;
+}
+.pos-phone-operations article > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+@media (max-width: 700px) {
+  .pos-phone-products {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .pos-phone-products > button {
+    padding: 14px 12px;
+  }
+  .pos-phone-products strong {
+    font-size: 14px;
+  }
+  .pos-phone-products b {
+    font-size: 21px;
+  }
+  .pos-phone-catalog .pos-phone-companies {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    max-width: 100%;
+    padding-bottom: 5px;
+  }
+  .pos-phone-catalog .pos-phone-companies > button {
+    flex: 0 0 auto;
+    padding: 10px 14px;
+  }
+  .pos-phone-catalog .pos-phone-title h2 {
+    font-size: 19px;
+  }
+  .pos-phone-catalog .digital-services .formgrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pos-simple-app .app-footer {
+  position: static !important;
+  width: auto !important;
+  margin-top: 24px;
+}
+
+@media (max-width: 700px) {
+  .pos-mobile-app .wallet-filter-toolbar {
+    display: flex !important;
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 14px !important;
+    overflow: visible !important;
+    padding-bottom: 12px;
+  }
+  .pos-mobile-app .wallet-filter-toolbar .wallet-service-cards {
+    order: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .pos-mobile-app .wallet-service-cards::before {
+    content: "المحفظة";
+    grid-column: 1/-1;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+    padding-bottom: 3px;
+  }
+  .pos-mobile-app .wallet-service-cards button {
+    min-width: 0;
+    min-height: 48px;
+    padding: 10px 8px;
+    font-size: 14px;
+    white-space: normal;
+  }
+  .pos-mobile-app .wallet-filter-toolbar .wallet-navigation-tabs {
+    order: 1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    flex: auto;
+    width: 100%;
+    padding: 0;
+    background: transparent;
+  }
+  .pos-mobile-app .wallet-navigation-tabs button {
+    min-height: 48px;
+    white-space: normal !important;
+    margin: 0;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--raised);
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 700;
+    padding: 10px 6px;
+  }
+  .pos-mobile-app .wallet-navigation-tabs button.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .pos-mobile-app .wallet-filter-toolbar > .actions {
+    order: 2;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .pos-mobile-app .wallet-filter-toolbar > .actions .btn {
+    min-height: 42px;
+  }
+  .pos-mobile-app .wallet-funding-body > .tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0 0 16px;
+    padding: 0;
+    background: transparent;
+  }
+  .pos-mobile-app .wallet-funding-body > .tabs button {
+    min-height: 48px;
+    font-size: 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    white-space: normal;
+  }
+  html:not([data-theme="dark"])
+    .pos-mobile-app
+    :is(
+      .pos-phone-products > button,
+      .pos-phone-companies > button,
+      .wallet-navigation-tabs button,
+      .wallet-service-cards button,
+      .wallet-funding-body > .tabs button
+    ) {
+    background: #fff;
+    color: #163247;
+    border-color: #becfdb;
+    box-shadow: 0 2px 6px #183c5110;
+  }
+  html:not([data-theme="dark"])
+    .pos-mobile-app
+    :is(.pos-phone-products strong, .pos-phone-companies strong) {
+    color: #102f43;
+  }
+  html:not([data-theme="dark"]) .pos-mobile-app .pos-phone-products > button {
+    border-width: 1.5px;
+  }
+  html:not([data-theme="dark"]) .pos-mobile-app .pos-phone-products b {
+    color: #006c82;
+  }
+  html:not([data-theme="dark"]) .pos-mobile-app .pos-phone-products .badge {
+    background: #e0f2f6;
+    color: #006176;
+  }
+  html:not([data-theme="dark"])
+    .pos-mobile-app
+    :is(
+      .pos-phone-companies > button.active,
+      .wallet-navigation-tabs button.active,
+      .wallet-service-cards button.active,
+      .wallet-funding-body > .tabs button.active
+    ) {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  html:not([data-theme="dark"])
+    .pos-mobile-app
+    .pos-phone-companies
+    > button.active
+    strong {
+    color: #fff;
+  }
+}
+
+@media (max-width: 700px) {
+  .pos-mobile-app .wallet-filter-toolbar .wallet-service-cards {
+    margin: 0 !important;
+  }
+  .pos-mobile-app .wallet-filter-toolbar .wallet-service-cards::before {
+    margin: 0;
+    padding: 0;
+    min-height: 0;
+  }
+  .pos-mobile-app .wallet-filter-toolbar .wallet-service-cards > button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 64px !important;
+    min-height: 64px !important;
+    padding: 8px !important;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  .pos-mobile-app
+    .wallet-filter-toolbar
+    .wallet-navigation-tabs
+    > button.active {
+    background: var(--accent) !important;
+    color: #fff !important;
+    border-color: var(--accent) !important;
+    opacity: 1 !important;
+  }
+  html:not([data-theme="dark"])
+    .pos-mobile-app
+    .wallet-filter-toolbar
+    .wallet-navigation-tabs
+    > button:not(.active) {
+    background: #fff !important;
+    color: #163247 !important;
+    border-color: #becfdb !important;
+  }
+  .pos-mobile-app .wallet-navigation-tabs {
+    isolation: isolate;
+  }
+}
+
+.digital-totals small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.digital-balance-card b {
+  color: var(--accent);
+}
+.digital-status-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: var(--muted);
+  font-size: 13px;
+  margin: -8px 0 16px;
+}
+
+.digital-connection-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 1.4fr);
+  gap: 16px;
+  align-items: start;
+}
+.digital-services .digital-connection-fields > .formgrid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.digital-connection-fields .digital-category-picker {
+  margin: 0;
+  flex-wrap: nowrap;
+}
+.digital-connection-fields .digital-category-picker > label {
+  width: auto;
+  flex: 1;
+}
+@media (max-width: 900px) {
+  .digital-connection-fields {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 600px) {
+  .digital-services .digital-connection-fields > .formgrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.digital-services .digital-connection-fields {
+  grid-template-columns: 1fr;
+}
+.digital-company-category {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(180px, 280px) minmax(
+      130px,
+      200px
+    );
+  align-items: center;
+  gap: 16px;
+}
+.digital-company-category > label {
+  width: 100%;
+}
+@media (max-width: 700px) {
+  .digital-company-category {
+    grid-template-columns: 1fr;
+  }
+}

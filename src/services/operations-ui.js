@@ -2,7 +2,7 @@
   "use strict";
   const services = [
     { id: "voucher", name: "البطاقات • رصيد تشغيلي" },
-    { id: "topup", name: "Top-up" },
+    { id: "topup", name: "Topup" },
   ];
   const panel = {
     data() {

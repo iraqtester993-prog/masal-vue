@@ -93,6 +93,12 @@ export default options;
                 >
                   {{ $root.tr("حذف") }}</button
                 ><button
+                  v-if="vm.canManageCategories('pos', p.id)"
+                  class="btn small"
+                  @click="vm.openNetworkCategories('pos', p.id)"
+                >
+                  {{ $root.tr("الفئات") }}</button
+                ><button
                   v-if="vm.canManageNetwork('pos', p.id)"
                   class="btn small"
                   @click="vm.openNetworkPermissions('pos', p.id)"

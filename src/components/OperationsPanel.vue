@@ -30,7 +30,17 @@ export default options;
                 :class="{ active: tab === x.id }"
                 @click="tab = x.id"
               >
-                {{ vm.tr(x.name)
+                {{
+                  vm.tr(
+                    vm.posMobileEnabled
+                      ? {
+                          balances: "الرصيد والحركات",
+                          fundingRequests: "التمويل",
+                          invoice: "الفواتير",
+                          bulk: "تمويل متعدد",
+                        }[x.id] || x.name
+                      : x.name,
+                  )
                 }}<span
                   v-if="x.id==='fundingRequests'&amp;&amp;walletFundingPending"
                   class="badge wallet-funding-count"

@@ -2617,7 +2617,9 @@ appOptions.mounted = function () {
   originalMounted.call(this);
   this.$nextTick(() => this.applyClaimsView());
 };
-
+for (const component of Object.values(appOptions.components || {})) {
+  void 0;
+}
 MasalScopeFilters.install(appOptions);
 MasalReportGroups.install(appOptions);
 MasalMoneyInputs.install(appOptions);
@@ -2663,7 +2665,7 @@ MasalMultiOrders.install(appOptions);
     {
       title: "عمليات البطاقات",
       icon: "sell",
-      ids: ["sell", "exports", "claims", "exceptions"],
+      ids: ["sell", "digital", "exports", "claims", "exceptions"],
     },
     {
       title: "شبكة التوزيع",
@@ -2777,5 +2779,6 @@ appOptions.methods.profileAccountLabel = function (user) {
   return alias && user.demo && user.name === alias[0] ? alias[1] : user.name;
 };
 MasalRepresentativesUI.install(appOptions);
+MasalDigitalServices.install(appOptions, NAV);
 MasalUILocalization.install(appOptions);
 globalThis.MasalAppOptions = appOptions;

@@ -73,4 +73,6 @@ import "./inventory-management.js";
 import "./ui-localization.js";
 import "./representatives-ui.js";
 import "./state-storage.js";
+import "./digital-services.js";
+import "./digital-local-bridge.js";
 import "./application.js";

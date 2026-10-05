@@ -28,7 +28,9 @@ export default options;
         <div class="drill-balance">
           <small>{{ $root.tr("رصيد البطاقات") }}</small
           ><strong
-            >{{ $root.tr(vm.money(vm.engine.serviceBalance(a.id, "voucher"))) }}
+            >{{
+              $root.tr(vm.money(vm.engine.serviceBalance(a.id, "voucher")))
+            }}
             <small>{{ $root.tr("د.ع") }}</small></strong
           >
         </div>
@@ -53,7 +55,14 @@ export default options;
             @click="vm.askArchiveNetwork('agents', a.id)"
           >
             {{ $root.tr("حذف") }}</button
-          ><button class="btn small" @click="vm.previewAgentProducts(a)">
+          ><button
+            class="btn small"
+            @click="
+              vm.canManageCategories('agents', a.id)
+                ? vm.openNetworkCategories('agents', a.id)
+                : vm.previewAgentProducts(a)
+            "
+          >
             {{ $root.tr("الفئات") }}</button
           ><button
             v-if="vm.can('agents.edit')"
@@ -196,9 +205,35 @@ export default options;
                     >
                       {{ $root.tr("تعديل") }}</button
                     ><button
-                      v-if="mode==='branches'&amp;&amp;vm.canManageNetwork('agents',r.id)"
+                      v-if="
+                        vm.canManageCategories(
+                          mode === 'points' ? 'pos' : 'agents',
+                          r.id,
+                        )
+                      "
                       class="btn small"
-                      @click="vm.openNetworkPermissions('agents', r.id)"
+                      @click="
+                        vm.openNetworkCategories(
+                          mode === 'points' ? 'pos' : 'agents',
+                          r.id,
+                        )
+                      "
+                    >
+                      {{ $root.tr("الفئات") }}</button
+                    ><button
+                      v-if="
+                        vm.canManageNetwork(
+                          mode === 'points' ? 'pos' : 'agents',
+                          r.id,
+                        )
+                      "
+                      class="btn small"
+                      @click="
+                        vm.openNetworkPermissions(
+                          mode === 'points' ? 'pos' : 'agents',
+                          r.id,
+                        )
+                      "
                     >
                       {{ $root.tr("صلاحيات التابع") }}
                     </button>

@@ -9,7 +9,7 @@ export default options;
 
 <template>
   <section class="agent-product-picker">
-    <div v-if="!readonly" class="agent-product-tools">
+    <div v-if="!readonly&amp;&amp;!inline" class="agent-product-tools">
       <b>{{ $root.tr("الفئات المسموحة") }}</b
       ><span
         >{{ $root.tr("تم تحديد ") }}{{ $root.tr(saved.length)
@@ -19,13 +19,13 @@ export default options;
       </button>
     </div>
     <component
-      :is="readonly ? 'div' : 'dialog'"
+      :is="readonly || inline ? 'div' : 'dialog'"
       ref="dialog"
-      :class="{ 'agent-product-dialog': !readonly }"
+      :class="{'agent-product-dialog':!readonly&amp;&amp;!inline}"
       :aria-label="$root.tr(readonly ? 'الفئات المسموحة' : 'اختيار الفئات')"
       @cancel.prevent="close"
     >
-      <template v-if="readonly || opened"
+      <template v-if="readonly || inline || opened"
         ><div class="agent-product-tools">
           <h3>{{ $root.tr("الفئات المسموحة") }}</h3>
           <span class="badge"
@@ -116,7 +116,7 @@ export default options;
             {{ $root.tr("التالي") }}
           </button>
         </div>
-        <div v-if="!readonly" class="formfoot">
+        <div v-if="!readonly&amp;&amp;!inline" class="formfoot">
           <button type="button" class="btn" @click="close">
             {{ $root.tr("إلغاء") }}</button
           ><button type="button" class="btn primary" @click="confirm">

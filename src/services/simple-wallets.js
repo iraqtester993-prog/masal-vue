@@ -420,7 +420,7 @@
       services() {
         return [
           { id: "voucher", name: "رصيد البطاقات" },
-          { id: "topup", name: "Top-up" },
+          { id: "topup", name: "Topup" },
           ...this.s.providers
             .filter((p) => p.connection === "API")
             .map((p) => ({ id: "api:" + p.id, name: p.name })),
@@ -671,6 +671,7 @@
   };
   function install(o) {
     o.components["funding-request-settings"] = requestSettings;
+    void 0;
     const data = o.data;
     o.data = function () {
       return { ...data.call(this), walletOrderAgent: "" };
@@ -688,7 +689,10 @@
     const panel = o.components["operations-panel"];
     panel.components ??= {};
     panel.components["simple-wallets"] = component;
+    void 0;
     const marker = "</template>\n\n <div v-if=\"page==='exceptions'\"";
+    void 0;
+    void 0;
     panel.computed.walletFundingPending = function () {
       if (!this.vm.can("wallets.approve")) return 0;
       const me = this.e.walletIdentity();
@@ -699,6 +703,10 @@
           ["بانتظار التمويل", "معتمد ومحجوز"].includes(r.status),
       ).length;
     };
+    void 0;
+    void 0;
+    void 0;
+    void 0;
   }
   root.MasalSimpleWallets = { install };
 })(globalThis);

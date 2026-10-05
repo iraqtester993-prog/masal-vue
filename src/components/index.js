@@ -1,3 +1,8 @@
+import POSMobileCatalog from "./POSMobileCatalog.vue";
+import POSMobileNav from "./POSMobileNav.vue";
+import POSMobileHeader from "./POSMobileHeader.vue";
+import POSMobileOperations from "./POSMobileOperations.vue";
+import DigitalServicePanel from "./DigitalServicePanel.vue";
 import Component0 from "./NetworkDrill.vue";
 import Component1 from "./NetworkBranch.vue";
 import Component2 from "./NetworkOutline.vue";
@@ -64,6 +69,11 @@ import Component62 from "./PosDocumentsViewer.vue";
 import Component63 from "./DocumentImagePreview.vue";
 import Component64 from "./PosSerialPolicy.vue";
 export default [
+  POSMobileCatalog,
+  POSMobileNav,
+  POSMobileHeader,
+  POSMobileOperations,
+  DigitalServicePanel,
   Component0,
   Component1,
   Component2,

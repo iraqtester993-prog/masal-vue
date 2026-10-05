@@ -11,3 +11,5 @@ import "../styles/representatives.css";
 import "../styles/support-chat.css";
 import "leaflet/dist/leaflet.css";
 import "../styles/company-profile.css";
+
+import "./digital-services.css";
