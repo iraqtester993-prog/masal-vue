@@ -1,0 +1,423 @@
+.support-contact-bar {
+  margin-bottom: 18px;
+}
+.support-contact-bar details {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.support-contact-bar summary {
+  cursor: pointer;
+  font-weight: bold;
+}
+.support-phone-links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 12px 0;
+}
+.support-phone-links a {
+  display: inline-flex;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  text-decoration: none;
+  color: inherit;
+}
+.support-phone-edit {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0;
+}
+.support-phone-edit input {
+  min-width: 0;
+  flex: 1;
+}
+.support-chat-layout {
+  display: grid;
+  grid-template-columns: minmax(240px, 340px) minmax(0, 1fr);
+  gap: 18px;
+}
+.support-chat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 740px;
+  overflow: auto;
+  padding: 3px;
+}
+.support-chat-item {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: start;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  cursor: pointer;
+  font: inherit;
+  min-width: 0;
+}
+.support-chat-item.unread {
+  border-inline-start: 4px solid #049bb5;
+  background: rgba(4, 155, 181, 0.08);
+}
+.support-chat-item.selected {
+  outline: 2px solid #079db6;
+  outline-offset: -2px;
+}
+.support-chat-item-head {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+}
+.support-chat-item-head b {
+  overflow-wrap: anywhere;
+}
+.support-unread-dot {
+  border-radius: 20px;
+  background: #049bb5;
+  color: white;
+  min-width: 24px;
+  text-align: center;
+  font-size: 12px;
+}
+.support-snippet {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  opacity: 0.75;
+}
+.support-chat-detail {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.support-chat-detail header {
+  padding: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.support-chat-detail h3 {
+  margin: 0 0 8px;
+}
+.support-message-stream {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 450px;
+  min-height: 220px;
+  overflow: auto;
+  padding: 20px;
+  background: rgba(100, 140, 165, 0.04);
+}
+.support-message {
+  max-width: 85%;
+  align-self: flex-end;
+  padding: 14px 18px;
+  background: rgba(100, 140, 165, 0.12);
+  border-radius: 16px 16px 16px 3px;
+  min-width: 120px;
+  overflow-wrap: anywhere;
+}
+.support-message.mine {
+  align-self: flex-start;
+  background: rgba(0, 160, 182, 0.16);
+  border-radius: 16px 16px 3px 16px;
+}
+.support-message p {
+  white-space: pre-wrap;
+  margin: 8px 0;
+  line-height: 1.9;
+}
+.support-message time {
+  font-size: 11px;
+  opacity: 0.7;
+}
+.support-message img {
+  display: block;
+  max-width: 100%;
+  max-height: 260px;
+  border-radius: 10px;
+}
+.support-chat-reply {
+  padding: 16px;
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.support-chat-reply textarea {
+  min-height: 72px;
+  flex: 1;
+  min-width: 0;
+}
+.support-chat-detail > .caption {
+  padding: 16px;
+}
+.support-inbox {
+  margin-top: 24px;
+}
+@media (max-width: 800px) {
+  .support-chat-layout {
+    grid-template-columns: 1fr;
+  }
+  .support-chat-list {
+    max-height: 360px;
+  }
+  .support-phone-edit {
+    flex-wrap: wrap;
+  }
+  .support-phone-edit input {
+    flex-basis: 100%;
+  }
+  .support-chat-reply {
+    flex-wrap: wrap;
+  }
+  .support-chat-reply textarea {
+    flex-basis: 100%;
+  }
+  .support-message {
+    max-width: 95%;
+  }
+}
+
+.support-workspace > .support-composer {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+}
+.support-inbox .support-section-heading {
+  margin-bottom: 14px;
+}
+
+.support-phone-links {
+  display: block;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(4, 155, 181, 0.045);
+  border: 1px solid rgba(4, 155, 181, 0.2);
+}
+.support-phone-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.support-phone-heading > span {
+  font-size: 12px;
+  opacity: 0.8;
+}
+.support-phone-heading > small {
+  margin-inline-start: auto;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: rgba(4, 155, 181, 0.1);
+}
+.support-phone-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+}
+.support-phone-links a.support-phone-card {
+  display: flex;
+  padding: 14px;
+  gap: 12px;
+  border: 1px solid rgba(4, 155, 181, 0.3);
+  border-radius: 14px;
+  background: var(--panel);
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.support-phone-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #06a9b9, #087998);
+  color: #fff;
+  box-shadow: 0 4px 12px #079bb52b;
+}
+.support-phone-icon svg {
+  width: 23px;
+  height: 23px;
+}
+.support-phone-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 4px;
+}
+.support-phone-text > span {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.support-phone-text bdi {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 0.7px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.support-phone-call {
+  font-size: 11px;
+  color: #087b92;
+  margin-inline-start: auto;
+  font-weight: 700;
+}
+.support-phone-card:hover {
+  border-color: #059db5 !important;
+  background: rgba(4, 155, 181, 0.1) !important;
+}
+.support-phone-card:focus-visible {
+  outline: 3px solid #079db5;
+  outline-offset: 3px;
+}
+.support-phone-edit {
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.support-phone-order {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  background: rgba(4, 155, 181, 0.14);
+  border-radius: 50%;
+  font-weight: bold;
+}
+[data-theme="dark"] .support-phone-links a.support-phone-card {
+  background: var(--raised);
+  border-color: var(--line);
+}
+[data-theme="dark"] .support-phone-call {
+  color: #66ddec;
+}
+@media (max-width: 550px) {
+  .support-phone-grid {
+    grid-template-columns: 1fr;
+  }
+  .support-phone-links {
+    padding: 10px;
+  }
+  .support-phone-links a.support-phone-card {
+    padding: 10px;
+    gap: 8px;
+  }
+  .support-phone-text bdi {
+    font-size: 17px;
+  }
+  .support-phone-icon {
+    flex-basis: 38px;
+    width: 38px;
+    height: 38px;
+  }
+  .support-phone-call {
+    display: none;
+  }
+}
+
+/* Shared theme tokens keep support aligned with the rest of the application. */
+.support-workspace {
+  color: var(--text);
+}
+.support-workspace
+  :is(h2, h3, strong, .support-message > b, .support-chat-item-head > b) {
+  color: var(--ink);
+}
+.support-workspace .support-chat-detail,
+.support-workspace .support-chat-item {
+  background: var(--panel);
+  border-color: var(--line);
+  color: var(--text);
+}
+.support-workspace .support-chat-detail header,
+.support-workspace .support-chat-reply {
+  background: var(--panel);
+}
+.support-workspace .support-message-stream {
+  background: var(--subtle);
+}
+.support-workspace .support-message {
+  background: var(--raised);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+.support-workspace .support-message.mine {
+  background: var(--blue-bg);
+  border-color: var(--line);
+}
+.support-workspace .support-message time,
+.support-workspace .support-snippet,
+.support-phone-heading > span {
+  color: var(--muted);
+  opacity: 1;
+}
+.support-workspace .support-chat-item.unread {
+  background: var(--blue-bg);
+  border-inline-start-color: var(--sky);
+}
+.support-workspace .support-chat-item.selected {
+  outline-color: var(--sky);
+}
+.support-workspace .support-phone-links {
+  background: var(--subtle);
+  border-color: var(--line);
+}
+.support-phone-heading > small,
+.support-phone-order {
+  background: var(--blue-bg);
+  color: var(--blue-text);
+}
+.support-workspace .support-phone-links a.support-phone-card {
+  background: var(--panel);
+  border-color: var(--line);
+  color: var(--text);
+}
+.support-phone-text bdi {
+  color: var(--ink);
+}
+.support-phone-text > span {
+  color: var(--muted);
+}
+.support-workspace .support-phone-call {
+  color: var(--blue-text);
+}
+.support-workspace .support-phone-card:hover {
+  background: var(--blue-bg) !important;
+  border-color: var(--sky) !important;
+}
+.support-phone-icon {
+  background: var(--brand-gradient);
+  box-shadow: none;
+}
+.support-workspace :is(input, select, textarea) {
+  background: var(--raised);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.support-workspace :is(input, textarea)::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+.support-workspace :is(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid var(--sky);
+  outline-offset: 3px;
+}

@@ -1,0 +1,491 @@
+.digital-services{display:grid;gap:18px}.digital-tabs{padding:12px 18px}.digital-tabs .tabs button.active{background:var(--accent);color:#fff}.digital-tabs .tabs button:not(.active){background:transparent;color:var(--text)}.digital-services h4{margin:22px 0 10px}.digital-config{margin:20px 0;padding:20px;border:1px solid var(--line);border-radius:14px}.digital-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;max-height:220px;overflow:auto}.digital-checks label{display:flex;flex-direction:row;align-items:center;gap:9px;padding:10px;background:var(--raised);border-radius:8px}.digital-checks input[type=checkbox]{width:18px;height:18px;flex-shrink:0}.digital-sale-summary,.digital-confirm{margin-top:18px;padding:18px;border:1px solid var(--line);border-radius:12px}.digital-sale-summary{display:flex;align-items:center;flex-wrap:wrap;gap:14px}.digital-sale-summary strong{font-size:25px}.digital-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:18px 0}.digital-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}.digital-totals>div{display:grid;gap:7px;padding:14px;background:var(--raised);border-radius:12px}.digital-totals b{font-size:20px}.digital-services td small{display:block;color:var(--muted);margin-top:5px;max-width:260px;overflow-wrap:anywhere}.digital-services td .mono{overflow-wrap:anywhere}.digital-receipt-content{text-align:center}.digital-code{font-size:22px;padding:16px;border:1px dashed var(--line);overflow-wrap:anywhere}.digital-receipt-actions{justify-content:center;margin-top:20px}.digital-services .formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,220px));gap:12px 16px}.digital-connection-fields{display:grid;grid-template-columns:1fr;gap:16px;align-items:start}.digital-services .digital-connection-fields>.formgrid{grid-template-columns:repeat(4,minmax(0,1fr))}.digital-company-catalog{margin:16px 0}.digital-company-category{display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,280px) minmax(130px,200px);align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--line)}.digital-company-category>div{display:grid;gap:5px}.digital-company-category small{color:var(--muted)}.digital-company-category>label{width:100%}.digital-grant-switch{display:inline-flex;align-items:center;gap:10px;border:0;border-radius:0;background:transparent;color:var(--text);padding:6px 0;cursor:pointer;white-space:nowrap;font:inherit;font-size:14px;font-weight:700;min-height:44px}.digital-grant-switch:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}.digital-switch-track{display:block;direction:ltr;width:56px;height:30px;border-radius:20px;background:#c64151;position:relative;flex-shrink:0;transition:background .15s}.digital-switch-track>span{position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:white;box-shadow:0 1px 3px #0003;transition:transform .15s}.digital-grant-switch.enabled .digital-switch-track{background:#16a34a}.digital-grant-switch.enabled .digital-switch-track>span{transform:translateX(26px)}.digital-totals small{color:var(--muted);font-size:12px}.digital-balance-card b{color:var(--accent)}.digital-status-summary{display:flex;flex-wrap:wrap;gap:18px;color:var(--muted);font-size:13px;margin:-8px 0 16px}
+@media(max-width:700px){.digital-config{padding:12px}.digital-filters{grid-template-columns:1fr 1fr}.digital-services .tabs{display:flex;width:100%}.digital-services .tabs button{flex:1}.digital-company-category{grid-template-columns:1fr}.digital-services .digital-connection-fields>.formgrid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.digital-switch-track,.digital-switch-track>span{transition:none}}
+@media print{body.digital-printing #app{visibility:hidden}body.digital-printing .digital-receipt,body.digital-printing .digital-receipt *{visibility:visible}body.digital-printing .digital-receipt{position:absolute;inset:0 auto auto 0;width:100%;border:0}body.digital-printing .digital-receipt-actions{display:none}}
+
+/* Final original styles.css / reference-identity.css cascade, limited to this module.
+   Child components keep the original .card, .btn, .tabs and form classes. */
+.digital-services {
+  --accent: #0898b5;
+  --accent-soft: #e4f3f7;
+  --panel: #fff;
+  --raised: #f2f7f9;
+  --subtle: #f7fafb;
+  --ink: #123d57;
+  --text: #416078;
+  --muted: #68869d;
+  --line: #ccdbe3;
+  --soft-line: #e1ebef;
+  --sky: #0898b5;
+  --blue-bg: #e4f3f7;
+  --blue-text: #078ba8;
+  --teal-bg: #e7f5f0;
+  --teal-text: #079b78;
+  --amber-bg: #fff5e8;
+  --amber-text: #cd810a;
+  --red-bg: #fff0f1;
+  --red-text: #df3947;
+  --shadow: 0 3px 14px #123d5704;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.85;
+  min-width: 0;
+}
+.digital-services button,
+.digital-services input,
+.digital-services select,
+.digital-services textarea {
+  font-family: inherit;
+}
+.digital-services button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  transform: none;
+}
+.digital-services .actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.digital-services .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  position: relative;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel);
+  color: var(--text);
+  min-height: 40px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: none;
+  transition: background .15s, border-color .15s;
+}
+.digital-services .btn:hover:not(:disabled) {
+  background: var(--blue-bg);
+  color: var(--blue-text);
+  border-color: #87aff0;
+  box-shadow: none;
+  transform: none;
+}
+.digital-services .btn.primary {
+  background: #0898b5;
+  border-color: #0898b5;
+  color: #fff;
+}
+.digital-services .btn.primary:hover:not(:disabled) {
+  background: #07849f;
+  border-color: #07849f;
+  color: #fff;
+}
+.digital-services .btn.small {
+  min-height: 32px;
+  padding: 5px 10px;
+  font-size: 13px;
+}
+.digital-services .btn:focus-visible {
+  outline: 2px solid var(--sky);
+  outline-offset: 3px;
+}
+.digital-services .card {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid #d5e3e9;
+  border-radius: 14px;
+  background: var(--panel);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+.digital-services .toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  background: #f3f8fa;
+  border-color: var(--soft-line);
+}
+.digital-services .tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px;
+  margin-bottom: 18px;
+  border-radius: 11px;
+  background: var(--raised);
+}
+.digital-services .tabs button {
+  min-height: 38px;
+  padding: 9px 16px;
+  font-size: 14px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--text);
+}
+.digital-services .tabs button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  box-shadow: none;
+}
+.digital-services .tabs button:hover:not(.active) {
+  background: var(--blue-bg);
+  color: var(--blue-text);
+}
+.digital-services .notice {
+  padding: 15px 18px;
+  margin-bottom: 18px;
+  border: 1px solid color-mix(in srgb, var(--blue-text) 15%, var(--line));
+  border-radius: 12px;
+  background: var(--blue-bg);
+  color: var(--blue-text);
+  font-size: 14px;
+  line-height: 1.9;
+}
+.digital-services .notice.warn {
+  background: var(--amber-bg);
+  color: var(--amber-text);
+}
+.digital-services .badge {
+  display: inline-flex;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--teal-bg);
+  color: var(--teal-text);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.digital-services .badge.warn {
+  background: var(--amber-bg);
+  color: var(--amber-text);
+}
+.digital-services .badge.neutral {
+  background: var(--blue-bg);
+  color: var(--blue-text);
+}
+.digital-services .tablewrap {
+  overflow: auto;
+  max-width: 100%;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.digital-services table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: start;
+  white-space: nowrap;
+  background: var(--panel);
+  font-size: 14px;
+}
+.digital-services th {
+  background: #eef5f7;
+  color: #58778e;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #d7e5eb;
+}
+.digital-services td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--soft-line);
+  vertical-align: middle;
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.85;
+}
+.digital-services .tablewrap td {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.digital-services .tablewrap th {
+  font-size: 15px;
+}
+.digital-services tr:last-child td {
+  border-bottom: 0;
+}
+.digital-services tbody tr:hover {
+  background: var(--subtle);
+}
+.digital-services td .actions {
+  flex-wrap: nowrap;
+  gap: 5px;
+  width: max-content;
+  min-width: 0;
+}
+.digital-services td .actions .btn {
+  flex-shrink: 0;
+}
+.digital-services .empty {
+  padding: 45px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 2;
+}
+.digital-services .caption,
+.digital-services .help {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.9;
+}
+
+/* Compact controls from the final original digital-services.css. */
+.digital-services .formgrid {
+  align-items: start;
+}
+.digital-services label {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 6px;
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+.digital-services input:not([type="checkbox"]):not([type="radio"]),
+.digital-services select,
+.digital-services textarea {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  height: 44px;
+  padding: 6px 10px;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 13px;
+  box-shadow: none;
+}
+.digital-services input::placeholder,
+.digital-services textarea::placeholder {
+  color: var(--muted);
+  opacity: .85;
+}
+.digital-services input:focus,
+.digital-services select:focus,
+.digital-services textarea:focus {
+  outline: 0;
+  border-color: #0898b5;
+  box-shadow: 0 0 0 3px #0898b515;
+}
+.digital-services select:not([multiple]):not([size]),
+.digital-services select:not([multiple])[size="1"] {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236789a0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-size: 16px 16px;
+  background-position: left 12px center;
+  padding-inline-start: 12px;
+  padding-inline-end: 38px;
+  text-align: start;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+html[dir="ltr"] .digital-services select:not([multiple]):not([size]),
+html[dir="ltr"] .digital-services select:not([multiple])[size="1"] {
+  background-position: right 12px center;
+}
+.digital-services input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  min-height: 0;
+  flex: 0 0 17px;
+  margin: 0;
+  accent-color: #0898b5;
+}
+.digital-services .inline-check,
+.digital-services .digital-checks label {
+  flex-direction: row;
+  align-items: center;
+}
+.digital-services .inline-check {
+  margin-top: 14px;
+  gap: 10px;
+  font-size: 15px;
+}
+.digital-services .inline-check input[type="checkbox"] {
+  width: 19px;
+  height: 19px;
+  flex-basis: 19px;
+}
+.digital-services .digital-config {
+  margin: 16px 0;
+  padding: 16px;
+}
+.digital-services .digital-filters {
+  grid-template-columns: repeat(auto-fit, minmax(145px, 200px));
+  gap: 12px;
+}
+.digital-services .formfoot {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  margin-top: 20px;
+}
+.digital-services .formfoot .btn {
+  min-width: 95px;
+}
+.digital-services .table-pagination-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 0;
+  font-size: 13px;
+}
+.digital-services .table-pagination-footer span {
+  min-width: 120px;
+  text-align: center;
+}
+
+html[data-theme="dark"] .digital-services {
+  --accent: #40c4dc;
+  --accent-soft: #203b4b;
+  --panel: #192437;
+  --raised: #1c3344;
+  --subtle: #172b39;
+  --ink: #e5eef8;
+  --text: #cad9e7;
+  --muted: #95acbe;
+  --line: #30465a;
+  --soft-line: #293f50;
+  --sky: #40c4dc;
+  --blue-bg: #203b4b;
+  --blue-text: #70d5e5;
+  --teal-bg: #1c3935;
+  --teal-text: #8cddbd;
+  --amber-bg: #3b3421;
+  --amber-text: #edcf84;
+  --red-bg: #3d2939;
+  --red-text: #f1a6be;
+  --shadow: 0 5px 20px #0000000a;
+}
+html[data-theme="dark"] .digital-services .card {
+  border-color: var(--line);
+}
+html[data-theme="dark"] .digital-services .toolbar {
+  background: var(--raised);
+}
+html[data-theme="dark"] .digital-services .btn {
+  background: #172b39;
+  color: #cce4ed;
+  border-color: #354d67;
+}
+html[data-theme="dark"] .digital-services .btn:hover:not(:disabled) {
+  background: #203b4b;
+  border-color: #398c9f;
+}
+html[data-theme="dark"] .digital-services .btn.primary,
+html[data-theme="dark"] .digital-services .tabs button.active {
+  background: linear-gradient(100deg, #0099b6, #0d7894);
+  border-color: #0c94ad;
+  color: #fff;
+}
+html[data-theme="dark"] .digital-services input:not([type="checkbox"]):not([type="radio"]),
+html[data-theme="dark"] .digital-services select,
+html[data-theme="dark"] .digital-services textarea {
+  background-color: #21334b;
+  border-color: #354d67;
+  color: #e5eef8;
+}
+html[data-theme="dark"] .digital-services input:focus,
+html[data-theme="dark"] .digital-services select:focus,
+html[data-theme="dark"] .digital-services textarea:focus {
+  border-color: #40c4dc;
+  box-shadow: 0 0 0 3px #40c4dc16;
+}
+html[data-theme="dark"] .digital-services select:not([multiple]):not([size]),
+html[data-theme="dark"] .digital-services select:not([multiple])[size="1"] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b2c5d5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E");
+}
+html[data-theme="dark"] .digital-services input[type="checkbox"] {
+  accent-color: #079eb7;
+}
+html[data-theme="dark"] .digital-services th {
+  background: #1c3344;
+  color: #c3dce8;
+  border-color: #30465a;
+}
+html[data-theme="dark"] .digital-services tbody tr:nth-child(even) {
+  background: #172b3938;
+}
+html[data-theme="dark"] .digital-services tbody tr:hover {
+  background: #203b4b50;
+}
+@media (max-width: 700px) {
+  .digital-services .formgrid,
+  .digital-services .digital-filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+  .digital-services .digital-connection-fields > .formgrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .digital-services .digital-config {
+    padding: 12px;
+  }
+  .digital-services .tabs {
+    width: 100%;
+  }
+  .digital-services .tabs button {
+    flex: 1;
+    padding: 8px 12px;
+  }
+  .digital-services .table-pagination-footer {
+    justify-content: center;
+  }
+}
+@media (max-width: 650px) {
+  .digital-services .card {
+    padding: 16px;
+  }
+  .digital-services .tablewrap {
+    border-radius: 10px;
+  }
+}
+@media (max-width: 600px) {
+  .digital-services .digital-connection-fields > .formgrid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 360px) {
+  .digital-services .formgrid,
+  .digital-services .digital-filters {
+    grid-template-columns: 1fr;
+  }
+}
+@media print {
+  body.digital-printing .digital-services .digital-receipt {
+    background: #fff;
+    color: #000;
+    box-shadow: none;
+  }
+  body.digital-printing .digital-services .digital-receipt * {
+    color: #000;
+  }
+}

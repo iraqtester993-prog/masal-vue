@@ -1,0 +1,743 @@
+/* Original order and inventory styles, in original cascade order. */
+:where(.stock-workspace,.stock-modal) .metrics{display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 22px;}
+:where(.stock-workspace,.stock-modal) .metric{position: relative;
+  overflow: hidden;
+  min-height: 145px;}
+:where(.stock-workspace,.stock-modal) .metric.dark{background: linear-gradient(130deg, #0b1e36, #143351);
+  color: white;
+  border-color: #173953;}
+:where(.stock-workspace,.stock-modal) .metric.dark:after{content: "";
+  position: absolute;
+  background: #00c7b114;
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  left: -35px;
+  bottom: -50px;}
+:where(.stock-workspace,.stock-modal) .metriclabel{font-size: 11px;
+  color: #73859b;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;}
+:where(.stock-workspace,.stock-modal) .dark .metriclabel{color: #b5c4d4;}
+:where(.stock-workspace,.stock-modal) .metricicon{width: 30px;
+  height: 30px;
+  background: #f2f7fb;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  color: #0284c7;
+  font-size: 17px;}
+:where(.stock-workspace,.stock-modal) .dark .metricicon{background: #ffffff12;
+  color: #51decf;}
+:where(.stock-workspace,.stock-modal) .metricvalue{font:
+    700 29px "Segoe UI",
+    sans-serif;
+  margin: 13px 0 7px;
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+  text-align: right;
+  letter-spacing: -0.8px;}
+:where(.stock-workspace,.stock-modal) .metricvalue small{font:
+    11px Cairo,
+    sans-serif;
+  letter-spacing: 0;}
+:where(.stock-workspace,.stock-modal) .metricsub{font-size: 10px;
+  color: #8090a4;}
+:where(.stock-workspace,.stock-modal) .dark .metricsub{color: #b2c6d8;}
+:where(.stock-workspace,.stock-modal) .tabs{display: flex;
+  gap: 5px;
+  background: #eaf0f5;
+  padding: 4px;
+  border-radius: 11px;
+  width: fit-content;
+  flex-wrap: wrap;
+  margin-bottom: 18px;}
+:where(.stock-workspace,.stock-modal) .tabs button{border: 0;
+  border-radius: 8px;
+  padding: 7px 15px;
+  color: #64748b;
+  background: none;
+  font-size: 12px;}
+:where(.stock-workspace,.stock-modal) .tabs button.active{background: #fff;
+  color: #0b1e36;
+  box-shadow: 0 2px 5px #0b1e3609;}
+:where(.stock-workspace,.stock-modal) .steps{display: flex;
+  gap: 10px;
+  margin: 0 0 22px;}
+:where(.stock-workspace,.stock-modal) .step{flex: 1;
+  border-bottom: 3px solid #e2e8f0;
+  padding: 10px;
+  color: #8996a8;
+  font-size: 12px;}
+:where(.stock-workspace,.stock-modal) .step.active{border-color: #00b7a5;
+  color: #0f766e;}
+@media (max-width: 1150px){:where(.stock-workspace,.stock-modal) .metrics{grid-template-columns: repeat(2, 1fr);}}
+@media (max-width: 760px){:where(.stock-workspace,.stock-modal) .metrics{gap: 10px;}
+:where(.stock-workspace,.stock-modal) .metricvalue{font-size: 25px;}
+:where(.stock-workspace,.stock-modal) .metric{min-height: 135px;}
+:where(.stock-workspace,.stock-modal) .metriclabel{font-size: 10px;}
+:where(.stock-workspace,.stock-modal) .metricicon{display: none;}}
+
+:where(.stock-workspace,.stock-modal) .metric-stack{display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;}
+:where(.stock-workspace,.stock-modal) .metricvalue{font-size: 32px;
+  font-weight: 800;
+  color: var(--ink);
+  margin: 10px 0 4px;}
+:where(.stock-workspace,.stock-modal) .sales-hero .metricvalue{color: white;
+  font-size: 34px;
+  margin: 0;}
+:where(.stock-workspace,.stock-modal) .sales-hero .metricsub{color: #b9cadd;}
+:where(.stock-workspace,.stock-modal) .tabs{background: var(--raised);}
+:where(.stock-workspace,.stock-modal) .tabs button{color: var(--text);}
+:where(.stock-workspace,.stock-modal) .tabs button.active{background: #0b1e36;
+  color: #fff;
+  border-radius: 12px;}
+:where(.stock-workspace,.stock-modal) .growth-value .metricvalue{font-size: 42px;}
+:where(.stock-workspace,.stock-modal) .chart-stat .metricvalue{font-size: 30px;
+  overflow-wrap: anywhere;}
+:where(.stock-workspace,.stock-modal) .metricsub,:where(.stock-workspace,.stock-modal) .metriclabel{color: var(--muted);}
+:where(.stock-workspace,.stock-modal) .step{border-color: var(--line);
+  color: var(--muted);}
+:where(.stock-workspace,.stock-modal) .step.active{border-color: var(--cyan);
+  color: var(--teal-text);}
+:where(.stock-workspace,.stock-modal) .metricicon{background: var(--blue-bg);
+  color: var(--blue-text);}
+:where(.stock-workspace,.stock-modal) .metric.dark .metricvalue{color: white;}
+@media (max-width: 1250px){:where(.stock-workspace,.stock-modal) .chart-stat .metricvalue{font-size: 25px;}}
+@media (max-width: 1000px){:where(.stock-workspace,.stock-modal) .metric-stack{grid-column: 1/-1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;}}
+@media (max-width: 760px){:where(.stock-workspace,.stock-modal) .metric-stack{display: flex;
+    grid-column: auto;}}
+:where(.stock-workspace,.stock-modal) .metricvalue{font-family: "JetBrains Mono", "Segoe UI", monospace;}
+:where(.stock-workspace,.stock-modal) .growth-value .metricvalue{font-weight: 800;}
+:where(.stock-workspace,.stock-modal) .metricsub{font-size: 13px;
+  line-height: 1.8;}
+:where(.stock-workspace,.stock-modal) .metriclabel{font-size: 14px;}
+:where(.stock-workspace,.stock-modal) .metricvalue{font-size: 36px;
+  line-height: 1.35;}
+:where(.stock-workspace,.stock-modal) .metricvalue small{font-size: 13px;}
+:where(.stock-workspace,.stock-modal) .metric-stack{gap: 16px;}
+:where(.stock-workspace,.stock-modal) .sales-hero .metricvalue{font-size: 36px;}
+:where(.stock-workspace,.stock-modal) .growth-value .metricvalue{font-size: 46px;}
+:where(.stock-workspace,.stock-modal) .chart-stat .metricvalue{font-size: 30px;}
+:where(.stock-workspace,.stock-modal) .tabs button{font-size: 14px;
+  padding: 9px 16px;}
+:where(.stock-workspace,.stock-modal) .step{font-size: 14px;}
+@media (max-width: 1450px){:where(.stock-workspace,.stock-modal) .metric-stack{grid-column: 1/-1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;}
+:where(.stock-workspace,.stock-modal) .chart-stat .metricvalue{font-size: 28px;}}
+@media (max-width: 760px){:where(.stock-workspace,.stock-modal) .metric-stack{display: flex;
+    grid-column: auto;
+    gap: 16px;}
+:where(.stock-workspace,.stock-modal) .chart-stat .metricvalue{font-size: 27px;}
+:where(.stock-workspace,.stock-modal) .metrics{grid-template-columns: 1fr 1fr;}
+:where(.stock-workspace,.stock-modal) .metricvalue{font-size: 28px;}
+:where(.stock-workspace,.stock-modal) .metricvalue small{font-size: 12px;}
+:where(.stock-workspace,.stock-modal) .metrics .metric{padding: 16px;}
+:where(.stock-workspace,.stock-modal) .metriclabel{font-size: 13px;}
+:where(.stock-workspace,.stock-modal) .tabs{max-width: 100%;
+    width: 100%;
+    gap: 4px;}
+:where(.stock-workspace,.stock-modal) .tabs button{font-size: 13px;
+    padding: 8px 12px;}
+:where(.stock-workspace,.stock-modal) .steps{gap: 5px;}
+:where(.stock-workspace,.stock-modal) .step{font-size: 12px;
+    padding: 8px 5px;}}
+@media (max-width: 450px){:where(.stock-workspace,.stock-modal) .sales-hero .metricvalue{font-size: 31px;}
+:where(.stock-workspace,.stock-modal) .purchase-card .metricvalue{font-size: 29px;}
+:where(.stock-workspace,.stock-modal) .metrics .metricvalue{font-size: 23px;}
+:where(.stock-workspace,.stock-modal) .metricsub{font-size: 12px;}}
+@media (min-width: 1360px) and (max-width: 1450px){:where(.stock-workspace,.stock-modal) .metric-stack{grid-column: auto;
+    display: flex;
+    gap: 16px;}
+:where(.stock-workspace,.stock-modal) .sales-hero .metricvalue,:where(.stock-workspace,.stock-modal) .purchase-card .metricvalue{font-size: 30px;}}
+:where(.stock-workspace,.stock-modal) .card.metric.dark{background: linear-gradient(130deg, #0b1e36, #0f2744, #125363);
+  border-color: #24516b;
+  border-block-start-color: #00c7b1;
+  color: white;}
+:where(.stock-workspace,.stock-modal) .metriclabel{font-size: 15px;}
+:where(.stock-workspace,.stock-modal) .metricsub{font-size: 14px;}
+:where(.stock-workspace,.stock-modal) .tabs button{font-size: 15px;}
+:where(.stock-workspace,.stock-modal) .step{font-size: 15px;}
+:where(.stock-workspace,.stock-modal) .tabs button:hover:not(.active){background: var(--panel);}
+html[dir="ltr"] :where(.stock-workspace,.stock-modal) .metricvalue{text-align: left;}
+@media (max-width: 760px){:where(.stock-workspace,.stock-modal) .metricsub{font-size: 13px;}}
+@media (max-width: 420px){:where(.stock-workspace,.stock-modal) .metricvalue{font-size: 27px;}
+:where(.stock-workspace,.stock-modal) .sales-hero .metricvalue{font-size: 29px;}
+:where(.stock-workspace,.stock-modal) .purchase-card .metricvalue{font-size: 27px;}}
+:where(.stock-workspace,.stock-modal) .metricsub,:where(.stock-workspace,.stock-modal) .metriclabel{font-weight: 600;
+  color: var(--secondary-readable);}
+:where(.stock-workspace,.stock-modal) .metricsub{font-size: 15px;
+  line-height: 1.9;}
+:where(.stock-workspace,.stock-modal) .sales-hero .metricsub,:where(.stock-workspace,.stock-modal) .metric.dark .metriclabel{color: #c8dfeb;}
+:where(.stock-workspace,.stock-modal) .permission-summary .metricvalue{display: block;}
+:where(.stock-workspace,.stock-modal) .report-kpis .metricvalue{display: block;
+  font-size: 30px !important;
+  margin-top: 10px;}
+:where(.stock-workspace,.stock-modal) .inventory-controls{display: flex;
+  align-items: end;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 14px 0;}
+:where(.stock-workspace,.stock-modal) .inventory-controls > input,:where(.stock-workspace,.stock-modal) .inventory-controls > select,:where(.stock-workspace,.stock-modal) .inventory-controls > label{flex: 1 1 180px;
+  min-width: 0;}
+:where(.stock-workspace,.stock-modal) .inventory-controls .btn{flex: 0 0 auto;}
+:where(.stock-workspace,.stock-modal) .inventory-summary{display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px;
+  background: var(--surface-2, var(--bg));
+  border-radius: 12px;}
+:where(.stock-workspace,.stock-modal) .inventory-manager .actions,:where(.stock-workspace,.stock-modal) .inventory-workspace .actions{gap: 6px;
+  margin-block: 10px;}
+:where(.stock-workspace,.stock-modal) .inventory-manager input[type="checkbox"]{width: 18px;
+  height: 18px;}
+:where(.stock-workspace,.stock-modal) .modal:has(.inventory-manager){width: min(1050px, 96vw);
+  max-width: 1050px;}
+:where(.stock-workspace,.stock-modal) .inventory-workspace .caption{display: block;}
+:where(.stock-workspace,.stock-modal) .inventory-tabs button.active{background: var(--primary, #0098b3);
+  color: white;
+  border-color: var(--primary, #0098b3);}
+:where(.stock-workspace,.stock-modal) .inventory-manager > .tablewrap{max-height: 300px;
+  overflow: auto;}
+:where(.stock-workspace,.stock-modal) .inventory-manager .tablewrap th{position: sticky;
+  top: 0;
+  z-index: 1;}
+:where(.stock-workspace,.stock-modal) .inventory-manager .tablewrap td{padding-block: 10px;}
+:where(.stock-workspace,.stock-modal) [data-theme="dark"] .inventory-manager .btn:not(.primary),:where(.stock-workspace,.stock-modal) [data-theme="dark"] .inventory-workspace .btn:not(.primary){background: #203348 !important;
+  color: #dceef5 !important;
+  border-color: #36566b !important;}
+:where(.stock-workspace,.stock-modal) .inventory-manager .inventory-controls label{font-size: 13px;}
+:where(.stock-workspace,.stock-modal) .claim-preview-dialog{width: min(820px, calc(100vw - 32px));
+  max-height: 88vh;
+  overflow: auto;}
+:where(.stock-workspace,.stock-modal) .claim-preview-dialog .ops-request{border: 0;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 16px;}
+:where(.stock-workspace,.stock-modal) .claim-preview-fields{display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;}
+:where(.stock-workspace,.stock-modal) .claim-preview-fields > div{display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--border, #b9ccd8);
+  border-radius: 10px;
+  min-width: 0;}
+:where(.stock-workspace,.stock-modal) .claim-preview-fields small{opacity: 0.7;}
+:where(.stock-workspace,.stock-modal) .claim-preview-fields b{overflow-wrap: anywhere;}
+:where(.stock-workspace,.stock-modal) .claim-preview-fields .claim-reason{grid-column: 1/-1;}
+:where(.stock-workspace,.stock-modal) .claim-upload{position: relative;
+  justify-self: start;
+  overflow: hidden;
+  cursor: pointer;}
+:where(.stock-workspace,.stock-modal) .claim-file-input{position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;}
+:where(.stock-workspace,.stock-modal) .claim-upload:focus-within{outline: 2px solid #00a0bc;
+  outline-offset: 3px;}
+:where(.stock-workspace,.stock-modal) .claim-preview-dialog .btn.primary{width: auto;
+  justify-self: start;}
+@media (max-width: 600px){:where(.stock-workspace,.stock-modal) .claim-preview-fields{grid-template-columns: 1fr;}
+:where(.stock-workspace,.stock-modal) .claim-preview-dialog h2{font-size: 16px;}}
+
+:where(.stock-workspace,.stock-modal) .metricsub{color: var(--muted);
+  font-size: 14px;
+  line-height: 1.9;}
+:where(.stock-workspace,.stock-modal) .metriclabel{font-size: 14px;
+  font-weight: 700;
+  color: var(--text);}
+:where(.stock-workspace,.stock-modal) .metricvalue{font-size: 32px;
+  letter-spacing: 0;
+  font-weight: 800;
+  line-height: 1.5;
+  color: var(--ink);}
+:where(.stock-workspace,.stock-modal) .metrics .card{background: var(--tile-blue);
+  border: 1px solid color-mix(in srgb, var(--blue-text) 12%, var(--line));
+  border-radius: 16px;
+  box-shadow: none;}
+:where(.stock-workspace,.stock-modal) .metrics .card:nth-child(4n + 2){background: var(--tile-green);}
+:where(.stock-workspace,.stock-modal) .metrics .card:nth-child(4n + 3){background: var(--tile-yellow);}
+:where(.stock-workspace,.stock-modal) .metrics .card:nth-child(4n + 4){background: var(--tile-pink);}
+:where(.stock-workspace,.stock-modal) .card.metric.dark{background: var(--brand-gradient);
+  border-color: #2d71d4;
+  color: white;}
+:where(.stock-workspace,.stock-modal) .sales-hero .metricvalue,:where(.stock-workspace,.stock-modal) .sales-hero .metricsub{color: #fff;}
+:where(.stock-workspace,.stock-modal) .metricicon{background: var(--blue-bg);
+  color: var(--blue-text);
+  border-radius: 12px;}
+:where(.stock-workspace,.stock-modal) .tabs{gap: 5px;
+  flex-wrap: wrap;}
+:where(.stock-workspace,.stock-modal) .tabs button{font-size: 14px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  min-height: 38px;
+  color: var(--text);
+  background: transparent;}
+:where(.stock-workspace,.stock-modal) .tabs button.active{background: #1c60ee;
+  color: #fff;
+  box-shadow: 0 4px 12px #1c60ee18;}
+:where(.stock-workspace,.stock-modal) .tabs button:hover:not(.active){background: var(--blue-bg);
+  color: var(--blue-text);}
+@media (max-width: 1100px){:where(.stock-workspace,.stock-modal) .metric-stack{grid-column: 1/-1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));}}
+@media (max-width: 650px){:where(.stock-workspace,.stock-modal) .metric-stack{grid-template-columns: 1fr;}
+:where(.stock-workspace,.stock-modal) .metric-stack{grid-column: auto;}
+:where(.stock-workspace,.stock-modal) .metricvalue{font-size: 29px;}}
+.stock-workspace .metrics{gap: 16px;}
+.stock-workspace .metric,.stock-workspace .metrics .card{background: var(--panel);
+  border-color: var(--line);
+  color: var(--ink);}
+.stock-workspace .metricvalue{font-size: 28px;
+  color: var(--ink);}
+:where(.stock-workspace,.stock-modal) .workspace-card > .tabs{margin: 0 0 18px;}
+.stock-workspace .sales-hero .metricvalue,.stock-workspace .sales-hero .metricsub{color: var(--ink);}
+@media (max-width: 650px){.stock-workspace .metrics{gap: 10px;}
+.stock-workspace .metricvalue{font-size: 24px;}}
+:where(.stock-workspace,.stock-modal) [data-theme="dark"] .tabs button.active{background: #203b4b;
+  color: #70d5e5;
+  border-color: #398c9f;
+  box-shadow: none;}
+:where(.stock-workspace,.stock-modal) [data-theme="dark"] .main .tabs{background: #1c3344;
+  color: #70d5e5;
+  border-color: #30465a;}
+html[data-theme="dark"] :where(.stock-workspace,.stock-modal) .tabs button{background: transparent !important;
+  color: #aec4d5 !important;}
+html[data-theme="dark"] :where(.stock-workspace,.stock-modal) .tabs button.active{background: linear-gradient(100deg, #0099b6, #0d7894) !important;
+  color: white !important;
+  box-shadow: none !important;}
+html[data-theme="light"] .stock-workspace .metrics .card{background: #edf5ff;
+  border-color: #cbdfff;}
+html[data-theme="light"] .stock-workspace .metrics .card:nth-child(4n + 2){background: #eaf8f3;
+  border-color: #bfe7d9;}
+html[data-theme="light"] .stock-workspace .metrics .card:nth-child(4n + 3){background: #f2efff;
+  border-color: #dcd4fa;}
+html[data-theme="light"] .stock-workspace .metrics .card:nth-child(4n + 4){background: #fff0f4;
+  border-color: #f3d1de;}
+html[data-theme="light"] .stock-workspace .metrics .card{}
+html[data-theme="light"] .stock-workspace .metrics .card{background: linear-gradient(115deg, #eaf2ff, #f5f8ff);
+  border-color: #d7e4f7;}
+html[data-theme="light"] .stock-workspace .metrics .card:nth-child(4n + 2){background: linear-gradient(115deg, #e7f5f1, #f4fbf8);
+  border-color: #cfe7df;}
+html[data-theme="light"] .stock-workspace .metrics .card:nth-child(4n + 3){background: linear-gradient(115deg, #eeeafa, #f8f6fd);
+  border-color: #e0d9f1;}
+html[data-theme="light"] .stock-workspace .metrics .card:nth-child(4n + 4){background: linear-gradient(115deg, #faedf1, #fff8fa);
+  border-color: #eedbe3;}
+html[data-theme="light"] .stock-workspace .metricvalue{color: #243e5c;}
+html[data-theme="light"] .stock-workspace .metrics .card:nth-child(n){background: #fff;
+  border-color: #e8ebef;
+  box-shadow: 0 2px 8px #14253c03;
+  color: #17202e;}
+html[data-theme="light"] .stock-workspace .metricvalue{color: #111827;}
+html[data-theme="light"] .stock-workspace .metriclabel{color: #606b7c;}
+html[data-theme="light"] .stock-workspace .metrics .card:nth-child(n){--tile-accent: #0798b7;
+  --tile-edge: #91d2e2;
+  --tile-wash: #e8f5f8;
+  background: linear-gradient(125deg, var(--tile-wash), #fff);
+  border-color: var(--tile-edge);
+  color: #123d57;
+  box-shadow: 0 3px 12px #123d5703;}
+html[data-theme="light"] .stock-workspace .metrics .card:nth-child(4n + 2){--tile-accent: #079b78;
+  --tile-edge: #9ed6c6;
+  --tile-wash: #e9f5f1;}
+html[data-theme="light"] .stock-workspace .metrics .card:nth-child(4n + 3){--tile-accent: #8654d8;
+  --tile-edge: #c6b1ef;
+  --tile-wash: #f1ecfa;}
+html[data-theme="light"] .stock-workspace .metrics .card:nth-child(4n + 4){--tile-accent: #526779;
+  --tile-edge: #bbc8d2;
+  --tile-wash: #edf1f4;}
+html[data-theme="light"] .stock-workspace .metricvalue{color: var(--tile-accent, #123d57);}
+html[data-theme="light"] .stock-workspace .metriclabel{color: #58778e;}
+html[data-theme="light"] :where(.stock-workspace,.stock-modal) .tabs button.active{background: #0898b5 !important;
+  color: #fff !important;
+  border-color: #0898b5;
+  box-shadow: none;}
+:where(.stock-workspace,.stock-modal) .metrics.dashboard-kpis{grid-template-columns: repeat(3, minmax(0, 1fr));}
+@media (max-width: 900px){:where(.stock-workspace,.stock-modal) .metrics.dashboard-kpis{grid-template-columns: repeat(2, minmax(0, 1fr));}}
+@media (max-width: 480px){:where(.stock-workspace,.stock-modal) .metrics.dashboard-kpis{grid-template-columns: 1fr;}}
+.stock-workspace .metrics.dashboard-kpis{gap: 12px;}
+.stock-workspace .metrics.dashboard-kpis .dashboard-kpi{padding: 14px 16px;
+  border-radius: 12px;
+  min-height: 0;}
+.stock-workspace .metrics.dashboard-kpis{display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;}
+.stock-workspace .metrics.dashboard-kpis > .dashboard-kpi{flex: 1 1 220px;
+  display: flex;
+  flex-direction: column;}
+@media (max-width: 600px){.stock-workspace .metrics.dashboard-kpis > .dashboard-kpi{flex-basis: calc(50% - 12px);}}
+@media (max-width: 400px){.stock-workspace .metrics.dashboard-kpis > .dashboard-kpi{flex-basis: 100%;}}
+html[data-theme="dark"] .stock-workspace .metrics .card:nth-child(n){--tile-accent: #78cde0;
+  --tile-edge: #355768;
+  --tile-wash: #1c3544;
+  --ink: #edf4fa;
+  --text: #dae6ef;
+  --muted: #b2c5d5;
+  --blue-bg: #294655;
+  --blue-text: #8ed6e5;
+  background: linear-gradient(125deg, var(--tile-wash), #1b2939);
+  border-color: var(--tile-edge);
+  color: var(--text);
+  box-shadow: none;}
+html[data-theme="dark"] .stock-workspace .metrics .card:nth-child(4n + 2){--tile-accent: #8bd5b8;
+  --tile-edge: #365951;
+  --tile-wash: #203c38;}
+html[data-theme="dark"] .stock-workspace .metrics .card:nth-child(4n + 3){--tile-accent: #c4aff0;
+  --tile-edge: #514866;
+  --tile-wash: #322e45;}
+html[data-theme="dark"] .stock-workspace .metrics .card:nth-child(4n + 4){--tile-accent: #b6c5d3;
+  --tile-edge: #4a5b6c;
+  --tile-wash: #29343f;}
+html[data-theme="dark"] .stock-workspace :is(.metrics, .owner-summary, .reference-metrics, .ops-stats) :is(.metricvalue, .dashboard-kpi-number strong, .ops-stats strong){color: var(--tile-accent, #edf4fa);}
+html[data-theme="dark"] .stock-workspace :is(.metrics, .owner-summary, .reference-metrics, .ops-stats) :is(.metriclabel, .dashboard-kpi-head){color: #dae6ef;}
+html[data-theme="dark"] .stock-workspace :is(.metrics, .owner-summary, .reference-metrics, .ops-stats) :is(.caption, .metricsub, .dashboard-kpi-number small){color: #b2c5d5;}
+html[data-theme="dark"] .stock-workspace :is( .metrics .card, .owner-summary .card, .reference-metrics .card, .ops-stats > div ) .btn:not(.primary):not(.navy):not(.danger){background: #233b4b;
+  color: #d3e6f0;
+  border-color: #456172;}
+html[data-theme="dark"] .stock-workspace :is(.metrics .card, .owner-summary .card) :is(.dashboard-kpi-icon, .summary-icon){background: #ffffff09;
+  color: var(--tile-accent);}
+.stock-workspace .inventory-agent-filter{padding: 14px 18px;
+  margin-bottom: 16px;}
+.stock-workspace .inventory-agent-filter label{display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 0;}
+.stock-workspace .inventory-agent-filter select{width: min(420px, 100%);
+  max-width: 100%;}
+html[data-theme="light"] .stock-workspace .ops-account-grid > .card :is(.ops-number, .metricvalue),html[data-theme="light"] .stock-workspace .ticket :is(.ops-number, .metricvalue),html[data-theme="light"] .stock-workspace .permission-summary > .card :is(.ops-number, .metricvalue),html[data-theme="light"] .stock-workspace .three > .card :is(.ops-number, .metricvalue){color: var(--tile-accent);}
+html[data-theme="dark"] .stock-workspace .ops-account-grid > .card :is(.ops-number, .metricvalue),html[data-theme="dark"] .stock-workspace .ticket :is(.ops-number, .metricvalue),html[data-theme="dark"] .stock-workspace .permission-summary > .card :is(.ops-number, .metricvalue),html[data-theme="dark"] .stock-workspace .three > .card :is(.ops-number, .metricvalue){color: var(--tile-accent);}
+.stock-workspace .metrics.report-kpis{display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;}
+.stock-workspace .metrics.report-kpis > .card.metric{min-height: 0;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 5px;
+  border-radius: 12px;}
+.stock-workspace .report-kpis .metriclabel{font-size: 13px;
+  line-height: 1.5;
+  margin: 0;}
+.stock-workspace .report-kpis .metricvalue{font-size: 24px;
+  line-height: 1.4;
+  margin: 0;}
+@media (max-width: 480px){.stock-workspace .metrics.report-kpis{grid-template-columns: repeat(2, minmax(0, 1fr));}
+.stock-workspace .report-kpis .metricvalue{font-size: 22px;}
+.stock-workspace .report-kpis .metriclabel{overflow-wrap: anywhere;}}
+.stock-workspace .metrics.report-kpis{grid-template-columns: repeat(auto-fill, minmax(170px, 210px));
+  justify-content: start;
+  align-items: start;}
+.stock-workspace .metrics.report-kpis > .card.metric{width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  gap: 4px;}
+.stock-workspace .report-kpis .metriclabel{min-height: 39px;
+  display: flex;
+  align-items: center;}
+.stock-workspace .report-kpis .metricvalue{font-size: 23px;
+  line-height: 1.3;}
+@media (max-width: 600px){.stock-workspace .metrics.report-kpis{grid-template-columns: repeat(2, minmax(0, 1fr));}}
+@media (max-width: 360px){.stock-workspace .metrics.report-kpis{grid-template-columns: minmax(0, 1fr);}}
+.stock-workspace .metrics.report-kpis{grid-template-columns: repeat(auto-fill, minmax(140px, 160px));
+  gap: 8px;}
+.stock-workspace .metrics.report-kpis > .card.metric{padding: 9px 10px;}
+@media (max-width: 600px){.stock-workspace .metrics.report-kpis{grid-template-columns: repeat(auto-fill, minmax(130px, 150px));}}
+@media (max-width: 360px){.stock-workspace .metrics.report-kpis{grid-template-columns: repeat(2, minmax(0, 1fr));}}
+.stock-workspace .metrics.report-kpis{display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 12px;}
+.stock-workspace .metrics.report-kpis > .card.metric{flex: 1 1 220px;
+  width: auto;
+  min-width: 0;}
+@media (max-width: 600px){.stock-workspace .metrics.report-kpis > .card.metric{flex-basis: calc(50% - 12px);}}
+@media (max-width: 400px){.stock-workspace .metrics.report-kpis > .card.metric{flex-basis: 100%;}}
+:where(.stock-workspace,.stock-modal) .merged-section-tabs .tabs{margin: 0;}
+:where(.stock-workspace,.stock-modal) .monitor-summary-item .metricvalue{font-size: 20px;}
+:where(.stock-workspace,.stock-modal) .monitor-summary-item .metricsub{font-size: 11px;}
+:where(.stock-workspace,.stock-modal) .agents-unified-toolbar .tabs{margin: 0;
+  flex-shrink: 0;}
+:where(.stock-workspace,.stock-modal) .agents-unified-toolbar .tabs button{padding: 9px 10px;
+  white-space: nowrap;}
+:where(.stock-workspace,.stock-modal) .agents-unified-toolbar .tabs button{font-size: 12px;}
+.stock-workspace .agents-unified-toolbar > .tabs{display: flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: 10px;
+  min-height: 44px;
+  box-sizing: border-box;}
+.stock-workspace .agents-unified-toolbar .tabs button{min-height: 36px;
+  height: 36px;
+  padding: 6px 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  box-sizing: border-box;}
+@media (max-width: 600px){.stock-workspace .agents-unified-toolbar > .tabs{max-width: 100%;
+    flex-wrap: wrap;}
+.stock-workspace .agents-unified-toolbar .tabs button{padding-inline: 9px;}}
+:where(.stock-workspace,.stock-modal) .drill-tools .tabs{margin: 0;}
+.stock-workspace .inventory-toolbar{display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 12px;
+  margin-bottom: 18px;}
+.stock-workspace .inventory-toolbar > .workspace-actions{display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  background: transparent !important;
+  border: 0;
+  flex-shrink: 0;}
+.stock-workspace .inventory-toolbar .btn{white-space: nowrap;
+  height: 44px;
+  min-height: 44px;}
+.stock-workspace .inventory-toolbar .export-action{background: var(--blue-bg);
+  color: var(--blue-text);
+  border-color: var(--sky);
+  font-weight: 800;}
+.stock-workspace .inventory-toolbar > input{flex: 1;
+  min-width: 160px;
+  max-width: none;
+  height: 44px;}
+.stock-workspace .inventory-toolbar > select{flex: 0 0 180px;
+  height: 44px;}
+@media (max-width: 650px){.stock-workspace .inventory-toolbar{flex-wrap: wrap;}
+.stock-workspace .inventory-toolbar > .workspace-actions{width: 100%;}
+.stock-workspace .inventory-toolbar > select{flex: 1 1 150px;}}
+.stock-workspace .inventory-toolbar > .inventory-warehouse-filter{display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 360px;
+  min-width: 220px;
+  margin: 0;
+  white-space: nowrap;}
+.stock-workspace .inventory-toolbar{flex-wrap: nowrap;
+  overflow: visible;}
+.stock-workspace .inventory-toolbar > .catalog-filter{flex: 1 1 auto;}
+.stock-workspace .inventory-toolbar > .workspace-actions{flex: 0 0 auto;}
+@media (min-width: 901px){.stock-workspace :is( .category-unified-toolbar, .price-editor-toolbar, .price-bulk-toolbar, .inventory-controls, .inventory-toolbar, .order-history .toolbar, .price-history .toolbar, .report-unified-toolbar, .users-toolbar, .agents-unified-toolbar, .workspace-actions, .pagehead > .actions, .catalog-filter-head ){display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 7px;}
+.stock-workspace :is( .category-unified-toolbar, .price-editor-toolbar, .price-bulk-toolbar, .inventory-controls, .inventory-toolbar, .order-history .toolbar, .price-history .toolbar, .report-unified-toolbar, .users-toolbar, .agents-unified-toolbar, .workspace-actions, .pagehead > .actions ){overflow-x: auto;
+    scrollbar-width: none;}
+.stock-workspace :is( .category-unified-toolbar, .price-editor-toolbar, .price-bulk-toolbar, .inventory-controls, .inventory-toolbar, .order-history .toolbar, .price-history .toolbar, .report-unified-toolbar, .users-toolbar, .agents-unified-toolbar, .workspace-actions, .pagehead > .actions )::-webkit-scrollbar{display: none;}}
+@media (max-width: 900px){.stock-workspace .inventory-toolbar{flex-wrap: wrap;}}
+.stock-workspace .inventory-warehouse-filter select{flex: 1;
+  min-width: 120px;
+  width: 160px;
+  height: 44px;
+  margin: 0;}
+@media (max-width: 1200px){.stock-workspace .inventory-toolbar > .inventory-warehouse-filter{flex-basis: 220px;
+    font-size: 12px;
+    gap: 6px;}
+.stock-workspace .inventory-toolbar > select{flex-basis: 150px;}}
+@media (max-width: 650px){.stock-workspace .inventory-toolbar > .inventory-warehouse-filter{flex: 1 1 100%;}}
+:where(.stock-workspace,.stock-modal) .simple-wallets .tabs{display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;}
+:where(.stock-workspace,.stock-modal) .simple-wallets .tabs .badge{margin-inline-start: 6px;}
+:where(.stock-workspace,.stock-modal) .order-history-heading{display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;}
+:where(.stock-workspace,.stock-modal) .order-history-heading h3{margin: 0;
+  flex: 1;
+  color: var(--ink);
+  font-size: 16px;}
+:where(.stock-workspace,.stock-modal) .order-history .toolbar{display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;}
+:where(.stock-workspace,.stock-modal) .order-history .toolbar > input{flex: 1;
+  min-width: 160px;}
+:where(.stock-workspace,.stock-modal) .order-history .toolbar > select{width: 180px;}
+:where(.stock-workspace,.stock-modal) .order-history-table th{white-space: nowrap;}
+:where(.stock-workspace,.stock-modal) .order-card-preview{border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 16px;
+  margin-top: 20px;
+  background: var(--subtle);}
+:where(.stock-workspace,.stock-modal) .order-review-actions{display: flex;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 16px;}
+:where(.stock-workspace,.stock-modal) .order-review-actions label{display: grid;
+  gap: 6px;
+  flex: 1;}
+:where(.stock-workspace,.stock-modal) .price-mode-tabs{display: flex;
+  gap: 6px;
+  padding: 6px;
+  margin-bottom: 20px;
+  background: var(--subtle);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  width: fit-content;
+  max-width: 100%;}
+html[data-theme] .stock-workspace .price-mode-tabs .btn{min-width: 150px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);}
+html[data-theme] .stock-workspace .price-mode-tabs .btn[aria-pressed="true"]{background: #087f9b !important;
+  border-color: #087f9b !important;
+  color: #fff !important;
+  box-shadow: 0 3px 9px #009ab530;
+  font-weight: 800;}
+html[data-theme="dark"] .stock-workspace .price-mode-tabs .btn[aria-pressed="true"]{background: #40c4dc !important;
+  border-color: #40c4dc !important;
+  color: #102735 !important;}
+html[data-theme] .stock-workspace .price-mode-tabs .btn:focus-visible{outline: 2px solid var(--sky);
+  outline-offset: 3px;}
+@media (max-width: 650px){:where(.stock-workspace,.stock-modal) .price-mode-tabs{width: 100%;}
+html[data-theme] .stock-workspace .price-mode-tabs .btn{flex: 1;
+    min-width: 0;}}
+:where(.stock-workspace,.stock-modal) .multi-orders .order-file{border: 1px solid var(--border, #52708755);
+  border-radius: 12px;
+  padding: 16px;
+  margin-block: 16px;}
+:where(.stock-workspace,.stock-modal) .multi-orders .order-file > header,:where(.stock-workspace,.stock-modal) .multi-orders .order-metrics{display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-block: 12px;}
+:where(.stock-workspace,.stock-modal) .multi-orders .order-file > header b{flex: 1;
+  overflow-wrap: anywhere;}
+:where(.stock-workspace,.stock-modal) .multi-orders .formgrid{grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;}
+:where(.stock-workspace,.stock-modal) .multi-orders .order-upload{display: block;
+  padding: 18px;
+  border: 1px dashed var(--border, #52708788);
+  border-radius: 12px;
+  margin-block: 16px;}
+:where(.stock-workspace,.stock-modal) .multi-orders .order-exclude{display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-block: 16px;}
+:where(.stock-workspace,.stock-modal) .multi-orders .order-exclude input{width: 18px !important;
+  min-width: 18px !important;
+  flex: 0 0 18px !important;}
+:where(.stock-workspace,.stock-modal) .multi-orders .formfoot{gap: 8px;
+  flex-wrap: wrap;}
+:where(.stock-workspace,.stock-modal) .multi-orders td{max-width: 280px;
+  overflow-wrap: anywhere;}
+:where(.stock-workspace,.stock-modal) .multi-orders .formfoot input{max-width: 360px;}
+:where(.stock-workspace,.stock-modal) .multi-orders .order-upload-list{list-style: none;
+  margin: 12px 0;
+  padding: 0;}
+:where(.stock-workspace,.stock-modal) .multi-orders .order-upload-list li{display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid #52708733;}
+:where(.stock-workspace,.stock-modal) .multi-orders .order-upload-list li span{flex: 1;
+  overflow-wrap: anywhere;}
+:where(.stock-workspace,.stock-modal) .multi-orders .order-preview-edit input{min-width: 110px;
+  max-width: 180px;}
+:where(.stock-workspace,.stock-modal) .multi-orders .order-preview-edit td{vertical-align: top;}
+:where(.stock-workspace,.stock-modal) .multi-orders .actions{gap: 6px;
+  flex-wrap: wrap;}
+:where(.stock-workspace,.stock-modal) .multi-orders .order-upload.actions{display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;}
+.stock-workspace .inventory-toolbar:has(> .catalog-filter){display: block;
+  overflow: visible;}
+.stock-workspace .inventory-toolbar:has(> .catalog-filter) > .catalog-filter{display: block;
+  width: 100%;
+  margin-top: 10px;}
+@media (min-width: 901px){.stock-workspace .inventory-toolbar:has(> .catalog-filter){overflow: visible;}
+.stock-workspace .inventory-toolbar:has(> .catalog-filter) > .workspace-actions{display: flex;
+    flex-wrap: nowrap;
+    width: max-content;}}
+.stock-workspace .catalog-filter-head :is(.workspace-actions, .category-unified-toolbar, .inventory-tabs){display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent !important;
+  overflow: visible;}
+.stock-workspace .catalog-filter-head :is(.btn, .tabs button, .workspace-more summary){flex: 0 0 auto;
+  width: auto;
+  height: 36px;
+  min-height: 36px;
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+  border-radius: 8px;
+  box-sizing: border-box;}
+.stock-workspace .catalog-filter-head .inventory-tabs{margin-inline-start: auto;
+  gap: 3px;}
+.stock-workspace .inventory-catalog-filter .table-pagination-inline{flex: 0 0 auto;
+  flex-wrap: nowrap;
+  gap: 8px;
+  min-height: 36px;
+  margin: 0;
+  padding: 0;}
+.stock-workspace .inventory-catalog-filter .table-pagination-inline select{width: 70px;
+  min-width: 70px;
+  height: 36px;
+  min-height: 36px;
+  margin: 0;
+  font-size: 12px;
+  border-radius: 8px;}
+@media (max-width: 1100px){.stock-workspace .inventory-catalog-filter .catalog-filter-head > .caption{display: none;}
+.stock-workspace .catalog-filter-head :is(.btn, .tabs button){padding-inline: 7px;
+    font-size: 11px;}}
+
+
+
+
+:where(.stock-workspace,.stock-modal) .digital-tabs .tabs button.active{background: var(--accent);
+  color: #fff;}
+:where(.stock-workspace,.stock-modal) .digital-tabs .tabs button:not(.active){background: transparent;
+  color: var(--text);}
+@media (max-width: 700px){:where(.stock-workspace,.stock-modal) .digital-services .tabs{display: flex;
+    width: 100%;}
+:where(.stock-workspace,.stock-modal) .digital-services .tabs button{flex: 1;}}
+@media (max-width: 700px){:where(.stock-workspace,.stock-modal) .pos-mobile-app .wallet-funding-body > .tabs{display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin: 0 0 16px;
+    padding: 0;
+    background: transparent;}
+:where(.stock-workspace,.stock-modal) .pos-mobile-app .wallet-funding-body > .tabs button{min-height: 48px;
+    font-size: 14px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    white-space: normal;}
+:where(.stock-workspace,.stock-modal) html:not([data-theme="dark"]) .pos-mobile-app :is( .pos-phone-products > button, .pos-phone-companies > button, .wallet-navigation-tabs button, .wallet-service-cards button, .wallet-funding-body > .tabs button ){background: #fff;
+    color: #163247;
+    border-color: #becfdb;
+    box-shadow: 0 2px 6px #183c5110;}
+:where(.stock-workspace,.stock-modal) html:not([data-theme="dark"]) .pos-mobile-app :is( .pos-phone-companies > button.active, .wallet-navigation-tabs button.active, .wallet-service-cards button.active, .wallet-funding-body > .tabs button.active ){background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);}}
+.stock-fieldset{border:0;padding:0;margin:0;min-width:0}.stock-workspace .text-danger{color:var(--red,#b91c1c)}.stock-workspace .order-preview-edit small{display:block}.stock-workspace .inventory-controls{margin-bottom:18px}.stock-workspace fieldset:disabled{opacity:.75}

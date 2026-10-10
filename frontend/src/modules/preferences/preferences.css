@@ -1,0 +1,14 @@
+html[dir="ltr"] body {
+  direction: ltr;
+  font-family: "Segoe UI", Cairo, sans-serif;
+}
+html[lang="ckb"] body {
+  font-family: Cairo, "Segoe UI", Tahoma, sans-serif;
+  line-height: 1.9;
+}
+html[dir="ltr"] .portal-shell .nav-chevron { transform: rotate(-90deg); }
+html[dir="ltr"] .portal-shell .navgroup[aria-expanded="true"] .nav-chevron { transform: rotate(0); }
+html[dir="ltr"] .portal-shell .navgroup.active,
+html[dir="ltr"] .portal-shell .navitem.active { box-shadow: inset 3px 0 #2365e8; }
+html[dir="ltr"] .portal-shell .language-picker { padding: 7px 38px 7px 12px; }
+html[dir="ltr"] .sales-workspace .product { text-align: left; }

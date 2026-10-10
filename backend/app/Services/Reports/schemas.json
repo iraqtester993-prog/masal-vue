@@ -1,0 +1,2564 @@
+[
+  {
+    "id": "sales",
+    "title": "سجل المبيعات التفصيلي",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "رقم العملية",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "pos",
+        "label": "نقطة البيع",
+        "type": "text"
+      },
+      {
+        "key": "product",
+        "label": "الفئة",
+        "type": "text"
+      },
+      {
+        "key": "provider",
+        "label": "المزود",
+        "type": "text"
+      },
+      {
+        "key": "quantity",
+        "label": "الكمية",
+        "type": "number"
+      },
+      {
+        "key": "price",
+        "label": "سعر الوحدة",
+        "type": "money"
+      },
+      {
+        "key": "sales",
+        "label": "المبيعات",
+        "type": "money"
+      },
+      {
+        "key": "cost",
+        "label": "تكلفة المباع",
+        "type": "money",
+        "permission": "data.cost"
+      },
+      {
+        "key": "profit",
+        "label": "الربح الإجمالي",
+        "type": "money",
+        "permission": "data.profit"
+      },
+      {
+        "key": "margin",
+        "label": "نسبة الربح %",
+        "type": "percent",
+        "permission": "data.profit"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      },
+      {
+        "key": "reprints",
+        "label": "إعادة الطباعة",
+        "type": "number"
+      }
+    ],
+    "note": "ربح البيع منفصل عن ربح تحميل ماسال؛ السجلات التي لا تملك تكلفة تحميل موثقة تعرض دون ربح محسوب."
+  },
+  {
+    "id": "sales-products",
+    "title": "المبيعات حسب الفئة",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المعرف",
+        "type": "text"
+      },
+      {
+        "key": "name",
+        "label": "الاسم",
+        "type": "text"
+      },
+      {
+        "key": "transactions",
+        "label": "العمليات",
+        "type": "number"
+      },
+      {
+        "key": "quantity",
+        "label": "الكمية",
+        "type": "number"
+      },
+      {
+        "key": "sales",
+        "label": "المبيعات",
+        "type": "money"
+      },
+      {
+        "key": "cost",
+        "label": "تكلفة المباع",
+        "type": "money",
+        "permission": "data.cost"
+      },
+      {
+        "key": "profit",
+        "label": "الربح الإجمالي",
+        "type": "money",
+        "permission": "data.profit"
+      },
+      {
+        "key": "margin",
+        "label": "نسبة الربح %",
+        "type": "percent",
+        "permission": "data.profit"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "sales-agents",
+    "title": "أداء الوكلاء",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المعرف",
+        "type": "text"
+      },
+      {
+        "key": "name",
+        "label": "الاسم",
+        "type": "text"
+      },
+      {
+        "key": "transactions",
+        "label": "العمليات",
+        "type": "number"
+      },
+      {
+        "key": "quantity",
+        "label": "الكمية",
+        "type": "number"
+      },
+      {
+        "key": "sales",
+        "label": "المبيعات",
+        "type": "money"
+      },
+      {
+        "key": "cost",
+        "label": "تكلفة المباع",
+        "type": "money",
+        "permission": "data.cost"
+      },
+      {
+        "key": "profit",
+        "label": "الربح الإجمالي",
+        "type": "money",
+        "permission": "data.profit"
+      },
+      {
+        "key": "margin",
+        "label": "نسبة الربح %",
+        "type": "percent",
+        "permission": "data.profit"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "sales-pos",
+    "title": "أداء نقاط البيع",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المعرف",
+        "type": "text"
+      },
+      {
+        "key": "name",
+        "label": "الاسم",
+        "type": "text"
+      },
+      {
+        "key": "transactions",
+        "label": "العمليات",
+        "type": "number"
+      },
+      {
+        "key": "quantity",
+        "label": "الكمية",
+        "type": "number"
+      },
+      {
+        "key": "sales",
+        "label": "المبيعات",
+        "type": "money"
+      },
+      {
+        "key": "cost",
+        "label": "تكلفة المباع",
+        "type": "money",
+        "permission": "data.cost"
+      },
+      {
+        "key": "profit",
+        "label": "الربح الإجمالي",
+        "type": "money",
+        "permission": "data.profit"
+      },
+      {
+        "key": "margin",
+        "label": "نسبة الربح %",
+        "type": "percent",
+        "permission": "data.profit"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "sales-printing",
+    "title": "سجل محاولات الطباعة",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "sale",
+        "label": "رقم العملية",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "user",
+        "label": "المستخدم",
+        "type": "text"
+      },
+      {
+        "key": "device",
+        "label": "الجهاز",
+        "type": "text"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      },
+      {
+        "key": "reason",
+        "label": "السبب",
+        "type": "text"
+      }
+    ],
+    "note": "محاولات الطباعة للعمليات المطابقة لفترة البيع."
+  },
+  {
+    "id": "inventory-purchases",
+    "title": "تفاصيل التوريد والطلبيات",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "الدفعة",
+        "type": "text"
+      },
+      {
+        "key": "created",
+        "label": "تاريخ التحميل",
+        "type": "date"
+      },
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "product",
+        "label": "المنتج",
+        "type": "text"
+      },
+      {
+        "key": "supplier",
+        "label": "المجهز",
+        "type": "text"
+      },
+      {
+        "key": "city",
+        "label": "المحافظة",
+        "type": "text"
+      },
+      {
+        "key": "quantity",
+        "label": "الكمية",
+        "type": "number"
+      },
+      {
+        "key": "rejected",
+        "label": "الأسطر المرفوضة",
+        "type": "number"
+      },
+      {
+        "key": "cost",
+        "label": "تكلفة الوحدة",
+        "type": "money",
+        "permission": "data.cost"
+      },
+      {
+        "key": "expenses",
+        "label": "مصاريف التوريد",
+        "type": "money",
+        "permission": "data.cost"
+      },
+      {
+        "key": "total",
+        "label": "التكلفة الإجمالية",
+        "type": "money",
+        "permission": "data.cost"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      }
+    ],
+    "note": "حركات التحميل خلال الفترة المحددة؛ الدفعات الملغاة تظهر بحالتها دون اعتبارها شراءً صافيًا."
+  },
+  {
+    "id": "inventory-cards",
+    "title": "تتبع البطاقات دون الرموز",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "internal",
+        "label": "المعرف الداخلي",
+        "type": "text"
+      },
+      {
+        "key": "serial",
+        "label": "سيريال المزود",
+        "type": "text"
+      },
+      {
+        "key": "batch",
+        "label": "الدفعة",
+        "type": "text"
+      },
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "product",
+        "label": "المنتج",
+        "type": "text"
+      },
+      {
+        "key": "created",
+        "label": "تاريخ التحميل",
+        "type": "date"
+      },
+      {
+        "key": "expiry",
+        "label": "الانتهاء",
+        "type": "text"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      },
+      {
+        "key": "sale",
+        "label": "رقم العملية",
+        "type": "text"
+      },
+      {
+        "key": "cost",
+        "label": "التكلفة",
+        "type": "money",
+        "permission": "data.cost"
+      }
+    ],
+    "note": "حالة البطاقات الحالية؛ رموز PIN وCVC مستبعدة دائمًا من التقارير."
+  },
+  {
+    "id": "inventory-products",
+    "title": "دليل المنتجات وحدود البيع",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المعرف",
+        "type": "text"
+      },
+      {
+        "key": "name",
+        "label": "المنتج",
+        "type": "text"
+      },
+      {
+        "key": "provider",
+        "label": "المزود",
+        "type": "text"
+      },
+      {
+        "key": "kind",
+        "label": "النوع",
+        "type": "text"
+      },
+      {
+        "key": "face",
+        "label": "القيمة الاسمية",
+        "type": "number"
+      },
+      {
+        "key": "currency",
+        "label": "العملة",
+        "type": "text"
+      },
+      {
+        "key": "min",
+        "label": "أقل سعر بيع مسموح",
+        "type": "money",
+        "permission": "data.cost"
+      },
+      {
+        "key": "dailyQty",
+        "label": "حد الكمية اليومي",
+        "type": "number"
+      },
+      {
+        "key": "dailyAmount",
+        "label": "الحد المالي اليومي",
+        "type": "money"
+      },
+      {
+        "key": "active",
+        "label": "الحالة",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "inventory-providers",
+    "title": "دليل المزودين",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المعرف",
+        "type": "text"
+      },
+      {
+        "key": "name",
+        "label": "المزود",
+        "type": "text"
+      },
+      {
+        "key": "supplier",
+        "label": "المجهز",
+        "type": "text"
+      },
+      {
+        "key": "connection",
+        "label": "نوع الربط",
+        "type": "text"
+      },
+      {
+        "key": "active",
+        "label": "الحالة",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "inventory",
+    "title": "المخزون والدفعات",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "id",
+        "label": "الدفعة",
+        "type": "text"
+      },
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "product",
+        "label": "المنتج",
+        "type": "text"
+      },
+      {
+        "key": "created",
+        "label": "تاريخ التحميل",
+        "type": "date"
+      },
+      {
+        "key": "expiry",
+        "label": "الانتهاء",
+        "type": "text"
+      },
+      {
+        "key": "quantity",
+        "label": "المحمّل",
+        "type": "number"
+      },
+      {
+        "key": "available",
+        "label": "متاح صالح",
+        "type": "number"
+      },
+      {
+        "key": "expired",
+        "label": "منتهي",
+        "type": "number"
+      },
+      {
+        "key": "issued",
+        "label": "صادر",
+        "type": "number"
+      },
+      {
+        "key": "held",
+        "label": "محجور",
+        "type": "number"
+      },
+      {
+        "key": "exported",
+        "label": "مصدّر",
+        "type": "number"
+      },
+      {
+        "key": "cancelled",
+        "label": "ملغى",
+        "type": "number"
+      },
+      {
+        "key": "other",
+        "label": "حالات أخرى",
+        "type": "number"
+      },
+      {
+        "key": "value",
+        "label": "قيمة المخزون المتبقي",
+        "type": "money",
+        "permission": "data.cost"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      }
+    ],
+    "note": "لقطة المخزون الحالية عند إنشاء التقرير؛ لا تمثل رصيدًا تاريخيًا عند نهاية الفترة."
+  },
+  {
+    "id": "wallets",
+    "title": "أرصدة المحافظ حسب الخدمة",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "الحساب",
+        "type": "text"
+      },
+      {
+        "key": "name",
+        "label": "الاسم",
+        "type": "text"
+      },
+      {
+        "key": "service",
+        "label": "المحفظة",
+        "type": "text"
+      },
+      {
+        "key": "opening",
+        "label": "رصيد افتتاح الفترة",
+        "type": "money"
+      },
+      {
+        "key": "credits",
+        "label": "الوارد",
+        "type": "money"
+      },
+      {
+        "key": "debits",
+        "label": "الصادر",
+        "type": "money"
+      },
+      {
+        "key": "closing",
+        "label": "رصيد إقفال الفترة",
+        "type": "money"
+      },
+      {
+        "key": "current",
+        "label": "الرصيد الحالي",
+        "type": "money"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "wallets-ledger",
+    "title": "حركات محافظ الخدمات",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "القيد",
+        "type": "text"
+      },
+      {
+        "key": "group",
+        "label": "مرجع العملية",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "account",
+        "label": "الحساب",
+        "type": "text"
+      },
+      {
+        "key": "service",
+        "label": "المحفظة",
+        "type": "text"
+      },
+      {
+        "key": "kind",
+        "label": "الحركة",
+        "type": "text"
+      },
+      {
+        "key": "amount",
+        "label": "المبلغ",
+        "type": "money"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "wallets-legacy",
+    "title": "الأرصدة النقدية السابقة",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "id",
+        "label": "الحساب",
+        "type": "text"
+      },
+      {
+        "key": "name",
+        "label": "الاسم",
+        "type": "text"
+      },
+      {
+        "key": "current",
+        "label": "الرصيد السابق",
+        "type": "money"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "inventory-invoices",
+    "title": "فواتير تحميل ماسال",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "الفاتورة",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "batch",
+        "label": "الدفعة",
+        "type": "text"
+      },
+      {
+        "key": "quantity",
+        "label": "الكمية",
+        "type": "number"
+      },
+      {
+        "key": "amount",
+        "label": "قيمة التحميل",
+        "type": "money"
+      },
+      {
+        "key": "cost",
+        "label": "التكلفة",
+        "type": "money",
+        "permission": "data.cost"
+      },
+      {
+        "key": "profit",
+        "label": "ربح ماسال",
+        "type": "money",
+        "permission": "data.profit"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "network",
+    "title": "شبكة الوكلاء",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المعرف",
+        "type": "text"
+      },
+      {
+        "key": "name",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "type",
+        "label": "المستوى",
+        "type": "text"
+      },
+      {
+        "key": "parent",
+        "label": "الوكيل الأعلى",
+        "type": "text"
+      },
+      {
+        "key": "city",
+        "label": "المحافظة",
+        "type": "text"
+      },
+      {
+        "key": "active",
+        "label": "الحالة",
+        "type": "text"
+      }
+    ],
+    "note": "السجلات الحالية ضمن النطاق."
+  },
+  {
+    "id": "network-pos",
+    "title": "الأجهزة ونقاط البيع",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المعرف",
+        "type": "text"
+      },
+      {
+        "key": "name",
+        "label": "نقطة البيع",
+        "type": "text"
+      },
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "city",
+        "label": "المحافظة",
+        "type": "text"
+      },
+      {
+        "key": "model",
+        "label": "الجهاز",
+        "type": "text"
+      },
+      {
+        "key": "serial",
+        "label": "سيريال الجهاز",
+        "type": "text"
+      },
+      {
+        "key": "version",
+        "label": "الإصدار",
+        "type": "text"
+      },
+      {
+        "key": "online",
+        "label": "الاتصال",
+        "type": "text"
+      },
+      {
+        "key": "active",
+        "label": "الحالة",
+        "type": "text"
+      },
+      {
+        "key": "owner",
+        "label": "اسم صاحب المكتب",
+        "type": "text"
+      },
+      {
+        "key": "phone",
+        "label": "رقم الهاتف",
+        "type": "text"
+      },
+      {
+        "key": "representative",
+        "label": "المندوب",
+        "type": "text"
+      },
+      {
+        "key": "createdAt",
+        "label": "تاريخ إنشاء الحساب",
+        "type": "date"
+      },
+      {
+        "key": "notes",
+        "label": "الملاحظات",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "prices",
+    "title": "قائمة الأسعار الحالية",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "product",
+        "label": "المنتج",
+        "type": "text"
+      },
+      {
+        "key": "price",
+        "label": "السعر",
+        "type": "money"
+      },
+      {
+        "key": "effective",
+        "label": "تاريخ السريان",
+        "type": "text"
+      }
+    ],
+    "note": "الأسعار الحالية؛ لا تطبق عليها فترة البيع."
+  },
+  {
+    "id": "prices-approvals",
+    "title": "سجل تغييرات الأسعار",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "الطلب",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "creator",
+        "label": "مقدم الطلب",
+        "type": "text"
+      },
+      {
+        "key": "approver",
+        "label": "المعتمد",
+        "type": "text"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      },
+      {
+        "key": "changes",
+        "label": "عدد التغييرات",
+        "type": "number"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "claims",
+    "title": "المطالبات والتسويات",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المطالبة",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "batch",
+        "label": "الدفعة",
+        "type": "text"
+      },
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "quantity",
+        "label": "الكمية",
+        "type": "number"
+      },
+      {
+        "key": "value",
+        "label": "القيمة الأصلية",
+        "type": "money",
+        "permission": "data.cost"
+      },
+      {
+        "key": "remaining",
+        "label": "القيمة المعلقة",
+        "type": "money",
+        "permission": "data.cost"
+      },
+      {
+        "key": "soldBefore",
+        "label": "المباع قبل الحجر",
+        "type": "number"
+      },
+      {
+        "key": "replacedQuantity",
+        "label": "المستبدل",
+        "type": "number"
+      },
+      {
+        "key": "rejectedQuantity",
+        "label": "المرفوض",
+        "type": "number"
+      },
+      {
+        "key": "compensation",
+        "label": "التعويض",
+        "type": "money"
+      },
+      {
+        "key": "replacement",
+        "label": "الدفعة البديلة",
+        "type": "text"
+      },
+      {
+        "key": "reason",
+        "label": "السبب",
+        "type": "text"
+      },
+      {
+        "key": "status",
+        "label": "النتيجة",
+        "type": "text"
+      },
+      {
+        "key": "settled",
+        "label": "تاريخ التسوية",
+        "type": "date"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "claims-exports",
+    "title": "سجل تصدير البطاقات",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المعرف",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "batch",
+        "label": "الدفعة",
+        "type": "text"
+      },
+      {
+        "key": "quantity",
+        "label": "الكمية",
+        "type": "number"
+      },
+      {
+        "key": "value",
+        "label": "التكلفة",
+        "type": "money",
+        "permission": "data.cost"
+      },
+      {
+        "key": "reason",
+        "label": "السبب",
+        "type": "text"
+      }
+    ],
+    "note": "لا يتضمن التقرير رموز PIN أو كلمات التشفير."
+  },
+  {
+    "id": "inventory-copies",
+    "title": "نسخ البطاقات المصدرة دون سحب",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "السجل",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ",
+        "type": "date"
+      },
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "batch",
+        "label": "الدفعة",
+        "type": "text"
+      },
+      {
+        "key": "quantity",
+        "label": "العدد",
+        "type": "number"
+      },
+      {
+        "key": "format",
+        "label": "الصيغة",
+        "type": "text"
+      },
+      {
+        "key": "user",
+        "label": "المستخدم",
+        "type": "text"
+      },
+      {
+        "key": "reason",
+        "label": "السبب",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "inventory-cancellations",
+    "title": "إلغاء واسترجاع بطاقات المخزون",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "السجل",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "تاريخ الإلغاء",
+        "type": "date"
+      },
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "batch",
+        "label": "الدفعة",
+        "type": "text"
+      },
+      {
+        "key": "quantity",
+        "label": "العدد",
+        "type": "number"
+      },
+      {
+        "key": "credit",
+        "label": "الرصيد التشغيلي",
+        "type": "money",
+        "permission": "data.cost"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      },
+      {
+        "key": "reason",
+        "label": "سبب الإلغاء",
+        "type": "text"
+      },
+      {
+        "key": "restoreReason",
+        "label": "سبب الاسترجاع",
+        "type": "text"
+      },
+      {
+        "key": "restoredAt",
+        "label": "تاريخ الاسترجاع",
+        "type": "date"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "support",
+    "title": "الدعم الفني",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "التذكرة",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "title",
+        "label": "العنوان",
+        "type": "text"
+      },
+      {
+        "key": "description",
+        "label": "الوصف",
+        "type": "text"
+      },
+      {
+        "key": "senderName",
+        "label": "المرسل",
+        "type": "text"
+      },
+      {
+        "key": "recipientName",
+        "label": "المستلم",
+        "type": "text"
+      },
+      {
+        "key": "attachment",
+        "label": "المرفق",
+        "type": "text"
+      },
+      {
+        "key": "priority",
+        "label": "الأولوية",
+        "type": "text"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      },
+      {
+        "key": "replies",
+        "label": "عدد الردود",
+        "type": "number"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "support-replies",
+    "title": "تفاصيل ردود الدعم",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "ticket",
+        "label": "التذكرة",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "user",
+        "label": "المستخدم",
+        "type": "text"
+      },
+      {
+        "key": "body",
+        "label": "الرد",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "users",
+    "title": "الموظفون والصلاحيات الفعلية",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المعرف",
+        "type": "text"
+      },
+      {
+        "key": "name",
+        "label": "الموظف",
+        "type": "text"
+      },
+      {
+        "key": "role",
+        "label": "الدور",
+        "type": "text"
+      },
+      {
+        "key": "email",
+        "label": "البريد الإلكتروني",
+        "type": "text"
+      },
+      {
+        "key": "permissionType",
+        "label": "نوع الصلاحية",
+        "type": "text"
+      },
+      {
+        "key": "active",
+        "label": "الحالة",
+        "type": "text"
+      },
+      {
+        "key": "scope",
+        "label": "نطاق الوكلاء",
+        "type": "text"
+      },
+      {
+        "key": "granted",
+        "label": "الصلاحيات الفعلية",
+        "type": "number"
+      },
+      {
+        "key": "allows",
+        "label": "منح مخصص",
+        "type": "number"
+      },
+      {
+        "key": "denies",
+        "label": "منع مخصص",
+        "type": "number"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "users-overrides",
+    "title": "تفاصيل تخصيص صلاحيات الموظفين",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "user",
+        "label": "الموظف",
+        "type": "text"
+      },
+      {
+        "key": "module",
+        "label": "الوحدة",
+        "type": "text"
+      },
+      {
+        "key": "permission",
+        "label": "الصلاحية",
+        "type": "text"
+      },
+      {
+        "key": "key",
+        "label": "رمز الصلاحية",
+        "type": "text"
+      },
+      {
+        "key": "override",
+        "label": "التخصيص",
+        "type": "text"
+      },
+      {
+        "key": "effective",
+        "label": "النتيجة الفعلية",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "users-permissions",
+    "title": "الصلاحيات الفعلية حسب المستخدم",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "user",
+        "label": "المستخدم",
+        "type": "text"
+      },
+      {
+        "key": "module",
+        "label": "القسم",
+        "type": "text"
+      },
+      {
+        "key": "permission",
+        "label": "الصلاحية",
+        "type": "text"
+      },
+      {
+        "key": "effective",
+        "label": "النتيجة",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "audit",
+    "title": "سجل التدقيق",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المعرف",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "name",
+        "label": "المستخدم",
+        "type": "text"
+      },
+      {
+        "key": "action",
+        "label": "الإجراء",
+        "type": "text"
+      },
+      {
+        "key": "entity",
+        "label": "السجل",
+        "type": "text"
+      },
+      {
+        "key": "source",
+        "label": "المصدر",
+        "type": "text"
+      }
+    ],
+    "note": "يعرض سجل النشاط دون تضمين قيم الحقول الحساسة."
+  },
+  {
+    "id": "operations",
+    "title": "إعدادات التشغيل",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "key",
+        "label": "الإعداد",
+        "type": "text"
+      },
+      {
+        "key": "value",
+        "label": "القيمة",
+        "type": "text"
+      }
+    ],
+    "note": "إعدادات حالية وليست سجلًا تاريخيًا."
+  },
+  {
+    "id": "operations-integrations",
+    "title": "إعدادات الربط",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "provider",
+        "label": "المزود",
+        "type": "text"
+      },
+      {
+        "key": "environment",
+        "label": "البيئة",
+        "type": "text"
+      },
+      {
+        "key": "expiry",
+        "label": "الانتهاء",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "operations-notifications",
+    "title": "سجل الإشعارات",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المعرف",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "user",
+        "label": "المرسل",
+        "type": "text"
+      },
+      {
+        "key": "title",
+        "label": "العنوان",
+        "type": "text"
+      },
+      {
+        "key": "body",
+        "label": "المحتوى",
+        "type": "text"
+      },
+      {
+        "key": "target",
+        "label": "المستخدمون",
+        "type": "text"
+      },
+      {
+        "key": "readers",
+        "label": "قرأها",
+        "type": "text"
+      },
+      {
+        "key": "unread",
+        "label": "غير مقروءة",
+        "type": "number"
+      },
+      {
+        "key": "attachment",
+        "label": "المرفق",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "inventory-orders",
+    "title": "سجل الطلبيات والاعتماد",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "الطلبية",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "تاريخ الإرسال",
+        "type": "date"
+      },
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "product",
+        "label": "الفئة",
+        "type": "text"
+      },
+      {
+        "key": "supplier",
+        "label": "المصدر",
+        "type": "text"
+      },
+      {
+        "key": "provider",
+        "label": "الشركة",
+        "type": "text"
+      },
+      {
+        "key": "city",
+        "label": "المحافظة",
+        "type": "text"
+      },
+      {
+        "key": "file",
+        "label": "الملف",
+        "type": "text"
+      },
+      {
+        "key": "quantity",
+        "label": "بطاقات صالحة",
+        "type": "number"
+      },
+      {
+        "key": "rejected",
+        "label": "بطاقات مرفوضة",
+        "type": "number"
+      },
+      {
+        "key": "amount",
+        "label": "قيمة التحميل",
+        "type": "money"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      },
+      {
+        "key": "user",
+        "label": "مقدم الطلب",
+        "type": "text"
+      },
+      {
+        "key": "reviewed",
+        "label": "تاريخ المراجعة",
+        "type": "date"
+      },
+      {
+        "key": "reviewer",
+        "label": "المراجع",
+        "type": "text"
+      },
+      {
+        "key": "reason",
+        "label": "سبب الرفض أو الإعادة",
+        "type": "text"
+      },
+      {
+        "key": "batch",
+        "label": "الدفعة المعتمدة",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "wallets-requests",
+    "title": "طلبات التمويل ومتابعتها",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "رقم العملية",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "from",
+        "label": "الممول",
+        "type": "text"
+      },
+      {
+        "key": "to",
+        "label": "المستلم",
+        "type": "text"
+      },
+      {
+        "key": "service",
+        "label": "المحفظة",
+        "type": "text"
+      },
+      {
+        "key": "amount",
+        "label": "المبلغ",
+        "type": "money"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      },
+      {
+        "key": "user",
+        "label": "المنفّذ",
+        "type": "text"
+      },
+      {
+        "key": "approvedAmount",
+        "label": "المبلغ المعتمد",
+        "type": "money"
+      },
+      {
+        "key": "purpose",
+        "label": "الملاحظات",
+        "type": "text"
+      },
+      {
+        "key": "reason",
+        "label": "سبب الرفض",
+        "type": "text"
+      },
+      {
+        "key": "reviewedAt",
+        "label": "تاريخ المعالجة",
+        "type": "date"
+      },
+      {
+        "key": "approver",
+        "label": "المعالج",
+        "type": "text"
+      },
+      {
+        "key": "transfer",
+        "label": "التحويل",
+        "type": "text"
+      },
+      {
+        "key": "batch",
+        "label": "الدفعة",
+        "type": "text"
+      },
+      {
+        "key": "reference",
+        "label": "المرجع",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "wallets-transfers",
+    "title": "التحويلات المنفذة",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "رقم العملية",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "from",
+        "label": "الممول",
+        "type": "text"
+      },
+      {
+        "key": "to",
+        "label": "المستلم",
+        "type": "text"
+      },
+      {
+        "key": "service",
+        "label": "المحفظة",
+        "type": "text"
+      },
+      {
+        "key": "amount",
+        "label": "المبلغ",
+        "type": "money"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      },
+      {
+        "key": "user",
+        "label": "المنفّذ",
+        "type": "text"
+      },
+      {
+        "key": "batchId",
+        "label": "مجموعة التمويل",
+        "type": "text"
+      },
+      {
+        "key": "reference",
+        "label": "المرجع",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "wallets-holds",
+    "title": "حجوزات التمويل",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "رقم العملية",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "from",
+        "label": "الممول",
+        "type": "text"
+      },
+      {
+        "key": "to",
+        "label": "المستلم",
+        "type": "text"
+      },
+      {
+        "key": "service",
+        "label": "المحفظة",
+        "type": "text"
+      },
+      {
+        "key": "amount",
+        "label": "المبلغ",
+        "type": "money"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      },
+      {
+        "key": "user",
+        "label": "المنفّذ",
+        "type": "text"
+      },
+      {
+        "key": "request",
+        "label": "طلب التمويل",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "wallets-groups",
+    "title": "تفاصيل التمويل المتعدد",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المجموعة",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "from",
+        "label": "الممول",
+        "type": "text"
+      },
+      {
+        "key": "to",
+        "label": "المستلم",
+        "type": "text"
+      },
+      {
+        "key": "service",
+        "label": "المحفظة",
+        "type": "text"
+      },
+      {
+        "key": "amount",
+        "label": "المبلغ",
+        "type": "money"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      },
+      {
+        "key": "user",
+        "label": "المنفّذ",
+        "type": "text"
+      },
+      {
+        "key": "transfer",
+        "label": "التحويل",
+        "type": "text"
+      },
+      {
+        "key": "reference",
+        "label": "المرجع",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "prices-changes",
+    "title": "الأسعار قبل وبعد التعديل",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "رقم التعديل",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "product",
+        "label": "الفئة",
+        "type": "text"
+      },
+      {
+        "key": "old",
+        "label": "السعر السابق",
+        "type": "money"
+      },
+      {
+        "key": "price",
+        "label": "السعر الجديد",
+        "type": "money"
+      },
+      {
+        "key": "difference",
+        "label": "فرق السعر",
+        "type": "money"
+      },
+      {
+        "key": "creator",
+        "label": "المنفّذ",
+        "type": "text"
+      },
+      {
+        "key": "approver",
+        "label": "المعتمد",
+        "type": "text"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "network-categories",
+    "title": "الفئات المخصصة للوكلاء",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المعرف",
+        "type": "text"
+      },
+      {
+        "key": "name",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "products",
+        "label": "الفئات المسموحة",
+        "type": "text"
+      },
+      {
+        "key": "count",
+        "label": "عدد الفئات",
+        "type": "number"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "network-archive",
+    "title": "الحسابات المؤرشفة",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "رقم الأرشفة",
+        "type": "text"
+      },
+      {
+        "key": "entity",
+        "label": "معرف الحساب",
+        "type": "text"
+      },
+      {
+        "key": "name",
+        "label": "الحساب",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "تاريخ الأرشفة",
+        "type": "date"
+      },
+      {
+        "key": "user",
+        "label": "المنفّذ",
+        "type": "text"
+      },
+      {
+        "key": "reason",
+        "label": "السبب",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "operations-printing",
+    "title": "ضوابط الطباعة العامة والمخصصة",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المعرف",
+        "type": "text"
+      },
+      {
+        "key": "name",
+        "label": "القاعدة",
+        "type": "text"
+      },
+      {
+        "key": "targets",
+        "label": "النطاق",
+        "type": "text"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      },
+      {
+        "key": "failedRetries",
+        "label": "إعادة الطباعة بعد الفشل",
+        "type": "number"
+      },
+      {
+        "key": "maxCards",
+        "label": "بطاقات الطلب الواحد",
+        "type": "number"
+      },
+      {
+        "key": "intervalSeconds",
+        "label": "الفاصل بالثواني",
+        "type": "number"
+      },
+      {
+        "key": "dailyCards",
+        "label": "الحد اليومي",
+        "type": "text"
+      },
+      {
+        "key": "dailyMode",
+        "label": "احتساب الحد",
+        "type": "text"
+      },
+      {
+        "key": "products",
+        "label": "الفئات",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "users-times",
+    "title": "أوقات صلاحية حسابات النظام",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المعرف",
+        "type": "text"
+      },
+      {
+        "key": "name",
+        "label": "المستخدم",
+        "type": "text"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      },
+      {
+        "key": "startAt",
+        "label": "بداية الصلاحية",
+        "type": "text"
+      },
+      {
+        "key": "endAt",
+        "label": "نهاية الصلاحية",
+        "type": "text"
+      },
+      {
+        "key": "startTime",
+        "label": "بداية الدوام — بغداد",
+        "type": "text"
+      },
+      {
+        "key": "endTime",
+        "label": "نهاية الدوام — بغداد",
+        "type": "text"
+      },
+      {
+        "key": "idleMinutes",
+        "label": "الخروج عند الخمول بالدقائق",
+        "type": "text"
+      },
+      {
+        "key": "sessionMinutes",
+        "label": "مدة الجلسة بالدقائق",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "operations-security",
+    "title": "سجل الأحداث الأمنية",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المعرف",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "user",
+        "label": "المستخدم",
+        "type": "text"
+      },
+      {
+        "key": "action",
+        "label": "الحدث",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "wallets-collections",
+    "title": "سجل التحصيل",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "العملية",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "account",
+        "label": "الحساب",
+        "type": "text"
+      },
+      {
+        "key": "amount",
+        "label": "المبلغ",
+        "type": "money"
+      },
+      {
+        "key": "method",
+        "label": "طريقة التحصيل",
+        "type": "text"
+      },
+      {
+        "key": "reference",
+        "label": "المرجع",
+        "type": "text"
+      },
+      {
+        "key": "user",
+        "label": "المنفّذ",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "inventory-reservations",
+    "title": "حجوزات البطاقات",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "الحجز",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "pos",
+        "label": "الحساب",
+        "type": "text"
+      },
+      {
+        "key": "product",
+        "label": "الفئة",
+        "type": "text"
+      },
+      {
+        "key": "quantity",
+        "label": "الكمية",
+        "type": "number"
+      },
+      {
+        "key": "credit",
+        "label": "قيمة الحجز",
+        "type": "money"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "claims-requests",
+    "title": "طلبات سحب وتصدير البطاقات",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "الطلب",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "تاريخ الطلب",
+        "type": "date"
+      },
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "batch",
+        "label": "الدفعة",
+        "type": "text"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      },
+      {
+        "key": "reason",
+        "label": "السبب",
+        "type": "text"
+      },
+      {
+        "key": "user",
+        "label": "مقدم الطلب",
+        "type": "text"
+      },
+      {
+        "key": "approver",
+        "label": "المعتمد",
+        "type": "text"
+      },
+      {
+        "key": "until",
+        "label": "انتهاء إذن التنزيل",
+        "type": "date"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "sales-services",
+    "title": "طلبات خدمات المزودين",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "الطلب",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "provider",
+        "label": "المزود",
+        "type": "text"
+      },
+      {
+        "key": "service",
+        "label": "المحفظة",
+        "type": "text"
+      },
+      {
+        "key": "recipient",
+        "label": "المستفيد",
+        "type": "text"
+      },
+      {
+        "key": "price",
+        "label": "سعر البيع",
+        "type": "money"
+      },
+      {
+        "key": "cost",
+        "label": "التكلفة",
+        "type": "money",
+        "permission": "data.cost"
+      },
+      {
+        "key": "profit",
+        "label": "الربح",
+        "type": "money",
+        "permission": "data.profit"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      },
+      {
+        "key": "attempts",
+        "label": "المحاولات",
+        "type": "number"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "network-presence",
+    "title": "آخر اتصال وموقع مسجل",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المعرف",
+        "type": "text"
+      },
+      {
+        "key": "name",
+        "label": "المستخدم",
+        "type": "text"
+      },
+      {
+        "key": "status",
+        "label": "الاتصال",
+        "type": "text"
+      },
+      {
+        "key": "lastSeen",
+        "label": "آخر ظهور",
+        "type": "date"
+      },
+      {
+        "key": "locationTime",
+        "label": "وقت آخر موقع",
+        "type": "date"
+      },
+      {
+        "key": "lat",
+        "label": "خط العرض",
+        "type": "text"
+      },
+      {
+        "key": "lng",
+        "label": "خط الطول",
+        "type": "text"
+      },
+      {
+        "key": "accuracy",
+        "label": "الدقة بالمتر",
+        "type": "text"
+      }
+    ],
+    "note": "آخر بيانات مسجلة على هذا الجهاز، وليست سجلًا تاريخيًا لتحركات المستخدم."
+  },
+  {
+    "id": "operations-sessions",
+    "title": "جلسات الدخول المحلية",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "user",
+        "label": "المستخدم",
+        "type": "text"
+      },
+      {
+        "key": "created",
+        "label": "وقت الدخول",
+        "type": "date"
+      },
+      {
+        "key": "lastActivity",
+        "label": "آخر نشاط",
+        "type": "date"
+      },
+      {
+        "key": "status",
+        "label": "الحالة",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "audit-changes",
+    "title": "تفاصيل التغييرات قبل وبعد",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "السجل",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "user",
+        "label": "المنفّذ",
+        "type": "text"
+      },
+      {
+        "key": "action",
+        "label": "الإجراء",
+        "type": "text"
+      },
+      {
+        "key": "entity",
+        "label": "المرجع",
+        "type": "text"
+      },
+      {
+        "key": "field",
+        "label": "الحقل",
+        "type": "text"
+      },
+      {
+        "key": "before",
+        "label": "قبل التعديل",
+        "type": "text"
+      },
+      {
+        "key": "after",
+        "label": "بعد التعديل",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "sales-deliveries",
+    "title": "سجل تسليم البطاقات",
+    "snapshot": false,
+    "columns": [
+      {
+        "key": "id",
+        "label": "التسليم",
+        "type": "text"
+      },
+      {
+        "key": "tx",
+        "label": "عملية البيع",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "التاريخ والوقت",
+        "type": "date"
+      },
+      {
+        "key": "channel",
+        "label": "طريقة التسليم",
+        "type": "text"
+      },
+      {
+        "key": "reference",
+        "label": "مرجع الاستلام",
+        "type": "text"
+      },
+      {
+        "key": "user",
+        "label": "المنفّذ",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "prices-policies",
+    "title": "قواعد الأسعار المحفوظة",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "id",
+        "label": "المعرف",
+        "type": "text"
+      },
+      {
+        "key": "agent",
+        "label": "الوكيل",
+        "type": "text"
+      },
+      {
+        "key": "product",
+        "label": "الفئة",
+        "type": "text"
+      },
+      {
+        "key": "city",
+        "label": "المحافظة",
+        "type": "text"
+      },
+      {
+        "key": "finalPrice",
+        "label": "السعر النهائي",
+        "type": "money"
+      },
+      {
+        "key": "effective",
+        "label": "تاريخ النفاذ",
+        "type": "text"
+      },
+      {
+        "key": "time",
+        "label": "تاريخ التسجيل",
+        "type": "date"
+      }
+    ],
+    "note": ""
+  },
+  {
+    "id": "support-contacts",
+    "title": "أرقام الدعم المسجلة",
+    "snapshot": true,
+    "columns": [
+      {
+        "key": "account",
+        "label": "الجهة",
+        "type": "text"
+      },
+      {
+        "key": "label",
+        "label": "اسم الرقم",
+        "type": "text"
+      },
+      {
+        "key": "phone",
+        "label": "رقم الهاتف",
+        "type": "text"
+      }
+    ],
+    "note": ""
+  }
+]

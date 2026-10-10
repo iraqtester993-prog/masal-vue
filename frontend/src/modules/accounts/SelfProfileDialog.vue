@@ -1,0 +1,8 @@
+<script setup>
+import {onBeforeUnmount,ref} from 'vue';import {useAccountAccess} from './use-account-access.js';import AccountModal from './AccountModal.vue';import FormField from './FormField.vue';
+const emit=defineEmits(['close','saved']);const {session,handleFailure}=useAccountAccess();const version=session.state.identity.membership.version;const name=ref(session.state.identity.user.name),busy=ref(false),error=ref(''),errors=ref({});const controller=new AbortController();
+async function save(){if(busy.value)return;busy.value=true;error.value='';errors.value={};try{await session.updateProfile(name.value.trim(),version,controller.signal);emit('saved');}catch(failure){if(failure.name!=='AbortError'){errors.value=failure.errors || {};if(failure.status===409)await session.refresh();error.value=await handleFailure(failure);}}finally{busy.value=false;}}
+onBeforeUnmount(()=>controller.abort());
+</script>
+<template><AccountModal title="تعديل اسم الحساب" section="حسابك" :busy="busy" @close="emit('close')"><p v-if="error" class="notice notice-error" role="alert">{{error}}</p><form @submit.prevent="save"><fieldset class="formgrid" :disabled="busy"><FormField v-model="name" name="own-name" label="اسم الحساب" required :maxlength="120" full :error="errors.name"/><FormField :model-value="session.state.identity?.user.email || session.state.identity?.user.login" name="own-email" label="بريد أو اسم مستخدم تسجيل الدخول" disabled full/></fieldset><footer class="formfoot"><button type="button" class="btn" :disabled="busy" @click="emit('close')">إلغاء</button><button class="btn primary" :disabled="busy">{{busy?'جارٍ الحفظ…':'حفظ البيانات'}}</button></footer></form></AccountModal></template>
+

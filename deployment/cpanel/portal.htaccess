@@ -1,0 +1,52 @@
+Options -Indexes -MultiViews
+DirectoryIndex index.html
+
+<FilesMatch "^(?:index\.html|version\.json)$">
+    FileETag None
+    <IfModule mod_headers.c>
+        Header always set Cache-Control "no-store, no-cache, must-revalidate"
+        Header always set Pragma "no-cache"
+        Header always set Expires "0"
+    </IfModule>
+</FilesMatch>
+
+# Only fingerprinted build assets are immutable; API data remains private.
+<FilesMatch "-[A-Za-z0-9_-]{8,}\.(?:js|css|woff2?|ttf|png|svg)$">
+    <IfModule mod_headers.c>
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </IfModule>
+</FilesMatch>
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css application/javascript text/javascript application/json image/svg+xml
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Keep hidden source/configuration files outside the public surface.
+    RewriteRule (^|/)\.(?!well-known(?:/|$)) - [R=404,END]
+
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{REQUEST_URI} !^/\.well-known/acme-challenge/
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=308,L]
+
+    # API must not silently fall back to a Vue HTML response.
+    RewriteRule ^api/v1(?:/.*)?$ masal-api.php [END,QSA]
+    RewriteRule ^sanctum/csrf-cookie$ masal-api.php [END,QSA]
+
+    RewriteRule ^(?:api|sanctum)(?:/|$) - [R=404,END]
+    RewriteRule \.(?:php|phar|phtml)(?:/|$) - [R=404,END]
+
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [END]
+
+    RewriteRule ^assets(?:/|$) - [R=404,END]
+
+    # Client-side routes survive direct navigation and refresh.
+    RewriteRule ^ index.html [END]
+</IfModule>
+
+<FilesMatch "^(?:\.env(?:\..*)?|php\.ini|composer\.(?:json|lock)|package(?:-lock)?\.json)$">
+    Require all denied
+</FilesMatch>

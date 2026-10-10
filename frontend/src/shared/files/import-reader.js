@@ -1,0 +1,174 @@
+  "use strict";
+  function delimited(text) {
+    text = text.replace(/^\uFEFF/, "");
+    const first = text.split(/\r?\n/)[0],
+      delimiter = first.includes("\t") ? "\t" : first.includes(";") ? ";" : ",";
+    const rows = [];
+    let row = [],
+      cell = "",
+      quoted = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (c === '"') {
+        if (quoted && text[i + 1] === '"') {
+          cell += '"';
+          i++;
+        } else quoted = !quoted;
+      } else if (c === delimiter && !quoted) {
+        row.push(cell.trim());
+        cell = "";
+      } else if ((c === "\r" || c === "\n") && !quoted) {
+        if (c === "\r" && text[i + 1] === "\n") i++;
+        row.push(cell.trim());
+        if (row.some(Boolean)) rows.push(row);
+        row = [];
+        cell = "";
+      } else cell += c;
+    }
+    if (quoted) throw Error("علامة اقتباس غير مغلقة");
+    row.push(cell.trim());
+    if (row.some(Boolean)) rows.push(row);
+    return rows;
+  }
+  async function unzip(buffer) {
+    const view = new DataView(buffer),
+      bytes = new Uint8Array(buffer);
+    let end = bytes.length - 22;
+    const floor = Math.max(0, bytes.length - 65557);
+    for (; end >= floor; end--)
+      if (view.getUint32(end, true) === 0x06054b50) break;
+    if (end < floor) throw Error("ملف Excel غير صالح");
+    const count = view.getUint16(end + 10, true);
+    let cursor = view.getUint32(end + 16, true),
+      total = 0;
+    const files = {};
+    let decodedBytes = 0;
+    if (count > 3000) throw Error("ملف Excel كبير جدًا");
+    for (let i = 0; i < count; i++) {
+      if (view.getUint32(cursor, true) !== 0x02014b50)
+        throw Error("فهرس الملف غير صالح");
+      const method = view.getUint16(cursor + 10, true),
+        size = view.getUint32(cursor + 20, true),
+        uncompressed = view.getUint32(cursor + 24, true),
+        n = view.getUint16(cursor + 28, true),
+        extra = view.getUint16(cursor + 30, true),
+        comment = view.getUint16(cursor + 32, true),
+        local = view.getUint32(cursor + 42, true),
+        name = new TextDecoder().decode(
+          bytes.slice(cursor + 46, cursor + 46 + n),
+        );
+      total += uncompressed;
+      if (total > 40000000) throw Error("المحتوى أكبر من حد الاستيراد المحلي");
+      if (
+        /^xl\/(worksheets\/sheet\d+|sharedStrings|styles|workbook)\.xml$/.test(
+          name,
+        )
+      ) {
+        if (Object.hasOwn(files, name)) throw Error('ملف Excel يتضمن أجزاء مكررة');
+        const start =
+            local +
+            30 +
+            view.getUint16(local + 26, true) +
+            view.getUint16(local + 28, true),
+          raw = bytes.slice(start, start + size);
+        if (method === 0) { decodedBytes += raw.byteLength; files[name] = new TextDecoder().decode(raw); }
+        else if (method === 8) {
+          const stream = new Blob([raw])
+            .stream()
+            .pipeThrough(new DecompressionStream("deflate-raw"));
+          const reader = stream.getReader(), decoder = new TextDecoder();
+          let content = '', entryBytes = 0;
+          try {
+            for (;;) {
+              const {done, value} = await reader.read(); if (done) break;
+              entryBytes += value.byteLength; decodedBytes += value.byteLength;
+              if (decodedBytes > 40000000 || entryBytes > uncompressed) { await reader.cancel(); throw Error('المحتوى أكبر من حد الاستيراد المحلي أو فهرس Excel غير صالح'); }
+              content += decoder.decode(value, {stream:true});
+            }
+            if (entryBytes !== uncompressed) throw Error('فهرس Excel غير صالح');
+            files[name] = content + decoder.decode();
+          } finally { reader.releaseLock(); }
+        } else throw Error("ضغط Excel غير مدعوم");
+        if (decodedBytes > 40000000 || (method === 0 && raw.byteLength !== uncompressed)) throw Error('فهرس Excel غير صالح');
+      }
+      cursor += 46 + n + extra + comment;
+    }
+    return files;
+  }
+  const xml = (text) => {
+    if (/<!\s*(DOCTYPE|ENTITY)/i.test(text)) throw Error('تعريف الكيانات الخارجية غير مسموح في الملف');
+    const doc = new DOMParser().parseFromString(text, "application/xml");
+    if (doc.querySelector("parsererror")) throw Error("بنية Excel غير صالحة");
+    return doc;
+  };
+  async function read(file) {
+    if (file.size > 15000000) throw Error("الحد الأقصى للملف 15 ميغابايت");
+    if (!/\.xlsx$/i.test(file.name))
+      return [{ name: file.name, rows: delimited(await file.text()) }];
+    const files = await unzip(await file.arrayBuffer()),
+      strings = files["xl/sharedStrings.xml"]
+        ? [...xml(files["xl/sharedStrings.xml"]).querySelectorAll("si")].map(
+            (x) => x.textContent,
+          )
+        : [];
+    const styles = files["xl/styles.xml"] ? xml(files["xl/styles.xml"]) : null;
+    const formats = {};
+    styles
+      ?.querySelectorAll("numFmt")
+      .forEach(
+        (x) =>
+          (formats[x.getAttribute("numFmtId")] = x.getAttribute("formatCode")),
+      );
+    const dateStyles = [
+      ...(styles?.querySelector("cellXfs")?.children || []),
+    ].map((x) => {
+      const id = +x.getAttribute("numFmtId");
+      return (id >= 14 && id <= 22) || /[yd]/i.test(formats[id] || "");
+    });
+    const result = [];
+    const date1904 = files['xl/workbook.xml'] && ['1','true'].includes(xml(files['xl/workbook.xml']).querySelector('workbookPr')?.getAttribute('date1904'));
+    for (const [name, content] of Object.entries(files).filter(([k]) =>
+      k.startsWith("xl/worksheets/"),
+    )) {
+      const rows = [...xml(content).querySelectorAll("sheetData row")]
+        .map((row) => {
+          const cells = [];
+          row.querySelectorAll("c").forEach((c) => {
+            let index = 0;
+            for (const x of (c.getAttribute("r") || "A").replace(/\d/g, ""))
+              index = index * 26 + x.charCodeAt(0) - 64;
+            if (index < 1 || index > 128) throw Error('عدد أعمدة الملف يتجاوز الحد المسموح');
+            const type = c.getAttribute("t"),
+              raw = c.querySelector("v")?.textContent || "",
+              style = +c.getAttribute("s");
+            let value =
+              type === "s"
+                ? strings[+raw]
+                : type === "inlineStr"
+                  ? c.querySelector("is")?.textContent
+                  : raw;
+            if (
+              type !== "s" &&
+              type !== "inlineStr" &&
+              dateStyles[style] &&
+              raw
+            )
+              value = new Date((date1904 ? Date.UTC(1904,0,1) : Date.UTC(1899, 11, 30)) + Number(raw) * 86400000)
+                .toISOString()
+                .slice(0, 10);
+            if (c.querySelector("f"))
+              throw Error("استبدل المعادلات بقيم ثابتة قبل الاستيراد");
+            if ((!type || type === 'n') && /^\d{16,}$/.test(raw))
+              throw Error(
+                "الأرقام الطويلة يجب حفظها كنص في Excel لحماية رموز البطاقات",
+              );
+            cells[index - 1] = String(value ?? "");
+          });
+          return Array.from({ length: cells.length }, (_, i) => cells[i] || "");
+        })
+        .filter((r) => r.some(Boolean));
+      result.push({ name: file.name + " / " + name.split("/").pop(), rows });
+    }
+    return result;
+  }
+  export { read as readImportFile, delimited };

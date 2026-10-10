@@ -1,0 +1,7 @@
+<script setup>
+import {mapTime} from './maps-model.js';
+defineProps({user:{type:Object,required:true}});defineEmits(['close']);
+</script>
+<template>
+  <section class="map-person-detail map-user-details" role="region" :aria-label="'تفاصيل المستخدم: '+user.name" tabindex="-1" @keydown.esc.stop="$emit('close')"><button class="iconbtn map-popup-close" @click="$emit('close')" aria-label="إغلاق تفاصيل المستخدم">×</button><h3>{{user.name}}</h3><p>{{user.kindLabel}} · {{user.account}}</p><p>{{user.online?'🟢 متصل':'⚪ غير متصل'}}{{user.active?'':' · الحساب موقوف'}}</p><dl><template v-if="user.parentName"><dt>الحساب التابع له</dt><dd>{{user.parentName}}</dd></template><template v-if="user.phone"><dt>رقم الهاتف</dt><dd>{{user.phone}}</dd></template><template v-if="user.city||user.address"><dt>العنوان</dt><dd>{{[user.city,user.address].filter(Boolean).join(' · ')}}</dd></template><dt>آخر ظهور — بغداد</dt><dd>{{mapTime(user.lastSeen)}}</dd><dt>الموقع</dt><dd>{{user.source}}</dd><dt>وقت آخر موقع — بغداد</dt><dd>{{mapTime(user.locationTime)}}</dd><template v-if="user.accuracy!=null"><dt>دقة الموقع</dt><dd>حوالي {{Math.round(user.accuracy)}} متر</dd></template><template v-if="user.device_model"><dt>الجهاز</dt><dd>{{user.device_model}}</dd></template><template v-if="user.app_version"><dt>إصدار التطبيق</dt><dd>{{user.app_version}}</dd></template></dl><p v-if="user.location" dir="ltr">{{user.location.lat.toFixed(5)}}, {{user.location.lng.toFixed(5)}}</p></section>
+</template>

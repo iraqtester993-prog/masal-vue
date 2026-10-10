@@ -1,0 +1,62 @@
+Options -Indexes -MultiViews
+DirectoryIndex index.html
+
+<Files "index.html">
+    FileETag None
+    <IfModule mod_headers.c>
+        Header always set Cache-Control "no-store"
+    </IfModule>
+</Files>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Keep hidden source/configuration files outside the public surface.
+    RewriteRule (^|/)\.(?!well-known(?:/|$)) - [R=404,END]
+
+    RewriteCond %{HTTPS} !=on
+    RewriteCond %{REQUEST_URI} !^/\.well-known/acme-challenge/
+    RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=308,L]
+
+    # API must not silently fall back to a Vue HTML response.
+    RewriteRule ^api/v1(?:/.*)?$ masal-api.php [END,QSA]
+    RewriteRule ^sanctum/csrf-cookie$ masal-api.php [END,QSA]
+
+    RewriteRule ^(?:api|sanctum)(?:/|$) - [R=404,END]
+    RewriteRule \.(?:php|phar|phtml)(?:/|$) - [R=404,END]
+
+    RewriteCond %{REQUEST_FILENAME} -f [OR]
+    RewriteCond %{REQUEST_FILENAME} -d
+    RewriteRule ^ - [END]
+
+    RewriteRule ^assets(?:/|$) - [R=404,END]
+
+    # Client-side routes survive direct navigation and refresh.
+    RewriteRule ^ index.html [END]
+</IfModule>
+
+<FilesMatch "^(?:\.env(?:\..*)?|php\.ini|composer\.(?:json|lock)|package(?:-lock)?\.json)$">
+    Require all denied
+</FilesMatch>
+
+
+# BEGIN cPanel-generated php ini directives, do not edit
+# Manual editing of this file may result in unexpected behavior.
+# To make changes to this file, use the cPanel MultiPHP INI Editor (Home >> Software >> MultiPHP INI Editor)
+# For more information, read our documentation (https://go.cpanel.net/EA4ModifyINI)
+<IfModule php8_module>
+   php_value error_log "/home/dananiriq/logs/php.error.log"
+   php_flag log_errors On
+</IfModule>
+<IfModule lsapi_module>
+   php_value error_log "/home/dananiriq/logs/php.error.log"
+   php_flag log_errors On
+</IfModule>
+# END cPanel-generated php ini directives, do not edit
+
+# php -- BEGIN cPanel-generated handler, do not edit
+# Set the “ea-php85” package as the default “PHP” programming language.
+<IfModule mime_module>
+  AddHandler application/x-httpd-ea-php85 .php .php8 .phtml
+</IfModule>
+# php -- END cPanel-generated handler, do not edit

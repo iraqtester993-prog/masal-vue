@@ -1,0 +1,36 @@
+{
+  "name": "masal-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite --mode admin",
+    "dev:admin": "vite --mode admin",
+    "dev:agents": "vite --mode agents",
+    "dev:pos": "vite --mode pos",
+    "dev:public": "vite --mode public",
+    "dev:legacy": "vite --mode legacy",
+    "build": "npm run build:admin && npm run build:agents && npm run build:pos",
+    "build:admin": "vite build --mode admin",
+    "build:agents": "vite build --mode agents",
+    "build:pos": "vite build --mode pos",
+    "build:public": "vite build --mode public",
+    "build:legacy": "vite build --mode legacy",
+    "preview": "vite preview --mode admin",
+    "preview:agents": "vite preview --mode agents",
+    "preview:pos": "vite preview --mode pos",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "leaflet": "1.9.4",
+    "vue": "3.5.13",
+    "vue-router": "4.6.3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "6.0.9",
+    "vite": "8.3.2"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

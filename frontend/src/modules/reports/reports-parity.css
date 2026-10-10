@@ -1,0 +1,2417 @@
+/* Original reports cascade, isolated to its page and native dialogs. */
+:where(.reports-workspace, .reports-modal){--accent:#0898b5;--accent-soft:#e4f3f7;--blue-bg:#e4f3f7;--blue-text:#078ba8;--panel:#fff;--raised:#f2f7f9;--surface:#fff;--subtle:#f2f7f9;--ink:#123d57;--text:#416078;--muted:#68869d;--line:#ccdbe3;--soft-line:#e1ebef;--cyan:#0898b5;--sky:#0898b5;--teal-bg:#e6faf8;--teal-text:#008f7e;--amber-bg:#fff6e4;--amber-text:#986410;--red-bg:#fff0f2;--red-text:#b83d55;--shadow:none;font-size:16px;line-height:1.85}
+html[data-theme=dark] :where(.reports-workspace, .reports-modal){--accent:#40c4dc;--accent-soft:#203959;--blue-bg:#203b4b;--blue-text:#70d5e5;--panel:#192437;--raised:#202e43;--surface:#192437;--subtle:#202e43;--ink:#ecf1fb;--text:#cad4e5;--muted:#a1b0c6;--line:#304059;--soft-line:#29384e;--cyan:#40c4dc;--sky:#40c4dc;--red-bg:#412634;--red-text:#ffa1b3}
+
+:where(.reports-workspace, .reports-modal) button,
+:where(.reports-workspace, .reports-modal) input,
+:where(.reports-workspace, .reports-modal) select,
+:where(.reports-workspace, .reports-modal) textarea {
+  font: inherit;
+}
+:where(.reports-workspace, .reports-modal) button,
+:where(.reports-workspace, .reports-modal) a,
+:where(.reports-workspace, .reports-modal) input,
+:where(.reports-workspace, .reports-modal) select,
+:where(.reports-workspace, .reports-modal) textarea {
+  outline-offset: 4px;
+}
+:where(.reports-workspace, .reports-modal) button {
+  cursor: pointer;
+  transition: 0.15s;
+}
+:where(.reports-workspace, .reports-modal) button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+:where(.reports-workspace, .reports-modal) button:hover:not(:disabled) {
+  filter: brightness(0.97);
+}
+:where(.reports-workspace, .reports-modal) [v-cloak] {
+  display: none;
+}
+:where(.reports-workspace, .reports-modal) .iconbtn {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: #4c617b;
+}
+:where(.reports-workspace, .reports-modal) .actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+:where(.reports-workspace, .reports-modal) .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  border: 1px solid #dde5ef;
+  background: white;
+  color: #41536b;
+  padding: 9px 15px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+:where(.reports-workspace, .reports-modal) .btn.primary {
+  background: var(--accent, #0f766e);
+  border-color: transparent;
+  color: white;
+  box-shadow: 0 4px 10px #0f766e18;
+}
+:where(.reports-workspace, .reports-modal) .btn.small {
+  padding: 5px 10px;
+  font-size: 11px;
+}
+:where(.reports-workspace, .reports-modal) .btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: #0284c7;
+}
+:where(.reports-workspace, .reports-modal) .card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 19px;
+  padding: 22px;
+  box-shadow: 0 4px 20px #0b1e3603;
+  min-width: 0;
+}
+:where(.reports-workspace, .reports-modal) .cardhead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+:where(.reports-workspace, .reports-modal) .cardhead h2,
+:where(.reports-workspace, .reports-modal) h2 {
+  font-size: 15px;
+  margin: 0;
+}
+:where(.reports-workspace, .reports-modal) .caption {
+  color: #8390a3;
+  font-size: 11px;
+  margin-top: 4px;
+}
+:where(.reports-workspace, .reports-modal) .badge {
+  display: inline-flex;
+  padding: 3px 9px;
+  border-radius: 6px;
+  background: #e8f8f2;
+  color: #13886c;
+  font-size: 10px;
+  white-space: nowrap;
+}
+:where(.reports-workspace, .reports-modal) .badge.warn {
+  background: #fff6e4;
+  color: #aa7715;
+}
+:where(.reports-workspace, .reports-modal) .notice {
+  padding: 13px 17px;
+  border: 1px solid #d9ebe9;
+  border-radius: 12px;
+  color: #49716d;
+  background: #f1faf8;
+  font-size: 12px;
+  line-height: 1.9;
+  margin-bottom: 18px;
+}
+:where(.reports-workspace, .reports-modal) .notice.warn {
+  color: #8d6b28;
+  background: #fffaf0;
+  border-color: #f0e3c8;
+}
+:where(.reports-workspace, .reports-modal) .toolbar {
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+:where(.reports-workspace, .reports-modal) .tablewrap {
+  overflow: auto;
+  max-width: 100%;
+  border: 1px solid #e5eaf0;
+  border-radius: 12px;
+}
+:where(.reports-workspace, .reports-modal) table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: right;
+  white-space: nowrap;
+  font-size: 12px;
+}
+:where(.reports-workspace, .reports-modal) th {
+  background: #f7f9fc;
+  color: #79899e;
+  font-weight: 500;
+  font-size: 10px;
+  padding: 13px 14px;
+  border-bottom: 1px solid #e5eaf0;
+}
+:where(.reports-workspace, .reports-modal) td {
+  padding: 14px;
+  border-bottom: 1px solid #edf2f7;
+  color: #52637a;
+}
+:where(.reports-workspace, .reports-modal) tr:last-child td {
+  border: 0;
+}
+:where(.reports-workspace, .reports-modal) tbody tr:hover {
+  background: #fbfcfe;
+}
+:where(.reports-workspace, .reports-modal) td strong {
+  color: #20354f;
+  font-weight: 600;
+}
+:where(.reports-workspace, .reports-modal) .empty {
+  padding: 45px;
+  text-align: center;
+  color: #8090a3;
+  font-size: 13px;
+}
+:where(.reports-workspace, .reports-modal) label {
+  display: block;
+  font-size: 12px;
+  color: #607087;
+}
+:where(.reports-workspace, .reports-modal) input:not([type="checkbox"]):not([type="color"]),
+:where(.reports-workspace, .reports-modal) select,
+:where(.reports-workspace, .reports-modal) textarea {
+  width: 100%;
+  border: 1px solid #dce4ee;
+  border-radius: 9px;
+  background: #fff;
+  color: #243951;
+  padding: 10px 12px;
+  min-width: 0;
+}
+:where(.reports-workspace, .reports-modal) label input,
+:where(.reports-workspace, .reports-modal) label select,
+:where(.reports-workspace, .reports-modal) label textarea {
+  margin-top: 7px;
+}
+:where(.reports-workspace, .reports-modal) input:focus,
+:where(.reports-workspace, .reports-modal) select:focus,
+:where(.reports-workspace, .reports-modal) textarea:focus {
+  outline: 2px solid #00c7b140;
+  border-color: #0f968a;
+}
+:where(.reports-workspace, .reports-modal) textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+:where(.reports-workspace, .reports-modal) .formfoot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  border-top: 1px solid #edf2f7;
+  padding-top: 18px;
+  margin-top: 22px;
+}
+.reports-modal {
+  background: #fff;
+  border-radius: 22px;
+  width: min(720px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  padding: 28px;
+  box-shadow: 0 30px 80px #04142630;
+}
+.reports-modal h2 {
+  font-size: 19px;
+}
+.reports-modal pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: #f4f7fb;
+  padding: 16px;
+  font-size: 11px;
+  direction: ltr;
+  text-align: left;
+}
+:where(.reports-workspace, .reports-modal) .help {
+  color: #8996a7;
+  font-size: 11px;
+  line-height: 1.9;
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .card {
+    padding: 17px;
+    border-radius: 15px;
+  }
+}
+@media (max-width: 760px) {
+  .reports-modal {
+    padding: 20px;
+  }
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .cardhead {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .actions {
+    width: 100%;
+  }
+}
+@media print {
+  .reports-modal {
+    box-shadow: none;
+    max-height: none;
+    width: 100%;
+    padding: 0;
+  }
+}
+@media print {
+  .reports-modal .cardhead,
+.reports-modal .formfoot {
+    display: none;
+  }
+}
+:where(.reports-workspace, .reports-modal) ::selection {
+  background: #00c7b13a;
+  color: var(--ink);
+}
+:where(.reports-workspace, .reports-modal) .iconbtn {
+  background: var(--raised);
+  border-color: var(--line);
+  color: var(--text);
+  flex-shrink: 0;
+  border-radius: 12px;
+}
+:where(.reports-workspace, .reports-modal) .card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  padding: 22px;
+  transition: box-shadow 0.2s;
+}
+:where(.reports-workspace, .reports-modal) .card:hover {
+  box-shadow:
+    0 18px 38px -12px #0b1e3617,
+    0 4px 12px -2px #0b1e360a;
+}
+:where(.reports-workspace, .reports-modal) .btn {
+  border-radius: 16px;
+  background: var(--panel);
+  border-color: var(--line);
+  color: var(--text);
+  box-shadow: var(--shadow);
+}
+:where(.reports-workspace, .reports-modal) .btn.primary {
+  background: var(--brand-gradient);
+  color: #fff;
+  box-shadow: 0 4px 12px #06b6d42a;
+}
+:where(.reports-workspace, .reports-modal) .btn.ghost {
+  color: var(--blue-text);
+  background: transparent;
+  box-shadow: none;
+}
+:where(.reports-workspace, .reports-modal) .btn.small {
+  border-radius: 10px;
+}
+:where(.reports-workspace, .reports-modal) .badge {
+  background: var(--teal-bg);
+  color: var(--teal-text);
+  border: 1px solid #00c7b12a;
+  border-radius: 7px;
+}
+:where(.reports-workspace, .reports-modal) .badge.warn {
+  background: var(--amber-bg);
+  color: var(--amber-text);
+  border-color: #d9a53c33;
+}
+:where(.reports-workspace, .reports-modal) .card h2 {
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.9;
+}
+:where(.reports-workspace, .reports-modal) .card h2 small {
+  font:
+    10px "Segoe UI",
+    sans-serif;
+  color: var(--muted);
+  margin-right: 5px;
+  white-space: nowrap;
+}
+:where(.reports-workspace, .reports-modal) .caption,
+:where(.reports-workspace, .reports-modal) .help,
+:where(.reports-workspace, .reports-modal) .empty {
+  color: var(--muted);
+}
+:where(.reports-workspace, .reports-modal) .formfoot {
+  border-color: var(--soft-line);
+}
+:where(.reports-workspace, .reports-modal) input:not([type="checkbox"]):not([type="color"]),
+:where(.reports-workspace, .reports-modal) select,
+:where(.reports-workspace, .reports-modal) textarea {
+  background: var(--panel);
+  color: var(--ink);
+  border-color: var(--line);
+  border-radius: 12px;
+}
+:where(.reports-workspace, .reports-modal) input::placeholder,
+:where(.reports-workspace, .reports-modal) textarea::placeholder {
+  color: var(--muted);
+}
+:where(.reports-workspace, .reports-modal) label {
+  color: var(--text);
+}
+:where(.reports-workspace, .reports-modal) .tablewrap {
+  border-color: var(--line);
+  border-radius: 16px;
+}
+:where(.reports-workspace, .reports-modal) th {
+  background: var(--subtle);
+  color: var(--muted);
+  border-color: var(--line);
+}
+:where(.reports-workspace, .reports-modal) td {
+  color: var(--text);
+  border-color: var(--soft-line);
+}
+:where(.reports-workspace, .reports-modal) td strong {
+  color: var(--ink);
+}
+:where(.reports-workspace, .reports-modal) tbody tr:hover {
+  background: var(--subtle);
+}
+:where(.reports-workspace, .reports-modal) .notice {
+  background: var(--teal-bg);
+  color: var(--teal-text);
+  border-color: #00c7b133;
+}
+:where(.reports-workspace, .reports-modal) .notice.warn {
+  background: var(--amber-bg);
+  color: var(--amber-text);
+  border-color: #d9a53c33;
+}
+.reports-modal {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 24px;
+}
+.reports-modal pre {
+  background: var(--raised);
+  color: var(--text);
+}
+@media (max-width: 1250px) {
+  :where(.reports-workspace, .reports-modal) .card h2 small {
+    display: block;
+    margin: 0;
+  }
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .card {
+    padding: 20px;
+    border-radius: 24px;
+  }
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .card h2 small {
+    display: inline;
+    font-size: 10px;
+  }
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .actions {
+    gap: 7px;
+  }
+}
+@media (max-width: 760px) {
+  .reports-modal {
+    padding: 20px;
+  }
+}
+@media print {
+  :where(.reports-workspace, .reports-modal) html[data-theme] {
+    color-scheme: light;
+  }
+}
+@media print {
+  :where(.reports-workspace, .reports-modal) .card {
+    box-shadow: none;
+  }
+}
+:where(.reports-workspace, .reports-modal) .iconbtn {
+  height: 42px;
+  width: 42px;
+  min-height: 42px;
+  min-width: 42px;
+  display: inline-grid;
+  place-items: center;
+}
+:where(.reports-workspace, .reports-modal) .iconbtn svg {
+  width: 20px;
+  height: 20px;
+}
+:where(.reports-workspace, .reports-modal) .actions {
+  gap: 10px;
+}
+:where(.reports-workspace, .reports-modal) .btn {
+  font-size: 14px;
+  padding: 10px 18px;
+  min-height: 44px;
+  font-weight: 700;
+  border-radius: 14px;
+}
+:where(.reports-workspace, .reports-modal) .btn.small {
+  font-size: 12px;
+  min-height: 34px;
+  padding: 6px 11px;
+  border-radius: 10px;
+}
+:where(.reports-workspace, .reports-modal) .card {
+  padding: 24px;
+  border-radius: 24px;
+}
+:where(.reports-workspace, .reports-modal) .card h2,
+:where(.reports-workspace, .reports-modal) h2 {
+  font-size: 19px;
+  line-height: 1.6;
+}
+:where(.reports-workspace, .reports-modal) .card h2 small {
+  font-size: 12px;
+  display: inline;
+}
+:where(.reports-workspace, .reports-modal) .cardhead {
+  gap: 12px;
+}
+:where(.reports-workspace, .reports-modal) .caption,
+:where(.reports-workspace, .reports-modal) .help {
+  font-size: 13px;
+  line-height: 1.8;
+}
+:where(.reports-workspace, .reports-modal) .badge {
+  font-size: 12px;
+  padding: 4px 9px;
+}
+:where(.reports-workspace, .reports-modal) .empty {
+  font-size: 15px;
+  line-height: 2;
+}
+:where(.reports-workspace, .reports-modal) .notice {
+  font-size: 14px;
+  padding: 15px 18px;
+}
+:where(.reports-workspace, .reports-modal) .toolbar {
+  gap: 14px;
+}
+:where(.reports-workspace, .reports-modal) .tablewrap {
+  border-radius: 16px;
+}
+:where(.reports-workspace, .reports-modal) table {
+  font-size: 14px;
+}
+:where(.reports-workspace, .reports-modal) th {
+  font-size: 13px;
+  padding: 15px 16px;
+}
+:where(.reports-workspace, .reports-modal) td {
+  padding: 16px;
+  line-height: 1.8;
+}
+:where(.reports-workspace, .reports-modal) .tablewrap .caption {
+  font-size: 12px;
+}
+:where(.reports-workspace, .reports-modal) label {
+  font-size: 14px;
+  font-weight: 600;
+}
+:where(.reports-workspace, .reports-modal) input:not([type="checkbox"]):not([type="color"]),
+:where(.reports-workspace, .reports-modal) select,
+:where(.reports-workspace, .reports-modal) textarea {
+  font-size: 15px;
+  padding: 11px 13px;
+  min-height: 46px;
+}
+:where(.reports-workspace, .reports-modal) input[type="color"] {
+  width: 56px;
+  height: 40px;
+}
+:where(.reports-workspace, .reports-modal) .formfoot {
+  flex-wrap: wrap;
+}
+.reports-modal h2 {
+  font-size: 22px;
+}
+.reports-modal pre {
+  font-size: 13px;
+}
+.reports-modal {
+  width: min(800px, 100%);
+  padding: 28px;
+}
+@media (min-width: 1900px) {
+  :where(.reports-workspace, .reports-modal) .card {
+    padding: 28px;
+  }
+}
+@media (max-width: 1450px) {
+  :where(.reports-workspace, .reports-modal) .card h2 small {
+    display: block;
+    margin-right: 0;
+  }
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .iconbtn {
+    min-width: 40px;
+    min-height: 40px;
+    width: 40px;
+    height: 40px;
+  }
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .card {
+    padding: 22px;
+    border-radius: 20px;
+  }
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .card h2 {
+    font-size: 19px;
+  }
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .card h2 small {
+    display: inline;
+    font-size: 11px;
+  }
+}
+@media (max-width: 760px) {
+  .reports-modal {
+    padding: 22px;
+  }
+}
+@media (max-width: 760px) {
+  .reports-modal h2 {
+    font-size: 21px;
+  }
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .toolbar > input,
+:where(.reports-workspace, .reports-modal) .toolbar > select {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+}
+@media (max-width: 450px) {
+  :where(.reports-workspace, .reports-modal) .caption,
+:where(.reports-workspace, .reports-modal) .help {
+    font-size: 12px;
+  }
+}
+@media (max-width: 450px) {
+  .reports-modal {
+    padding: 18px;
+  }
+}
+@media (max-width: 450px) {
+  .reports-modal .formfoot .btn {
+    flex: 1;
+  }
+}
+@media (max-width: 450px) {
+  :where(.reports-workspace, .reports-modal) .formfoot {
+    gap: 8px;
+  }
+}
+@media (min-width: 1360px) and (max-width: 1450px) {
+  :where(.reports-workspace, .reports-modal) .card h2 {
+    font-size: 17px;
+  }
+}
+@media (min-width: 1360px) and (max-width: 1450px) {
+  :where(.reports-workspace, .reports-modal) .card h2 small {
+    font-size: 11px;
+  }
+}
+:where(.reports-workspace, .reports-modal) .card {
+  --tint: var(--card-b);
+  --edge: var(--edge-b);
+  background: linear-gradient(130deg, var(--tint), var(--panel) 95%);
+  border-color: color-mix(in srgb, var(--edge) 25%, var(--line));
+  border-block-start: 3px solid var(--edge);
+  box-shadow: 0 5px 20px #0b1e3606;
+}
+:where(.reports-workspace, .reports-modal) .card:nth-child(4n + 1) {
+  --tint: var(--card-a);
+  --edge: var(--edge-a);
+}
+:where(.reports-workspace, .reports-modal) .card:nth-child(4n + 2) {
+  --tint: var(--card-b);
+  --edge: var(--edge-b);
+}
+:where(.reports-workspace, .reports-modal) .card:nth-child(4n + 3) {
+  --tint: var(--card-c);
+  --edge: var(--edge-c);
+}
+:where(.reports-workspace, .reports-modal) .card:nth-child(4n) {
+  --tint: var(--card-d);
+  --edge: var(--edge-d);
+}
+:where(.reports-workspace, .reports-modal) .card h2,
+:where(.reports-workspace, .reports-modal) h2 {
+  font-size: 21px;
+}
+:where(.reports-workspace, .reports-modal) .card h2 small {
+  font-size: 13px;
+}
+:where(.reports-workspace, .reports-modal) .cardhead {
+  margin-bottom: 22px;
+}
+:where(.reports-workspace, .reports-modal) .caption,
+:where(.reports-workspace, .reports-modal) .help {
+  font-size: 14px;
+}
+:where(.reports-workspace, .reports-modal) .badge {
+  font-size: 13px;
+}
+:where(.reports-workspace, .reports-modal) .notice {
+  font-size: 15px;
+}
+:where(.reports-workspace, .reports-modal) table {
+  font-size: 15px;
+}
+:where(.reports-workspace, .reports-modal) th {
+  font-size: 14px;
+  font-weight: 700;
+}
+:where(.reports-workspace, .reports-modal) td {
+  font-size: 15px;
+}
+:where(.reports-workspace, .reports-modal) .tablewrap .caption {
+  font-size: 13px;
+}
+:where(.reports-workspace, .reports-modal) label {
+  font-size: 15px;
+}
+:where(.reports-workspace, .reports-modal) input:not([type="checkbox"]):not([type="color"]),
+:where(.reports-workspace, .reports-modal) select,
+:where(.reports-workspace, .reports-modal) textarea {
+  font-size: 16px;
+  min-height: 48px;
+}
+:where(.reports-workspace, .reports-modal) .empty {
+  font-size: 16px;
+}
+:where(.reports-workspace, .reports-modal) .btn {
+  font-size: 15px;
+  min-height: 46px;
+  gap: 9px;
+  border-radius: 13px;
+  box-shadow: var(--button-shadow);
+  transition:
+    background 0.18s,
+    box-shadow 0.18s,
+    transform 0.18s,
+    border-color 0.18s;
+  position: relative;
+}
+:where(.reports-workspace, .reports-modal) .btn:hover:not(:disabled) {
+  filter: none;
+  transform: translateY(-1px);
+  box-shadow: 0 7px 19px #0b1e361a;
+  border-color: var(--sky);
+}
+:where(.reports-workspace, .reports-modal) .btn:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px #0b1e3612;
+}
+:where(.reports-workspace, .reports-modal) .btn.primary {
+  background: linear-gradient(110deg, #029c8e, #0284c7);
+  color: white;
+  border-color: transparent;
+}
+:where(.reports-workspace, .reports-modal) .btn.primary:hover {
+  background: linear-gradient(110deg, #00ad99, #0377b1);
+  box-shadow: 0 8px 20px #0284c72b;
+}
+:where(.reports-workspace, .reports-modal) .btn.ghost {
+  box-shadow: none;
+}
+:where(.reports-workspace, .reports-modal) .btn.small {
+  font-size: 13px;
+  min-height: 38px;
+}
+:where(.reports-workspace, .reports-modal) .btn:disabled {
+  opacity: 0.5;
+  box-shadow: none;
+  transform: none;
+}
+:where(.reports-workspace, .reports-modal) .btn:focus-visible,
+:where(.reports-workspace, .reports-modal) .iconbtn:focus-visible {
+  outline: 3px solid #00b7a580;
+  outline-offset: 3px;
+}
+:where(.reports-workspace, .reports-modal) .iconbtn {
+  transition: 0.18s;
+}
+:where(.reports-workspace, .reports-modal) .iconbtn:hover {
+  background: var(--blue-bg);
+  color: var(--blue-text);
+  transform: translateY(-1px);
+}
+:where(.reports-workspace, .reports-modal) .badge.warn:is(button) {
+  cursor: pointer;
+  min-height: 34px;
+}
+.reports-modal {
+  animation: dialog-in 0.18s ease-out;
+}
+html[dir="ltr"] :where(.reports-workspace, .reports-modal) body {
+  font-family: "Segoe UI", Cairo, sans-serif;
+}
+html[dir="ltr"] :where(.reports-workspace, .reports-modal) table {
+  text-align: left;
+}
+html[lang="ckb"] :where(.reports-workspace, .reports-modal) body {
+  font-family: Cairo, "Segoe UI", Tahoma, sans-serif;
+  line-height: 1.9;
+}
+@media (min-width: 1900px) {
+  :where(.reports-workspace, .reports-modal) .card {
+    padding: 28px;
+  }
+}
+@media (max-width: 1500px) {
+  :where(.reports-workspace, .reports-modal) .card h2 {
+    font-size: 19px;
+  }
+}
+@media (max-width: 1500px) {
+  :where(.reports-workspace, .reports-modal) .card h2 small {
+    font-size: 12px;
+  }
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .card {
+    padding: 20px;
+  }
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .card h2 {
+    font-size: 20px;
+  }
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .caption,
+:where(.reports-workspace, .reports-modal) .help {
+    font-size: 14px;
+  }
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .card h2 small {
+    font-size: 12px;
+  }
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .badge {
+    font-size: 12px;
+  }
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .card .cardhead {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 760px) {
+  :where(.reports-workspace, .reports-modal) .notice {
+    font-size: 14px;
+  }
+}
+@media (max-width: 760px) {
+  .reports-modal {
+    padding: 22px;
+  }
+}
+@media (max-width: 420px) {
+  :where(.reports-workspace, .reports-modal) .card h2 {
+    font-size: 18px;
+  }
+}
+@media (max-width: 420px) {
+  :where(.reports-workspace, .reports-modal) .card h2 small {
+    font-size: 11px;
+  }
+}
+@media (max-width: 420px) {
+  .reports-modal {
+    padding: 18px;
+  }
+}
+@media (max-width: 420px) {
+  .reports-modal .formfoot .btn {
+    font-size: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reports-modal {
+    transition: none;
+    animation: none;
+  }
+}
+@media print {
+  :where(.reports-workspace, .reports-modal) .card {
+    background: white;
+    border-color: #ddd;
+  }
+}
+:where(.reports-workspace, .reports-modal) .tablewrap td {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.85;
+}
+:where(.reports-workspace, .reports-modal) .tablewrap th {
+  font-size: 15px;
+  color: var(--text);
+}
+:where(.reports-workspace, .reports-modal) .tablewrap td input {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+:where(.reports-workspace, .reports-modal) input:not([type="checkbox"]):not([type="color"]),
+:where(.reports-workspace, .reports-modal) select,
+:where(.reports-workspace, .reports-modal) textarea {
+  font-weight: 600;
+}
+:where(.reports-workspace, .reports-modal) .caption,
+:where(.reports-workspace, .reports-modal) .help,
+:where(.reports-workspace, .reports-modal) .tablewrap .caption {
+  font-weight: 600;
+  color: var(--secondary-readable);
+}
+:where(.reports-workspace, .reports-modal) .caption,
+:where(.reports-workspace, .reports-modal) .help,
+:where(.reports-workspace, .reports-modal) .tablewrap .caption {
+  font-size: 15px;
+  line-height: 1.9;
+}
+:where(.reports-workspace, .reports-modal) label {
+  font-weight: 600;
+}
+
+.reports-modal:has(.report-filters) {
+  width: min(1000px, 100%);
+}
+.reports-modal .report-filter-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+@media (max-width: 650px) {
+  .reports-modal .report-filter-grid {
+    grid-template-columns: 1fr;
+  }
+}
+html :where(.reports-workspace, .reports-modal) body,
+html :where(.reports-workspace, .reports-modal) body *,
+html :where(.reports-workspace, .reports-modal) body *::before,
+html :where(.reports-workspace, .reports-modal) body *::after {
+  font-family: Cairo, "Segoe UI", Tahoma, sans-serif !important;
+}
+:where(.reports-workspace, .reports-modal) .inline-check {
+  display: flex;
+  align-items: center;
+  gap: 10px !important;
+  flex-direction: row !important;
+  font-size: 15px !important;
+}
+:where(.reports-workspace, .reports-modal) .inline-check input[type="checkbox"] {
+  width: 19px !important;
+  height: 19px;
+  flex: 0 0 19px;
+  accent-color: #008b91;
+}
+:where(.reports-workspace, .reports-modal) .report-filters {
+  margin-bottom: 20px;
+}
+:where(.reports-workspace, .reports-modal) .report-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+:where(.reports-workspace, .reports-modal) .report-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0;
+}
+:where(.reports-workspace, .reports-modal) .report-export-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  flex-wrap: wrap;
+  margin: 22px 0;
+}
+:where(.reports-workspace, .reports-modal) .report-table-tools {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+:where(.reports-workspace, .reports-modal) .report-table-tools > input {
+  flex: 1;
+  min-width: 160px;
+}
+:where(.reports-workspace, .reports-modal) .table-sort {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: start;
+  white-space: nowrap;
+}
+:where(.reports-workspace, .reports-modal) .column-picker {
+  position: relative;
+}
+:where(.reports-workspace, .reports-modal) .column-picker > div {
+  position: absolute;
+  top: 100%;
+  inset-inline-end: 0;
+  z-index: 10;
+  width: 240px;
+  max-height: 320px;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line, #ddd);
+  box-shadow: 0 12px 32px #0002;
+  border-radius: 14px;
+  padding: 15px;
+}
+:where(.reports-workspace, .reports-modal) .column-picker label {
+  padding: 7px;
+}
+:where(.reports-workspace, .reports-modal) button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none !important;
+}
+@media (min-width: 1800px) {
+  :where(.reports-workspace, .reports-modal) .report-filter-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+@media (max-width: 650px) {
+  :where(.reports-workspace, .reports-modal) .report-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 650px) {
+  :where(.reports-workspace, .reports-modal) .report-export-bar .actions {
+    width: 100%;
+  }
+}
+@media (max-width: 650px) {
+  :where(.reports-workspace, .reports-modal) .report-export-bar button {
+    flex: 1;
+  }
+}
+:where(.reports-workspace, .reports-modal) ::selection {
+  background: #2365e833;
+  color: var(--ink);
+}
+:where(.reports-workspace, .reports-modal) .iconbtn {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--text);
+  width: 40px;
+  height: 40px;
+}
+:where(.reports-workspace, .reports-modal) .iconbtn:hover {
+  background: var(--blue-bg);
+  transform: none;
+  color: var(--blue-text);
+}
+:where(.reports-workspace, .reports-modal) .actions {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+:where(.reports-workspace, .reports-modal) .card,
+:where(.reports-workspace, .reports-modal) .card:nth-child(n) {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+  padding: 22px;
+  color: var(--ink);
+}
+:where(.reports-workspace, .reports-modal) .card:hover {
+  box-shadow: var(--shadow);
+}
+:where(.reports-workspace, .reports-modal) .card h2,
+:where(.reports-workspace, .reports-modal) h2 {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink);
+}
+:where(.reports-workspace, .reports-modal) .cardhead {
+  margin-bottom: 18px;
+}
+:where(.reports-workspace, .reports-modal) .help,
+:where(.reports-workspace, .reports-modal) .caption {
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.9;
+}
+:where(.reports-workspace, .reports-modal) .btn {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 14px;
+  min-height: 42px;
+  padding: 9px 16px;
+  font-weight: 700;
+  box-shadow: none;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+:where(.reports-workspace, .reports-modal) .btn.primary {
+  background: #1c60ee;
+  color: #fff;
+  border-color: #1c60ee;
+  box-shadow: 0 4px 10px #1c60ee12;
+}
+:where(.reports-workspace, .reports-modal) .btn.primary:hover {
+  background: #1752cf;
+  border-color: #1752cf;
+  box-shadow: none;
+  transform: none;
+}
+:where(.reports-workspace, .reports-modal) .btn:hover:not(:disabled) {
+  background: var(--blue-bg);
+  color: var(--blue-text);
+  border-color: #87aff0;
+  box-shadow: none;
+  transform: none;
+}
+:where(.reports-workspace, .reports-modal) .btn.primary:hover:not(:disabled) {
+  background: #1752cf;
+  color: #fff;
+}
+:where(.reports-workspace, .reports-modal) .btn.small {
+  font-size: 13px;
+  min-height: 33px;
+  padding: 5px 10px;
+  border-radius: 8px;
+}
+:where(.reports-workspace, .reports-modal) .btn.ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--blue-text);
+}
+:where(.reports-workspace, .reports-modal) .btn:focus-visible,
+:where(.reports-workspace, .reports-modal) .iconbtn:focus-visible {
+  outline: 3px solid #8ab4fc;
+  outline-offset: 3px;
+}
+:where(.reports-workspace, .reports-modal) .badge {
+  border: 0;
+  border-radius: 8px;
+  padding: 4px 10px;
+  background: var(--teal-bg);
+  color: var(--teal-text);
+  font-size: 12px;
+  font-weight: 700;
+}
+:where(.reports-workspace, .reports-modal) .badge.warn {
+  background: var(--amber-bg);
+  color: var(--amber-text);
+  border: 0;
+}
+:where(.reports-workspace, .reports-modal) input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+:where(.reports-workspace, .reports-modal) select,
+:where(.reports-workspace, .reports-modal) textarea {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  color: var(--ink);
+  font-size: 15px;
+  padding: 10px 13px;
+  min-height: 44px;
+  box-shadow: none;
+}
+:where(.reports-workspace, .reports-modal) input::placeholder,
+:where(.reports-workspace, .reports-modal) textarea::placeholder {
+  color: var(--muted);
+  opacity: 0.85;
+}
+:where(.reports-workspace, .reports-modal) input:focus,
+:where(.reports-workspace, .reports-modal) select:focus,
+:where(.reports-workspace, .reports-modal) textarea:focus {
+  outline: 0;
+  border-color: #6095ee;
+  box-shadow: 0 0 0 3px #2365e815;
+}
+:where(.reports-workspace, .reports-modal) input[type="checkbox"],
+:where(.reports-workspace, .reports-modal) input[type="radio"] {
+  accent-color: #1c60ee;
+}
+:where(.reports-workspace, .reports-modal) label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+:where(.reports-workspace, .reports-modal) .formfoot {
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+  margin-top: 24px;
+}
+:where(.reports-workspace, .reports-modal) .formfoot .btn {
+  min-width: 95px;
+}
+.reports-modal {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 28px;
+  box-shadow: 0 24px 80px #0c1c3433;
+  color: var(--ink);
+}
+.reports-modal > .cardhead {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.reports-modal h2 {
+  font-size: 22px;
+}
+.reports-modal .card {
+  box-shadow: none;
+}
+:where(.reports-workspace, .reports-modal) .notice {
+  border-radius: 12px;
+  background: var(--blue-bg);
+  color: var(--blue-text);
+  border: 1px solid color-mix(in srgb, var(--blue-text) 15%, var(--line));
+  font-size: 14px;
+}
+:where(.reports-workspace, .reports-modal) .notice.warn {
+  background: var(--amber-bg);
+  color: var(--amber-text);
+}
+:where(.reports-workspace, .reports-modal) .tablewrap {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+:where(.reports-workspace, .reports-modal) table {
+  background: var(--panel);
+  font-size: 14px;
+}
+:where(.reports-workspace, .reports-modal) th {
+  background: var(--raised);
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+:where(.reports-workspace, .reports-modal) td {
+  padding: 14px 16px;
+  font-size: 14px;
+  border-bottom: 1px solid var(--soft-line);
+  color: var(--text);
+}
+:where(.reports-workspace, .reports-modal) tbody tr:hover {
+  background: var(--subtle);
+}
+:where(.reports-workspace, .reports-modal) td strong {
+  color: var(--ink);
+}
+:where(.reports-workspace, .reports-modal) .tablewrap td .actions {
+  gap: 5px;
+}
+:where(.reports-workspace, .reports-modal) .table-sort {
+  color: inherit;
+}
+:where(.reports-workspace, .reports-modal) .report-export-bar {
+  margin: 20px 0;
+}
+@media (min-width: 1500px) {
+  :where(.reports-workspace, .reports-modal) .card {
+    padding: 24px;
+  }
+}
+@media (max-width: 650px) {
+  :where(.reports-workspace, .reports-modal) .card,
+:where(.reports-workspace, .reports-modal) .card:nth-child(n) {
+    padding: 17px;
+    border-radius: 15px;
+  }
+}
+@media (max-width: 650px) {
+  :where(.reports-workspace, .reports-modal) .card h2,
+:where(.reports-workspace, .reports-modal) h2 {
+    font-size: 18px;
+  }
+}
+@media (max-width: 650px) {
+  :where(.reports-workspace, .reports-modal) .report-export-bar .actions {
+    width: 100%;
+  }
+}
+@media (max-width: 650px) {
+  :where(.reports-workspace, .reports-modal) .report-export-bar .actions .btn {
+    flex: 1 1 145px;
+  }
+}
+@media (max-width: 650px) {
+  .reports-modal {
+    padding: 20px 16px;
+    border-radius: 18px;
+    max-height: 90dvh;
+  }
+}
+@media (max-width: 650px) {
+  :where(.reports-workspace, .reports-modal) .tablewrap {
+    border-radius: 10px;
+  }
+}
+@media print {
+  :where(.reports-workspace, .reports-modal) .card {
+    box-shadow: none;
+  }
+}
+:where(.reports-workspace, .reports-modal) .tablewrap td .actions {
+  flex-wrap: nowrap;
+  width: max-content;
+  min-width: 0;
+}
+:where(.reports-workspace, .reports-modal) .tablewrap td .actions .btn {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+:where(.reports-workspace, .reports-modal) .tablewrap td {
+  vertical-align: middle;
+}
+.reports-modal {
+  width: min(900px, 100%);
+  max-height: calc(100dvh - 56px);
+  border-radius: 24px;
+  padding: 28px;
+  background: var(--panel);
+  box-shadow: 0 28px 90px #0d1d3440;
+  border: 1px solid var(--line);
+  overflow: auto;
+}
+.reports-modal > .dialog-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin: 0 0 24px;
+  padding: 0 0 22px;
+  border-bottom: 1px solid var(--line);
+}
+:where(.reports-workspace, .reports-modal) .dialog-heading h2 {
+  font-size: 21px;
+  line-height: 1.6;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.reports-modal label {
+  font-size: 14px;
+  line-height: 1.8;
+  gap: 7px;
+}
+.reports-modal input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+.reports-modal select,
+.reports-modal textarea {
+  min-height: 46px;
+  border-radius: 10px;
+  font-size: 14px;
+  background: var(--panel);
+  border-color: var(--line);
+  padding: 11px 13px;
+}
+.reports-modal input::placeholder,
+.reports-modal textarea::placeholder {
+  font-size: 13px;
+}
+.reports-modal .formfoot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 18px;
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.reports-modal .formfoot .btn {
+  min-width: 90px;
+  border-radius: 9px;
+  min-height: 42px;
+  padding: 9px 16px;
+  font-size: 14px;
+}
+.reports-modal .formfoot .btn.primary {
+  order: 2;
+}
+.reports-modal .formfoot .btn.primary:after {
+  content: "✓";
+  margin-inline-start: 7px;
+}
+.reports-modal .notice {
+  background: var(--blue-bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.reports-modal:has(.report-filters) {
+  width: min(980px, 100%);
+}
+@media (max-width: 650px) {
+  .reports-modal {
+    padding: 20px;
+    max-height: calc(100dvh - 24px);
+    border-radius: 20px;
+  }
+}
+@media (max-width: 650px) {
+  .reports-modal > .dialog-heading {
+    margin-bottom: 20px;
+    padding-bottom: 18px;
+  }
+}
+@media (max-width: 650px) {
+  :where(.reports-workspace, .reports-modal) .dialog-heading h2 {
+    font-size: 18px;
+  }
+}
+@media (max-width: 650px) {
+  .reports-modal .report-filter-grid {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+}
+@media (max-width: 650px) {
+  .reports-modal .formfoot {
+    position: sticky;
+    bottom: -20px;
+    background: var(--panel);
+    padding: 14px 0;
+    margin-bottom: -4px;
+  }
+}
+@media (max-width: 650px) {
+  .reports-modal .formfoot .btn {
+    flex: 1;
+  }
+}
+@media print {
+  :where(.reports-workspace, .reports-modal) .dialog-heading {
+    display: none !important;
+  }
+}
+@media print {
+  .reports-modal {
+    max-height: none;
+    border: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+}
+:where(.reports-workspace, .reports-modal) .card {
+  border-radius: 14px;
+  padding: 20px;
+  background: var(--panel);
+  box-shadow: none;
+}
+:where(.reports-workspace, .reports-modal) .card:hover {
+  box-shadow: none;
+}
+:where(.reports-workspace, .reports-modal) .card .btn,
+.reports-modal .btn {
+  border-radius: 9px;
+  min-height: 40px;
+  font-size: 13px;
+  box-shadow: none;
+}
+:where(.reports-workspace, .reports-modal) .card .btn.small {
+  min-height: 32px;
+  padding: 5px 10px;
+}
+:where(.reports-workspace, .reports-modal) .card .btn.primary,
+.reports-modal .btn.primary {
+  background: #1c60ee;
+  color: #fff;
+  border-color: #1c60ee;
+}
+:where(.reports-workspace, .reports-modal) .toolbar {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+:where(.reports-workspace, .reports-modal) .toolbar input {
+  flex: 1;
+  min-width: 160px;
+}
+:where(.reports-workspace, .reports-modal) .card .formfoot {
+  margin-top: 20px;
+  padding-top: 16px;
+}
+:where(.reports-workspace, .reports-modal) .report-export-bar {
+  margin: 16px 0;
+}
+:where(.reports-workspace, .reports-modal) .cardhead > div:empty {
+  display: none;
+}
+:where(.reports-workspace, .reports-modal) .card h2:empty {
+  display: none;
+}
+:where(.reports-workspace, .reports-modal) .card .caption:empty {
+  display: none;
+}
+@media (max-width: 650px) {
+  :where(.reports-workspace, .reports-modal) .card {
+    padding: 16px;
+  }
+}
+:where(.reports-workspace, .reports-modal) .btn:focus-visible,
+.reports-modal .btn:focus-visible {
+  outline: 2px solid var(--sky);
+  outline-offset: 3px;
+}
+[data-theme="dark"] :where(.reports-workspace, .reports-modal) .card .btn.primary,
+[data-theme="dark"] .reports-modal .btn.primary {
+  background: linear-gradient(100deg, #0099b6, #0d7894);
+  border-color: #0c94ad;
+  color: #fff;
+}
+[data-theme="dark"] :where(.reports-workspace, .reports-modal) .card,
+[data-theme="dark"] .reports-modal {
+  background: #192437;
+  border-color: #30465a;
+  color: #e5eef8;
+}
+[data-theme="dark"] :where(.reports-workspace, .reports-modal) .card {
+  box-shadow: 0 5px 20px #0000000a;
+}
+[data-theme="dark"]
+  :where(.reports-workspace, .reports-modal)
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+[data-theme="dark"] :where(.reports-workspace, .reports-modal) select,
+[data-theme="dark"] :where(.reports-workspace, .reports-modal) textarea,
+[data-theme="dark"]
+  .reports-modal
+  input:not([type="checkbox"]):not([type="radio"]):not([type="color"]),
+[data-theme="dark"] .reports-modal select,
+[data-theme="dark"] .reports-modal textarea {
+  background: #21334b;
+  border-color: #354d67;
+  color: #e5eef8;
+}
+[data-theme="dark"] :where(.reports-workspace, .reports-modal) input:focus,
+[data-theme="dark"] :where(.reports-workspace, .reports-modal) select:focus,
+[data-theme="dark"] :where(.reports-workspace, .reports-modal) textarea:focus,
+[data-theme="dark"] .reports-modal input:focus,
+[data-theme="dark"] .reports-modal select:focus,
+[data-theme="dark"] .reports-modal textarea:focus {
+  border-color: #40c4dc;
+  box-shadow: 0 0 0 3px #40c4dc16;
+}
+[data-theme="dark"] :where(.reports-workspace, .reports-modal) input[type="checkbox"],
+[data-theme="dark"] :where(.reports-workspace, .reports-modal) input[type="radio"] {
+  accent-color: #079eb7;
+}
+[data-theme="dark"] :where(.reports-workspace, .reports-modal) th {
+  background: #1c3344;
+  color: #c3dce8;
+  border-color: #30465a;
+}
+[data-theme="dark"] :where(.reports-workspace, .reports-modal) td {
+  border-color: #293f50;
+}
+[data-theme="dark"] :where(.reports-workspace, .reports-modal) tbody tr:nth-child(even) {
+  background: #172b3938;
+}
+[data-theme="dark"] :where(.reports-workspace, .reports-modal) tbody tr:hover {
+  background: #203b4b50;
+}
+html[data-theme="dark"] .reports-modal .btn.primary {
+  background: linear-gradient(100deg, #0099b6, #0d7894) !important;
+  color: white !important;
+  border-color: #0c94ad !important;
+}
+html[data-theme="light"] :where(.reports-workspace, .reports-modal) .cardhead:not(:empty),
+html[data-theme="light"] :where(.reports-workspace, .reports-modal) .toolbar:not(:empty) {
+  background: #f7f9fc;
+  border-color: #edf1f7;
+}
+html[data-theme="light"] :where(.reports-workspace, .reports-modal) thead th {
+  background: #f4f7fb;
+  color: #5a6b83;
+  border-color: #e6edf5;
+}
+html[data-theme="light"] :where(.reports-workspace, .reports-modal) .card {
+  border-color: #e5ebf3;
+  box-shadow: 0 3px 14px #203b6003;
+}
+:where(.reports-workspace, .reports-modal) html[data-theme="light"] {
+  --canvas-top: #f5f6f8;
+  --canvas-bottom: #f5f6f8;
+}
+html[data-theme="light"] :where(.reports-workspace, .reports-modal) .card {
+  background: #fff;
+  border-color: #e8ebef;
+  box-shadow: 0 2px 8px #14253c03;
+  color: #17202e;
+}
+html[data-theme="light"] :where(.reports-workspace, .reports-modal) .cardhead:not(:empty),
+html[data-theme="light"] :where(.reports-workspace, .reports-modal) .toolbar:not(:empty) {
+  background: #f8f9fb;
+  border-color: #f0f1f4;
+}
+html[data-theme="light"] :where(.reports-workspace, .reports-modal) .card .btn.primary {
+  background: #175ce6;
+  border-color: #175ce6;
+}
+:where(.reports-workspace, .reports-modal) html[data-theme="light"] {
+  --canvas-top: #edf4f6;
+  --canvas-bottom: #edf4f6;
+  --panel: #fff;
+  --panel-glass: #fff;
+  --raised: #f2f7f9;
+  --subtle: #f7fafb;
+  --ink: #123d57;
+  --text: #416078;
+  --muted: #68869d;
+  --soft-line: #e1ebef;
+  --cyan: #0898b5;
+  --sky: #0898b5;
+  --blue-bg: #e4f3f7;
+  --blue-text: #078ba8;
+  --teal-bg: #e7f5f0;
+  --teal-text: #079b78;
+  --amber-bg: #fff5e8;
+  --amber-text: #cd810a;
+  --red-bg: #fff0f1;
+  --red-text: #df3947;
+  --brand-gradient: linear-gradient(110deg, #0898b5, #087f9b);
+  --shadow: 0 3px 14px #123d5704;
+  --line: #ccdbe3;
+}
+html[data-theme="light"] :where(.reports-workspace, .reports-modal) .card {
+  background: #fff;
+  border-color: #d5e3e9;
+  color: #123d57;
+  box-shadow: 0 3px 14px #123d5704;
+}
+html[data-theme="light"] :where(.reports-workspace, .reports-modal) .cardhead:not(:empty),
+html[data-theme="light"] :where(.reports-workspace, .reports-modal) .toolbar:not(:empty) {
+  background: #f3f8fa;
+  border-color: #e1ebef;
+}
+html[data-theme="light"] :where(.reports-workspace, .reports-modal) thead th {
+  background: #eef5f7;
+  color: #58778e;
+  border-color: #d7e5eb;
+}
+html[data-theme="light"] .reports-modal .btn.primary {
+  background: #0898b5 !important;
+  border-color: #0898b5 !important;
+  color: #fff !important;
+  box-shadow: none;
+}
+html[data-theme="light"] .reports-modal .btn.primary:hover {
+  background: #07849f !important;
+  border-color: #07849f !important;
+}
+html[data-theme="light"] :where(.reports-workspace, .reports-modal) input:focus,
+html[data-theme="light"] :where(.reports-workspace, .reports-modal) select:focus,
+html[data-theme="light"] :where(.reports-workspace, .reports-modal) textarea:focus {
+  border-color: #0898b5;
+  box-shadow: 0 0 0 3px #0898b515;
+}
+html[data-theme="light"] :where(.reports-workspace, .reports-modal) input[type="checkbox"],
+html[data-theme="light"] :where(.reports-workspace, .reports-modal) input[type="radio"] {
+  accent-color: #0898b5;
+}
+:where(.reports-workspace, .reports-modal) tr[draggable="true"] {
+  cursor: grab;
+}
+:where(.reports-workspace, .reports-modal) tr[draggable="true"]:active {
+  cursor: grabbing;
+}
+html[data-theme] :where(.reports-workspace, .reports-modal) body select:not([multiple]):not([size]),
+html[data-theme] :where(.reports-workspace, .reports-modal) body select:not([multiple])[size="1"] {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236789a0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-size: 16px 16px !important;
+  background-position: left 12px center !important;
+  padding-inline-start: 12px !important;
+  padding-inline-end: 38px !important;
+  text-align: start;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+:where(.reports-workspace, .reports-modal) html[dir="ltr"][data-theme] body select:not([multiple]):not([size]),
+:where(.reports-workspace, .reports-modal) html[dir="ltr"][data-theme] body select:not([multiple])[size="1"] {
+  background-position: right 12px center !important;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) body select:not([multiple]):not([size]),
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) body select:not([multiple])[size="1"] {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b2c5d5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E") !important;
+}
+:where(.reports-workspace, .reports-modal) :is(.tablewrap td) {
+  font-size: 12px;
+  line-height: 1.65;
+}
+:where(.reports-workspace, .reports-modal) :is(.tablewrap td) :is(strong, b, span, p) {
+  font-size: 12px;
+}
+:where(.reports-workspace, .reports-modal)
+  :is(.tablewrap td)
+  :is(.caption, .help, small, time, .badge, .btn) {
+  font-size: 11px;
+}
+:where(.reports-workspace, .reports-modal)
+  :is(.tablewrap td)
+  :is(.caption, .help, .badge, .btn)
+  :is(span, b, strong) {
+  font-size: inherit;
+}
+:where(.reports-workspace, .reports-modal) .report-group-grid,
+:where(.reports-workspace, .reports-modal) .report-related-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 14px;
+  margin: 18px 0;
+}
+:where(.reports-workspace, .reports-modal) .report-group-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: start;
+  gap: 10px;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--report-accent, #0891b2);
+  background: linear-gradient(
+    130deg,
+    color-mix(in srgb, var(--report-accent, #0891b2) 13%, var(--panel)),
+    var(--panel)
+  );
+  color: var(--text);
+}
+:where(.reports-workspace, .reports-modal) .report-group-card svg {
+  width: 26px;
+  height: 26px;
+  color: var(--report-accent, #0891b2);
+}
+:where(.reports-workspace, .reports-modal) .report-group-card strong {
+  font-size: 16px;
+}
+:where(.reports-workspace, .reports-modal) .report-group-card span,
+:where(.reports-workspace, .reports-modal) .report-group-card small {
+  font-size: 12px;
+  color: var(--muted);
+}
+:where(.reports-workspace, .reports-modal) .report-group-card .report-group-action {
+  margin-top: auto;
+  border-color: var(--report-accent, #0891b2);
+  color: var(--report-accent, #0891b2);
+}
+:where(.reports-workspace, .reports-modal) .report-group-card.selected {
+  outline: 2px solid var(--report-accent, #0891b2);
+  outline-offset: 2px;
+}
+:where(.reports-workspace, .reports-modal) .report-group-wallets {
+  --report-accent: #285e65;
+}
+:where(.reports-workspace, .reports-modal) .report-group-inventory {
+  --report-accent: #526779;
+}
+:where(.reports-workspace, .reports-modal) .report-group-network {
+  --report-accent: #8b6bd1;
+}
+:where(.reports-workspace, .reports-modal) .report-group-admin {
+  --report-accent: #5796bd;
+}
+:where(.reports-workspace, .reports-modal) .report-related h2 {
+  font-size: 18px;
+}
+:where(.reports-workspace, .reports-modal) .report-related-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 18px;
+  border-top: 3px solid var(--accent, #0799b3);
+}
+:where(.reports-workspace, .reports-modal) .report-related-card h3 {
+  font-size: 14px;
+  margin: 0;
+}
+:where(.reports-workspace, .reports-modal) .report-related-card > strong {
+  font-size: 23px;
+}
+:where(.reports-workspace, .reports-modal) .report-related-card small {
+  font-size: 12px;
+  color: var(--muted);
+}
+:where(.reports-workspace, .reports-modal) .report-related-card .btn {
+  margin-top: auto;
+}
+.reports-modal:has(.report-detail-dialog) {
+  width: min(1200px, 96vw);
+  max-width: 96vw;
+}
+:where(.reports-workspace, .reports-modal) .report-detail-dialog .tablewrap {
+  max-height: 52vh;
+  overflow: auto;
+}
+:where(.reports-workspace, .reports-modal) .report-detail-dialog td {
+  font-size: 12px;
+}
+:where(.reports-workspace, .reports-modal) .report-detail-dialog .report-table-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+:where(.reports-workspace, .reports-modal) .report-detail-dialog .report-table-tools > input {
+  flex: 1;
+  min-width: 160px;
+}
+@media (max-width: 550px) {
+  :where(.reports-workspace, .reports-modal) .report-group-grid,
+:where(.reports-workspace, .reports-modal) .report-related-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 550px) {
+  :where(.reports-workspace, .reports-modal) .report-group-card {
+    padding: 16px;
+  }
+}
+:where(.reports-workspace, .reports-modal) .report-related-grid {
+  grid-template-columns: repeat(auto-fill, minmax(210px, 250px));
+}
+:where(.reports-workspace, .reports-modal) .report-group-card {
+  background: linear-gradient(
+    130deg,
+    color-mix(in srgb, var(--report-accent, #0891b2) 12%, var(--panel)),
+    var(--panel)
+  ) !important;
+  border-color: var(--report-accent, #0891b2) !important;
+}
+@media (max-width: 550px) {
+  :where(.reports-workspace, .reports-modal) .report-related-grid {
+    grid-template-columns: 1fr;
+  }
+}
+:where(.reports-workspace, .reports-modal) .report-unified-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: nowrap;
+}
+:where(.reports-workspace, .reports-modal) .report-toolbar-title {
+  min-width: 0;
+}
+:where(.reports-workspace, .reports-modal) .report-toolbar-title h2 {
+  font-size: 18px;
+  line-height: 1.6;
+  margin: 0;
+}
+:where(.reports-workspace, .reports-modal) .report-unified-toolbar .actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+  margin: 0;
+  flex-shrink: 0;
+}
+@media (max-width: 1000px) {
+  :where(.reports-workspace, .reports-modal) .report-unified-toolbar {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 1000px) {
+  :where(.reports-workspace, .reports-modal) .report-unified-toolbar .actions {
+    flex-wrap: wrap;
+    flex-shrink: 1;
+  }
+}
+:where(.reports-workspace, .reports-modal) .report-related .report-related-card {
+  --group-color: var(--report-accent, #0891b2);
+  border-color: var(--group-color) !important;
+  background: linear-gradient(
+    130deg,
+    color-mix(in srgb, var(--group-color) 12%, var(--panel)),
+    var(--panel)
+  ) !important;
+}
+:where(.reports-workspace, .reports-modal) .report-related .report-related-card > strong {
+  color: var(--report-accent, #0891b2);
+}
+:where(.reports-workspace, .reports-modal) .report-related .report-related-card .btn {
+  border-color: var(--report-accent, #0891b2);
+  background: color-mix(
+    in srgb,
+    var(--report-accent, #0891b2) 8%,
+    var(--panel)
+  );
+  color: var(--text);
+}
+:where(.reports-workspace, .reports-modal) .report-related-grid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+@media (max-width: 550px) {
+  :where(.reports-workspace, .reports-modal) .report-related-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (min-width: 901px) {
+  :where(.reports-workspace, .reports-modal)
+    :is(.report-unified-toolbar) {
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 7px;
+  }
+}
+@media (min-width: 901px) {
+  :where(.reports-workspace, .reports-modal)
+    :is(.report-unified-toolbar) {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+}
+@media (min-width: 901px) {
+  :where(.reports-workspace, .reports-modal)
+    :is(.report-unified-toolbar)::-webkit-scrollbar {
+    display: none;
+  }
+}
+:where(.reports-workspace, .reports-modal) .report-detail-dialog th {
+  white-space: nowrap;
+}
+:where(.reports-workspace, .reports-modal) .report-detail-dialog td {
+  vertical-align: middle;
+}
+:where(.reports-workspace, .reports-modal) .report-detail-dialog .table-sort {
+  text-align: start;
+}
+:where(.reports-workspace, .reports-modal) .report-detail-dialog .report-table-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--raised);
+}
+:where(.reports-workspace, .reports-modal) .report-detail-dialog .report-table-tools > input {
+  flex: 1 1 180px;
+  width: auto;
+  min-width: 120px;
+  height: 42px;
+  margin: 0;
+  background: var(--panel);
+  border-color: var(--line);
+  color: var(--ink);
+}
+:where(.reports-workspace, .reports-modal) .report-detail-dialog .report-table-tools > select {
+  flex: 0 0 78px;
+  width: 78px;
+  min-width: 78px;
+  height: 42px;
+  margin: 0;
+  background: var(--panel);
+  border-color: var(--line);
+  color: var(--ink);
+}
+:where(.reports-workspace, .reports-modal) .report-detail-dialog .report-table-tools > .column-picker,
+:where(.reports-workspace, .reports-modal) .report-detail-dialog .report-table-tools > .badge,
+:where(.reports-workspace, .reports-modal) .report-detail-dialog .report-table-tools > .btn {
+  flex: 0 0 auto;
+  width: auto;
+  white-space: nowrap;
+  margin: 0;
+}
+:where(.reports-workspace, .reports-modal) .report-detail-dialog .report-table-tools > .btn,
+:where(.reports-workspace, .reports-modal) .report-detail-dialog .report-table-tools > .column-picker > summary {
+  min-height: 42px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+:where(.reports-workspace, .reports-modal) .report-detail-dialog .column-picker > div {
+  background: var(--panel);
+  border-color: var(--line);
+  color: var(--ink);
+}
+:where(.reports-workspace, .reports-modal) .report-detail-dialog .report-table-tools > input:focus,
+:where(.reports-workspace, .reports-modal) .report-detail-dialog .report-table-tools > select:focus {
+  border-color: var(--cyan);
+  outline: 2px solid color-mix(in srgb, var(--cyan) 25%, transparent);
+}
+:where(.reports-workspace, .reports-modal) .report-record-panel {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  margin: 16px 0;
+  background: var(--panel);
+}
+:where(.reports-workspace, .reports-modal) .report-record-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 14px 0;
+}
+:where(.reports-workspace, .reports-modal) .report-record-fields > div {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  min-width: 0;
+  background: var(--raised);
+  color: var(--ink);
+}
+:where(.reports-workspace, .reports-modal) .report-record-fields dt {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-bottom: 6px;
+}
+:where(.reports-workspace, .reports-modal) .report-record-fields dd {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+:where(.reports-workspace, .reports-modal) .report-record-fields dt {
+  color: var(--muted);
+  opacity: 1;
+}
+@media (max-width: 700px) {
+  :where(.reports-workspace, .reports-modal) .report-detail-dialog .report-table-tools {
+    flex-wrap: wrap;
+  }
+}
+@media (max-width: 700px) {
+  :where(.reports-workspace, .reports-modal) .report-detail-dialog .report-table-tools > input {
+    flex-basis: 100%;
+  }
+}
+:where(.reports-workspace, .reports-modal) .report-linked {
+  margin-top: 18px;
+}
+:where(.reports-workspace, .reports-modal) .report-detail-dialog .tablewrap td {
+  max-width: 360px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+@media (max-width: 800px) {
+  :where(.reports-workspace, .reports-modal) .report-record-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 480px) {
+  :where(.reports-workspace, .reports-modal) .report-record-fields {
+    grid-template-columns: 1fr;
+  }
+}
+:where(.reports-workspace, .reports-modal) body * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+:where(.reports-workspace, .reports-modal) html::-webkit-scrollbar,
+:where(.reports-workspace, .reports-modal) body::-webkit-scrollbar,
+:where(.reports-workspace, .reports-modal) body *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-group-inventory {
+  --report-accent: #b6c5d3;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) :is(.report-group-sales, .report-related) {
+  --report-accent: #83cedf;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-group-wallets {
+  --report-accent: #9bc7cb;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-group-inventory {
+  --report-accent: #b6c5d3;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-group-network {
+  --report-accent: #c4aff0;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-group-admin {
+  --report-accent: #a2c7e5;
+}
+html[data-theme="dark"]
+  :where(.reports-workspace, .reports-modal)
+  :is(.report-group-card, .report-related .report-related-card) {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--report-accent) 7%, #192437),
+    #192437
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--report-accent) 35%,
+    #304059
+  ) !important;
+  box-shadow: none;
+  color: #dae6ef;
+}
+html[data-theme="dark"]
+  :where(.reports-workspace, .reports-modal)
+  :is(.report-group-card, .report-related-card)
+  :is(h3, strong) {
+  color: #edf4fa;
+}
+html[data-theme="dark"]
+  :where(.reports-workspace, .reports-modal)
+  :is(.report-group-card, .report-related-card)
+  :is(span, small) {
+  color: #b2c5d5;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-related .report-related-card > strong {
+  color: var(--report-accent);
+}
+html[data-theme="dark"]
+  :where(.reports-workspace, .reports-modal)
+  :is(.report-group-card, .report-related-card)
+  .btn {
+  color: var(--report-accent);
+  background: #202e43;
+  border-color: color-mix(in srgb, var(--report-accent) 40%, #304059);
+}
+html[data-theme="dark"]
+  :where(.reports-workspace, .reports-modal)
+  :is(.report-group-card, .report-related-card):hover {
+  border-color: var(--report-accent) !important;
+}
+html[data-theme="dark"]
+  :is(.report-unified-toolbar, .reports-modal:has(.report-detail-dialog), .reports-modal:has(.report-filters)) {
+  --panel: #192437;
+  --raised: #202e43;
+  --line: #354b63;
+  --ink: #edf4fa;
+  --text: #dae6ef;
+  --muted: #b2c5d5;
+  background: var(--panel);
+  color: var(--text);
+  border-color: var(--line);
+}
+html[data-theme="dark"]
+  :where(.reports-workspace, .reports-modal) :is(.report-detail-dialog, .report-filters)
+  :is(input:not([type="checkbox"]), select, textarea) {
+  background: #202e43 !important;
+  color: #edf4fa !important;
+  border-color: #405973 !important;
+}
+html[data-theme="dark"]
+  :where(.reports-workspace, .reports-modal) :is(.report-detail-dialog, .report-filters)
+  :is(input, textarea)::placeholder {
+  color: #a9bfd2;
+  opacity: 1;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-detail-dialog .report-table-tools {
+  background: #162333;
+  border-color: #354b63;
+}
+html[data-theme="dark"]
+  :where(.reports-workspace, .reports-modal) .report-detail-dialog
+  :is(.tablewrap, .report-record-panel, .report-record-fields > div, .column-picker > div) {
+  background: #192437;
+  border-color: #354b63;
+  color: #dae6ef;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-detail-dialog .report-record-fields > div {
+  background: #202e43;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-detail-dialog th {
+  background: #203748 !important;
+  color: #bedce9 !important;
+  border-color: #354b63;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-detail-dialog td {
+  background: #192437 !important;
+  color: #dae6ef;
+  border-color: #304459;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-detail-dialog tbody tr:nth-child(even) td {
+  background: #1c293b !important;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-detail-dialog tbody tr:hover td {
+  background: #233c4e !important;
+}
+html[data-theme="dark"]
+  :where(.reports-workspace, .reports-modal) :is(.report-detail-dialog, .report-filters, .report-unified-toolbar)
+  :is(input, select, .btn, summary):focus-visible {
+  outline: 2px solid #83cedf;
+  outline-offset: 2px;
+}
+:where(.reports-workspace, .reports-modal) .report-related .report-related-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 14px;
+}
+html :where(.reports-workspace, .reports-modal) .report-related .report-related-card.report-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 22px;
+  padding: 20px;
+  border: 1px solid
+    color-mix(in srgb, var(--report-accent, #0891b2) 30%, var(--line)) !important;
+  border-radius: 16px;
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--report-accent, #0891b2) 10%, var(--panel)),
+    color-mix(in srgb, var(--report-accent, #0891b2) 4%, var(--panel))
+  ) !important;
+  box-shadow: 0 3px 12px #123d5705;
+  transition:
+    border-color 0.18s,
+    box-shadow 0.18s,
+    transform 0.18s;
+  min-width: 0;
+}
+:where(.reports-workspace, .reports-modal) .report-tile-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+:where(.reports-workspace, .reports-modal) .report-tile-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: color-mix(
+    in srgb,
+    var(--report-accent, #0891b2) 12%,
+    var(--panel)
+  );
+  color: var(--report-accent, #0891b2) !important;
+}
+:where(.reports-workspace, .reports-modal) .report-tile-icon svg {
+  width: 22px;
+  height: 22px;
+}
+:where(.reports-workspace, .reports-modal) .report-tile-heading h3 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+:where(.reports-workspace, .reports-modal) .report-tile-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--soft-line);
+}
+:where(.reports-workspace, .reports-modal) .report-tile-count {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: max-content;
+  flex-shrink: 0;
+}
+:where(.reports-workspace, .reports-modal) .report-tile-count strong {
+  font-size: 26px;
+  line-height: 1.2;
+  font-weight: 800;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+:where(.reports-workspace, .reports-modal) .report-tile-count small {
+  color: var(--muted);
+  font-size: 12px;
+}
+html :where(.reports-workspace, .reports-modal) .report-related .report-tile .report-tile-open {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  background: color-mix(in srgb, var(--report-accent, #0891b2) 78%, #102b40);
+  color: #fff;
+  box-shadow: 0 2px 6px #123d5712;
+  font-weight: 700;
+  font-size: 12px;
+}
+html :where(.reports-workspace, .reports-modal) .report-related .report-tile .report-tile-open span {
+  color: inherit;
+}
+:where(.reports-workspace, .reports-modal) .report-tile-open svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+:where(.reports-workspace, .reports-modal) [dir="ltr"] .report-tile-open svg {
+  transform: rotate(180deg);
+}
+html :where(.reports-workspace, .reports-modal) .report-related .report-tile:hover,
+html :where(.reports-workspace, .reports-modal) .report-related .report-tile:focus-within {
+  border-color: var(--report-accent, #0891b2) !important;
+  box-shadow: 0 7px 20px #123d570d;
+}
+html :where(.reports-workspace, .reports-modal) .report-related .report-tile .report-tile-open:hover {
+  background: color-mix(in srgb, var(--report-accent, #0891b2) 65%, #102b40);
+}
+:where(.reports-workspace, .reports-modal) .report-tile-open:focus-visible {
+  outline: 2px solid var(--report-accent, #0891b2);
+  outline-offset: 2px;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-group-sales {
+  --report-surface: #1b303b;
+  --report-edge: #355463;
+  --report-button: #284957;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-group-wallets {
+  --report-surface: #203339;
+  --report-edge: #3b6067;
+  --report-button: #2b4b53;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-group-inventory {
+  --report-surface: #242f3c;
+  --report-edge: #425366;
+  --report-button: #34475a;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-group-network {
+  --report-surface: #2b293d;
+  --report-edge: #4c4565;
+  --report-button: #403653;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-group-admin {
+  --report-surface: #203040;
+  --report-edge: #3b536c;
+  --report-button: #2d4660;
+}
+html[data-theme="dark"]
+  :where(.reports-workspace, .reports-modal)
+  :is(.report-group-card, .report-related .report-related-card.report-tile) {
+  background: var(--report-surface, #202e3d) !important;
+  border: 1px solid var(--report-edge, #3a4d61) !important;
+  box-shadow: none;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-tile-footer {
+  border-color: var(--report-edge, #3a4d61);
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-tile-icon {
+  background: var(--report-button, #2c4356);
+  color: var(--report-accent) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  :where(.reports-workspace, .reports-modal) .report-related .report-related-card.report-tile {
+    transition: none;
+  }
+}
+html[data-theme="dark"]
+  :where(.reports-workspace, .reports-modal)
+  :is(.report-group-card .report-group-action, .report-related .report-tile .report-tile-open) {
+  background: var(--report-button, #2c4356) !important;
+  color: #e9f1f8 !important;
+  border: 1px solid var(--report-edge, #3a4d61) !important;
+  box-shadow: none;
+}
+html[data-theme="dark"]
+  :where(.reports-workspace, .reports-modal)
+  :is(.report-group-card .report-group-action, .report-related .report-tile .report-tile-open):hover {
+  background: color-mix(
+    in srgb,
+    var(--report-button, #2c4356) 85%,
+    var(--report-accent, #83cedf)
+  ) !important;
+  border-color: var(--report-accent) !important;
+}
+html[data-theme="dark"]
+  :where(.reports-workspace, .reports-modal)
+  :is(.report-group-card, .report-tile)
+  :is(h3, strong) {
+  color: #e9f1f8;
+}
+html[data-theme="dark"]
+  :where(.reports-workspace, .reports-modal)
+  :is(.report-group-card, .report-tile)
+  :is(small, .report-group-action span) {
+  color: #b8c6d4;
+}
+html[data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-group-grid .card.report-group-card {
+  background: linear-gradient(
+    130deg,
+    color-mix(in srgb, var(--report-accent, #83cedf) 22%, #192437),
+    #192437
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--report-accent, #83cedf) 55%,
+    #304059
+  ) !important;
+}
+html[data-theme="dark"]
+  :where(.reports-workspace, .reports-modal)
+  .report-related
+  .card.report-related-card.report-tile {
+  background: linear-gradient(
+    130deg,
+    color-mix(in srgb, var(--report-accent, #83cedf) 22%, #192437),
+    #192437
+  ) !important;
+  border-color: color-mix(
+    in srgb,
+    var(--report-accent, #83cedf) 55%,
+    #304059
+  ) !important;
+}
+html[data-theme="light"]
+  :where(.reports-workspace, .reports-modal)
+  .report-related.report-group-wallets
+  .card.report-related-card.report-tile {
+  background: linear-gradient(
+    130deg,
+    color-mix(in srgb, var(--report-accent) 12%, var(--panel)),
+    var(--panel)
+  ) !important;
+}
+:where(.reports-workspace, .reports-modal) .inline-check small {
+  margin-inline-start: 6px;
+  color: var(--muted, #789);
+}
+:where(.reports-workspace, .reports-modal) [data-site-theme="dark"] {
+  color-scheme: dark;
+  --panel: #152237;
+  --muted: #a4b2cb;
+  --line: #31445e;
+}
+.reports-workspace{min-width:0}.reports-modal{font-family:Cairo,'Segoe UI',Tahoma,sans-serif;color:var(--ink);background:var(--panel);border:1px solid var(--line);width:min(880px,calc(100vw - 32px));max-height:calc(100dvh - 32px);overflow:auto;margin:auto;padding:28px;border-radius:18px;box-shadow:0 24px 80px #07182c30}.reports-modal.reports-wide{width:min(1400px,calc(100vw - 32px))}.reports-modal::backdrop{background:#07182c88}.reports-modal .modalhead{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:20px}.reports-modal .modalhead h2{margin:0}.reports-modal .report-table-tools{flex-wrap:wrap}.reports-modal .table-pagination{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:16px}.reports-modal button:disabled,.reports-workspace button:disabled{cursor:not-allowed;opacity:.6}.reports-modal .report-record-fields dd{overflow-wrap:anywhere;white-space:pre-wrap}.dashboard-currency{justify-content:flex-end;margin-bottom:12px}.dashboard-currency select{width:auto;min-width:90px}.dashboard-currency label{display:flex;align-items:center;gap:8px}body:has(.reports-modal[open]){overflow:hidden}@media(max-width:650px){.reports-modal,.reports-modal.reports-wide{width:calc(100vw - 16px);max-height:calc(100dvh - 16px);padding:18px}.reports-modal .report-table-tools>*{min-width:0;max-width:100%}.reports-modal .report-table-tools input{width:100%;flex:1 1 180px}}

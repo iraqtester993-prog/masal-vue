@@ -1,0 +1,122 @@
+/* POS components have their own geometry instead of inheriting admin toolbars. */
+.pos-mobile-header{display:none}
+.pos-app .pos-catalog-heading{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.pos-app .pos-catalog-heading h2{margin:0;color:var(--ink);font-size:22px;line-height:1.5}
+.pos-app .pos-catalog-heading p{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.7}
+.pos-app .pos-refresh-button{display:grid;place-items:center;flex:none;width:44px;height:44px;padding:0;border:1px solid var(--line);border-radius:14px;background:var(--panel);color:var(--accent)}
+.pos-app .pos-refresh-button svg{width:21px;height:21px}
+.pos-app .pos-catalog-filters{display:grid;grid-template-columns:minmax(0,1fr) minmax(160px,240px);gap:12px}
+.pos-app .pos-catalog-search{display:flex;align-items:center;gap:10px;margin:0;padding-inline:14px;border:1px solid var(--line);border-radius:14px;background:var(--panel);min-width:0}
+.pos-app .pos-catalog-search svg{width:20px;height:20px;flex:none;color:var(--muted)}
+.pos-app .pos-catalog-search input{min-width:0;width:100%;margin:0;padding:12px 0;border:0;background:transparent;color:var(--ink);box-shadow:none}
+.pos-app .pos-company-filter{display:flex;align-items:center;gap:12px;margin:0;border:1px solid var(--line);border-radius:14px;background:var(--panel);padding-inline:14px;min-width:0}
+.pos-app .pos-company-filter>span{font-size:12px;color:var(--muted);flex:none}
+.pos-app .pos-company-filter select{min-width:0;flex:1;width:100%;margin:0;border:0;background-color:transparent;box-shadow:none;color:var(--ink)}
+.pos-app .pos-service-tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;padding:5px;background:var(--raised);border:1px solid var(--line);border-radius:14px}
+.pos-app .pos-service-tabs button{min-width:0;min-height:42px;padding:8px 4px;border:0;border-radius:10px;background:transparent;color:var(--muted);font:inherit;font-size:13px;font-weight:600;line-height:20px;white-space:nowrap}
+.pos-app .pos-service-tabs button.active{background:var(--panel);color:var(--accent);box-shadow:0 2px 6px #0f172a0a}
+.pos-app .pos-products-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.pos-app .pos-products-heading h3{margin:0;font-size:15px;color:var(--ink)}
+.pos-app .pos-products-heading>span{font-size:12px;color:var(--muted)}
+.pos-app .pos-category-access{display:flex;align-items:center;justify-content:space-between;gap:12px;border-radius:12px;background:var(--accent-soft);padding:12px;color:var(--blue-text);font-size:12px;text-decoration:none}
+html[data-theme] .pos-app .pos-phone-products>.pos-product-card{display:grid;grid-template-columns:44px minmax(0,1fr) auto 14px;align-items:center;gap:12px;min-width:0;min-height:108px;padding:16px;border:1px solid var(--line);border-radius:18px;background:var(--panel);color:var(--ink);text-align:start;box-shadow:0 3px 12px #0f172a04}
+.pos-app .pos-product-icon{display:grid;place-items:center;width:44px;height:48px;border-radius:14px;background:#eff6ff;color:#2563eb}
+.pos-app .pos-product-icon svg{width:25px;height:25px}
+.pos-app .pos-product-card[data-service=topup] .pos-product-icon{background:#eafaf4;color:#129570}
+.pos-app .pos-product-card[data-service=rabiaa] .pos-product-icon{background:#f3eeff;color:#7c4ddb}
+.pos-app .pos-product-info{display:grid;gap:3px;min-width:0}
+.pos-app .pos-product-card .pos-product-info strong{font-size:16px;font-weight:700;color:var(--ink);line-height:1.55;overflow-wrap:anywhere}
+.pos-app .pos-product-card .pos-product-info :is(small,span){font-size:11px;color:var(--muted);line-height:1.55}
+.pos-app .pos-product-price{display:grid;justify-items:end;gap:2px;min-width:68px}
+.pos-app .pos-product-card .pos-product-price b{font-size:18px;line-height:1.5;font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;direction:ltr}
+.pos-app .pos-product-card .pos-product-price small{font-size:11px;color:var(--muted);line-height:16px}
+.pos-app .pos-product-chevron{width:14px;height:18px;color:var(--muted)}
+html[dir=ltr] .pos-app .pos-product-chevron{transform:rotate(180deg)}
+.pos-app .pos-product-card:focus-visible,.pos-app .pos-service-tabs button:focus-visible,.pos-app .pos-refresh-button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+@media(max-width:800px){
+  html[data-theme=light] .portal-shell.pos-app{--accent:#2563eb;--accent-soft:#eaf1ff;--blue-text:#2563eb;--panel:#fff;--raised:#eef2f8;--canvas:#f6f8fc;--line:#e4e9f1;--ink:#17243b;--text:#33445f;--muted:#63738a;--soft-line:#edf1f7;background:var(--canvas)}
+  html[data-theme=dark] .portal-shell.pos-app{--accent:#6ba5ff;--accent-soft:#213652;--blue-text:#9ac2ff;--panel:#141f30;--raised:#1b2a40;--canvas:#0b1220;--line:#29374d;--ink:#edf4ff;--text:#d3dfef;--muted:#9dacc2;--soft-line:#243249;background:var(--canvas)}
+  html[data-theme] .portal-shell.pos-app{display:block;padding:0;min-height:100dvh;font-family:Cairo,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;line-height:1.6}
+  html[data-theme] .portal-shell.pos-app :is(.catalog-workspace,.account-workspace,.dashboard-workspace,.finance-workspace,.digital-workspace){--accent:inherit;--accent-soft:inherit;--blue-text:inherit;--panel:inherit;--raised:inherit;--line:inherit;--ink:inherit;--text:inherit;--muted:inherit;--soft-line:inherit}
+  html[data-theme] .portal-shell.pos-app .portal-content{width:100%;min-width:0;padding:0 0 calc(90px + env(safe-area-inset-bottom));background:var(--canvas)}
+  html[data-theme] .portal-shell.pos-app .pos-desktop-header{display:none}
+  .portal-shell.pos-app .pos-mobile-header{position:sticky;top:0;z-index:35;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;align-items:center;gap:12px;width:100%;min-height:82px;padding:12px 16px;background:var(--panel);border-bottom:1px solid var(--line)}
+  .pos-mobile-header .pos-header-button,.pos-mobile-header .pos-header-account{display:grid;place-items:center;width:44px;height:44px;margin:0;padding:0;border:1px solid var(--line);border-radius:14px;background:var(--raised);color:var(--ink);text-decoration:none;font-size:16px;font-weight:700}
+  .pos-mobile-header .pos-header-button svg{width:22px;height:22px}
+  .pos-mobile-header .pos-header-account{border-color:transparent;background:var(--accent-soft);color:var(--blue-text)}
+  .pos-mobile-header .pos-header-title{display:grid;gap:3px;min-width:0;text-align:center}
+  .pos-mobile-header .pos-header-title strong{font-size:18px;line-height:26px;font-weight:700;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pos-mobile-header .pos-header-title small{font-size:11px;line-height:17px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  html[data-theme] .portal-shell.pos-app .portal-main{width:100%;max-width:680px;margin:0 auto;padding:20px 16px}
+  .portal-shell.pos-app .pos-phone-catalog{gap:16px}
+  .portal-shell.pos-app .pos-catalog-heading h2{font-size:20px}
+  .portal-shell.pos-app .pos-catalog-filters{grid-template-columns:minmax(0,1fr) 120px;gap:10px}
+  .portal-shell.pos-app .pos-catalog-search input{min-height:48px;padding:12px 0!important;background:transparent!important;color:var(--ink)!important;border:0!important;box-shadow:none!important;border-radius:0!important}
+  .portal-shell.pos-app .pos-company-filter{min-height:48px;padding:0;gap:0}
+  .portal-shell.pos-app .pos-company-filter>span{display:none}
+  .portal-shell.pos-app .pos-company-filter select{min-height:48px;padding:10px 12px 10px 30px!important;background-color:transparent!important;background-position:left 10px center;color:var(--ink)!important;font-size:12px;border:0!important;box-shadow:none!important}
+  html[dir=ltr] .portal-shell.pos-app .pos-company-filter select{padding:10px 30px 10px 12px!important;background-position:right 10px center}
+  html[data-theme] .portal-shell.pos-app .pos-phone-products{display:grid;grid-template-columns:minmax(0,1fr);gap:10px}
+  html[data-theme] .portal-shell.pos-app .pos-phone-products>.pos-product-card{min-height:104px;padding:14px;gap:10px}
+  html[data-theme] .portal-shell.pos-app .pos-app-nav{position:fixed;inset-inline:0;bottom:0;z-index:40;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);align-items:start;gap:0;width:100%;padding:8px max(8px,env(safe-area-inset-left)) calc(8px + env(safe-area-inset-bottom));background:var(--panel);border-top:1px solid var(--line);box-shadow:0 -4px 20px #0f172a05}
+  html[data-theme] .portal-shell.pos-app .pos-app-nav .pos-tab{display:grid;grid-template-rows:32px 17px;align-items:center;justify-items:center;gap:4px;min-width:0;min-height:56px;margin:0;padding:0 2px;border:0;border-radius:0;background:transparent;color:var(--muted);text-decoration:none;font-family:inherit;text-align:center}
+  html[data-theme] .portal-shell.pos-app .pos-app-nav .pos-tab-icon{display:grid;place-items:center;width:38px;height:32px;border-radius:11px;font-size:inherit;line-height:1}
+  html[data-theme] .portal-shell.pos-app .pos-app-nav .pos-tab-icon svg{display:block;width:23px;height:23px;margin:0;flex:none}
+  html[data-theme] .portal-shell.pos-app .pos-app-nav .pos-tab-label{display:block;width:100%;height:17px;margin:0;font-size:11px;line-height:17px;font-weight:600;text-align:center;white-space:nowrap}
+  html[data-theme] .portal-shell.pos-app .pos-app-nav :is([aria-current=page],.is-more-active){color:var(--blue-text);background:transparent}
+  html[data-theme] .portal-shell.pos-app .pos-app-nav :is([aria-current=page],.is-more-active) .pos-tab-icon{background:var(--accent-soft)}
+  .portal-shell.pos-app .pos-tab:focus-visible,.pos-mobile-header :is(a,button):focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .portal-shell.pos-app .footer{display:none}
+  .portal-shell.pos-app :is(.card,.panel,.workspace-card){background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:none}
+  html[data-theme] .portal-shell.pos-app .dashboard-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  html[data-theme] .portal-shell.pos-app .dashboard-kpis>.dashboard-kpi{min-width:0;min-height:170px;padding:14px;background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:none}
+  .portal-shell.pos-app .dashboard-kpi-title{font-size:12px;line-height:20px;color:var(--ink)}
+  .portal-shell.pos-app .dashboard-kpi-number{display:flex;flex-wrap:wrap;gap:4px;align-items:baseline}
+  .portal-shell.pos-app .dashboard-kpi-number strong{font-size:24px;line-height:1.5;color:var(--ink);max-width:100%;overflow-wrap:anywhere}
+  .portal-shell.pos-app .dashboard-kpi-number small{font-size:10px;color:var(--muted)}
+  .portal-shell.pos-app .dashboard-kpi-footer{display:flex;flex-direction:column;align-items:stretch;gap:8px;border-color:var(--line)}
+  .portal-shell.pos-app .dashboard-kpi-footer .btn{width:100%;min-height:34px;height:auto;font-size:11px;padding:5px}
+  .portal-shell.pos-app .dashboard-recent{padding:16px;margin:18px 0}
+  .portal-shell.pos-app .dashboard-recent h2{font-size:18px;margin:0}
+  html[data-theme] .portal-shell.pos-app .wallet-filter-toolbar{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+  html[data-theme] .portal-shell.pos-app .wallet-filter-toolbar>.actions{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;width:100%}
+  .portal-shell.pos-app .wallet-filter-toolbar .wallet-extra-options{display:grid;grid-template-columns:minmax(0,1fr) 76px 60px;gap:8px;width:100%}
+  .portal-shell.pos-app .wallet-extra-options>select{min-width:0;max-width:100%;width:100%;margin:0;font-size:12px;padding-inline:8px 24px}
+  .portal-shell.pos-app .wallet-extra-options>.btn{margin:0;padding:8px;font-size:11px;min-width:0}
+  .portal-shell.pos-app .wallet-filter-toolbar .wallet-service-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0;overflow:visible}
+  .portal-shell.pos-app .wallet-filter-toolbar .wallet-service-cards button{min-width:0;min-height:58px;margin:0;padding:8px 5px;font-size:11px;line-height:18px;background:var(--raised);color:var(--ink);border-color:var(--line);border-radius:12px}
+  .portal-shell.pos-app .wallet-filter-toolbar .wallet-service-cards button.active{background:var(--accent-soft);color:var(--blue-text);border-color:var(--accent)}
+  .portal-shell.pos-app .wallet-filter-toolbar .wallet-navigation-tabs{padding:4px;background:var(--raised);border-radius:12px}
+  .portal-shell.pos-app .wallet-filter-toolbar .wallet-navigation-tabs button{color:var(--muted);font-size:12px;min-height:42px}
+  .portal-shell.pos-app .wallet-filter-toolbar .wallet-navigation-tabs button.active{background:var(--panel);color:var(--blue-text)}
+  html[data-theme] .portal-shell.pos-app .wallet-summary-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  html[data-theme] .portal-shell.pos-app .wallet-summary-cards>div{min-width:0;min-height:108px;padding:14px;background:var(--panel);border:1px solid var(--line);border-radius:14px;color:var(--ink)}
+  .portal-shell.pos-app .wallet-summary-cards>div>span{font-size:11px;color:var(--muted)}
+  .portal-shell.pos-app .wallet-summary-cards>div>strong{font-size:22px;color:var(--ink);overflow-wrap:anywhere}
+  html[data-theme] .portal-shell.pos-app .wallet-summary-cards>[data-wallet-metric=current]{grid-column:1/-1;min-height:112px;background:var(--accent-soft);border-color:transparent}
+  .portal-shell.pos-app .wallet-summary-cards>[data-wallet-metric=current]>strong{font-size:28px;color:var(--blue-text)}
+  .portal-shell.pos-app .sidebar{width:292px;max-width:88vw;background:var(--panel);border-color:var(--line)}
+  .portal-shell.pos-app .sidebar.open{box-shadow:0 0 50px #0004}
+  .portal-shell.pos-app .pos-phone-sale{padding:18px}
+  .portal-shell.pos-app .pos-phone-sale .formgrid{grid-template-columns:minmax(0,1fr)}
+  .portal-shell.pos-app :is(input,select,textarea){font-size:16px;max-width:100%;color-scheme:inherit}
+  .portal-shell.pos-app .btn{min-height:44px;border-radius:12px}
+  .portal-shell.pos-app .dashboard-recent-item{gap:10px}
+  .portal-shell.pos-app .dashboard-recent-item>div:last-child{max-width:45%}
+  html[data-theme=dark] .pos-app .pos-product-icon{background:#213652;color:#9ac2ff}
+  html[data-theme=dark] .pos-app .pos-product-card[data-service=topup] .pos-product-icon{background:#163c37;color:#63d6b2}
+  html[data-theme=dark] .pos-app .pos-product-card[data-service=rabiaa] .pos-product-icon{background:#302747;color:#c3a6ff}
+}
+@media(max-width:360px){
+  html[data-theme] .portal-shell.pos-app .pos-phone-products>.pos-product-card{grid-template-columns:36px minmax(0,1fr) 56px 12px;gap:8px;padding:12px;min-height:96px}
+  .portal-shell.pos-app .pos-product-icon{width:36px;height:42px;border-radius:12px}
+  .portal-shell.pos-app .pos-product-card .pos-product-info strong{font-size:15px}
+  .portal-shell.pos-app .pos-product-card .pos-product-price{min-width:56px}
+  .portal-shell.pos-app .pos-product-card .pos-product-price b{font-size:16px}
+}
+@media print{.pos-mobile-header,.pos-app-nav{display:none!important}}
+.device-settings{margin-bottom:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:12px}.device-settings>summary{cursor:pointer;color:var(--muted)}
+.dashboard-recent{margin:24px 0}.dashboard-recent header{display:flex;align-items:center;justify-content:space-between;gap:12px}.dashboard-recent-list{display:grid;gap:0}.dashboard-recent-item{display:flex;justify-content:space-between;gap:16px;padding:16px 0;border-bottom:1px solid var(--line)}.dashboard-recent-item:last-child{border-bottom:0}.dashboard-recent-item>div{display:grid;gap:6px;min-width:0}.dashboard-recent-item small{color:var(--muted);overflow-wrap:anywhere}.dashboard-recent-item>div:last-child{text-align:end;flex-shrink:0}.dashboard-recent-item .badge{width:fit-content}
+
+.pos-mobile-preferences{display:flex;gap:8px;flex-wrap:wrap;padding:16px;border-top:1px solid var(--line)}
+

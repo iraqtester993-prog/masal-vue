@@ -1,0 +1,4253 @@
+openapi: 3.0.3
+info:
+  title: Masal — isolated portals and implemented v1 system API
+  version: 0.7.0
+  description: |
+    Source snapshot 07 includes the implemented Laravel v1 modules listed below.
+    This document retains the 35 paths / 45 detailed operations originally described
+    in the 0.3 accounts/catalog contract. Those detailed schemas are a limited baseline,
+    not complete request/response coverage for snapshot 07. Subsequent implementation
+    behavior is authoritative in each current FormRequest, controller, resource and service.
+    API_ROUTE_CATALOG.json is generated from the current Laravel route:list --json output;
+    it lists all 214 registered api/v1 and Sanctum CSRF method/path records (180 unique
+    URI paths; GET records also include HEAD). The catalog proves registered path coverage,
+    not permissions, business correctness, external-provider readiness or production deployment.
+    Validation status and remaining native/deployment work are recorded in
+    ../docs/FULL_SYSTEM_07_VERIFICATION.md. Production is still release 06b at this draft.
+servers:
+- url: https://admin.dananir-iq.com
+  description: Final System administration portal; same-origin cookie session and /api/v1 paths
+- url: https://agents.dananir-iq.com
+  description: Final main-agent, sub-agent and sub-branch portal; same-origin /api/v1 paths
+- url: https://pos.dananir-iq.com
+  description: Final point-of-sale portal; same-origin /api/v1 paths
+- url: /
+  description: Current origin in local development or a correctly configured final portal
+x-route-catalog:
+  file: API_ROUTE_CATALOG.json
+  generator: scripts/backend.ps1 artisan route:list --json
+  scope:
+  - api/v1/*
+  - sanctum/csrf-cookie
+  records: 214
+  unique-uri-paths: 180
+  sha256: 8208296d212b4c285906ebd7c98076afdbdd79e51ae4a66acade14fe5dd7b2f3
+  coverage: Complete registered route inventory; request and response schemas are not inferred
+x-detailed-schema-coverage:
+  baseline-version: 0.3.0
+  paths: 35
+  operations: 45
+  status: Limited historical accounts, session, staff, permission-profile and catalog baseline
+x-implemented-source-modules:
+- Sessions and authentication
+- Accounts, hierarchy, staff, permission profiles and attachments
+- Catalog providers, categories and scoped availability
+- Reference governorates and point-of-sale types
+- Finance wallets, ledger, funding, prices, transfers, recoveries and invoices
+- Stock import, inventory, exports and damaged-card claims
+- Sales, reservations, printing, reprint requests, exceptions and print policies
+- Support conversations and notification audiences
+- Reports and dashboard summaries
+- Digital provider connections, offers, grants, orders, verification and receipts
+- User presence and consent-controlled maps
+- Operation stops, account archive and account time policies
+- Company settings, private/public assets and persisted public enquiries
+- Signed encrypted server backups, restore preview and guarded scratch-database restore
+- Server-persisted user interface preferences
+tags:
+- name: Session
+  description: Cookie session and CSRF initialization
+- name: Accounts
+  description: Account reads and subordinate creation restricted by permission and account tree
+- name: Staff
+- name: PermissionProfiles
+- name: Options
+- name: Attachments
+- name: Catalog
+paths:
+  /sanctum/csrf-cookie:
+    get:
+      tags:
+      - Session
+      operationId: initializeCsrf
+      summary: تهيئة جلسة وCSRF للبوابة الحالية
+      description: 'الاستجابة لا تحتوي بيانات هوية. Set-Cookie يرسل كوكي الجلسة الخاص
+
+        بالبوابة وXSRF-TOKEN الخاص بالمضيف. لا Domain wildcard بين البوابات.
+
+        '
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      responses:
+        '204':
+          description: Session and CSRF cookies initialized; no response body
+          headers:
+            Set-Cookie:
+              description: Browser-managed host-only session and XSRF cookies; may appear more than once
+              schema:
+                type: string
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/auth/login:
+    post:
+      tags:
+      - Session
+      operationId: login
+      summary: الدخول إلى بوابة الحساب المسموحة
+      description: 'ينشئ جلسة مصادقًا عليها ويجدد معرفها. بيانات الدخول غير الصحيحة
+
+        أو حساب بوابة أخرى أو حساب/عضوية/سلسلة حسابات معطلة تنتج خطأ 422
+
+        عامًا دون كشف سبب يتعلق بهوية مستخدم معين. لا يسمح العميل بتحديد
+
+        دور أو account_id أو portal داخل الجسم لمنح نفسه صلاحية.
+
+        '
+      security: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              - login
+              - password
+              properties:
+                login:
+                  type: string
+                  minLength: 1
+                  maxLength: 190
+                  description: Username without @ or registered email; server trims and lowercases it
+                    and selects the matching field unambiguously
+                password:
+                  type: string
+                  minLength: 1
+                  maxLength: 1024
+                  writeOnly: true
+            example:
+              login: account-user
+              password: YOUR_PRIVATE_PASSWORD
+      responses:
+        '200':
+          description: Authenticated session and allowed portal identity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityResponse'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+  /api/v1/auth/me:
+    get:
+      tags:
+      - Session
+      operationId: currentIdentity
+      summary: هوية المستخدم والحساب والصلاحيات الفعلية
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      responses:
+        '200':
+          description: Valid current session, membership, portal, and active account ancestry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /api/v1/auth/logout:
+    post:
+      tags:
+      - Session
+      operationId: logout
+      summary: إلغاء جلسة البوابة الحالية
+      description: A correctly portal-bound authenticated session may log out even if the user or account
+        is disabled; the frontend clears its in-memory identity and account results
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      responses:
+        '204':
+          description: Session invalidated; no response body
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+  /api/v1/accounts:
+    post:
+      tags:
+      - Accounts
+      operationId: createAccount
+      summary: إنشاء حساب تابع ومستخدمه الأول داخل النطاق
+      description: 'يتطلب account.create. يختار العميل parent_id، لكن السيرفر يتحقق أن
+
+        الأب هو حساب المنفذ أو تابع فعلي داخل نطاقه، أو ضمن نطاق مدير النظام.
+
+        النوع يطابق الأب المختار: system ينشئ main_agent، وmain_agent ينشئ
+
+        sub_agent أو pos، وsub_agent ينشئ sub_branch أو pos، وsub_branch
+
+        ينشئ pos. الرئيسي يستطيع إنشاء فرع فرعي تحت فرعي تابع له، لكنه لا
+
+        ينشئه مباشرة تحت نفسه. نقطة البيع لا تملك إنشاء حساب تابع.
+
+        إنشاء الحساب وعلاقات الشجرة والمستخدم والعضوية والتدقيق داخل معاملة
+
+        واحدة. يحدد السيرفر الدور والصلاحيات والحالة؛ ترفض حقول رفع الامتياز
+
+        أو أي حقول إضافية. لا يسمح هذا المسار بنقل تبعية أو منح صلاحيات مخصصة.
+
+
+        Creation requires owner membership in addition to account.create; employee membership cannot create
+        commercial accounts in this phase.'
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAccountRequest'
+      responses:
+        '201':
+          description: Active subordinate account and its first user created, without secrets
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreatedAccountResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: Selected parent is absent or outside the actor's account scope
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+    get:
+      tags:
+      - Accounts
+      operationId: listAccounts
+      summary: قائمة حسابات ضمن نطاق المستخدم
+      description: 'يتطلب account.view. الوكيل يرى نفسه وتابعيه داخل شبكته؛ نقطة البيع
+
+        ترى نفسها. لا يوجد اختيار account_id لرفع نطاق المستخدم. الصفحة
+
+        والمجموع يحسبان بعد تطبيق النطاق. لا تتضمن الاستجابة كلمات مرور
+
+        أو أرصدة أو رموز بطاقات أو صلاحيات حقول غير منفذة.
+
+
+        meta.summary counts main_agent/sub_agent/sub_branch/pos inside actor scope before optional filters;
+        all returned rows remain scoped.'
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - name: page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+        description: Requested page number; defaults to the first page
+      - name: per_page
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 25
+        description: Requested page size, limited by the server
+      - name: q
+        in: query
+        schema:
+          type: string
+          maxLength: 190
+        description: Searches scoped row name, phone, serial, city, owner_name and the name of a parent
+          visible in actor scope. Representatives remain unimplemented.
+      - name: kind
+        in: query
+        schema:
+          type: string
+          enum:
+          - agents
+          - pos
+        description: Portal listing category; does not expand account scope.
+      - name: type
+        in: query
+        schema:
+          type: string
+          enum:
+          - system
+          - main_agent
+          - sub_agent
+          - sub_branch
+          - pos
+        description: Exact account type.
+      - name: status
+        in: query
+        schema:
+          type: string
+          enum:
+          - active
+          - disabled
+        description: Exact account status.
+      - name: city
+        in: query
+        schema:
+          type: string
+          maxLength: 80
+        description: Governorate filter.
+      - name: parent_id
+        in: query
+        schema:
+          type: integer
+          minimum: 1
+        description: Direct parent filter applied after actor scope.
+      - name: ancestor_id
+        in: query
+        description: Restricts rows to the selected account and its descendants, always intersected with
+          actor scope. An unscoped ancestor cannot widen results.
+        schema:
+          type: integer
+          minimum: 1
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      responses:
+        '200':
+          description: Scoped paginated collection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+  /api/v1/accounts/{id}:
+    get:
+      tags:
+      - Accounts
+      operationId: showAccount
+      summary: تفاصيل حساب ضمن النطاق
+      description: يتطلب account.view؛ الحساب خارج النطاق يعامل كغير موجود ويعيد 404
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      responses:
+        '200':
+          description: Scoped account
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Account'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags:
+      - Accounts
+      operationId: updateAccount
+      summary: تعديل بيانات الحساب
+      description: Requires account.update and scoped target. Type, parent, status, password, grants and
+        login cannot change here. POS device/location fields need their additional permission. System/self
+        mutation is protected.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountPatch'
+      responses:
+        '200':
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+    parameters:
+    - $ref: '#/components/parameters/AccountId'
+  /api/v1/accounts/{id}/status:
+    parameters:
+    - $ref: '#/components/parameters/AccountId'
+    patch:
+      tags:
+      - Accounts
+      operationId: setAccountStatus
+      summary: إيقاف أو تفعيل حساب
+      description: Requires account.toggle and scoped target. Protects current/system account. Independent
+        descendant stops remain; old sessions are revoked on disable.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusPatch'
+      responses:
+        '200':
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+  /api/v1/accounts/{id}/login:
+    parameters:
+    - $ref: '#/components/parameters/AccountId'
+    patch:
+      tags:
+      - Accounts
+      operationId: updateAccountLogin
+      summary: تعديل معرف دخول تابع
+      description: Requires System account, owner membership and account.login. Scoped descendant owner
+        identifier changes independently of business fields. Self/System email editing and password reset
+        remain pending.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountLoginPatch'
+      responses:
+        '200':
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+  /api/v1/accounts/{id}/permissions:
+    parameters:
+    - $ref: '#/components/parameters/AccountId'
+    patch:
+      tags:
+      - Accounts
+      operationId: setAccountPermissions
+      summary: تعديل صلاحيات التابع
+      description: 'Requires account.permissions, scoped descendant and reason. permissions is the desired
+        effective implemented key set. Server owns authority and grant boundaries; lower decisions cannot
+        erase a higher target restriction. No financial keys or arbitrary authority payload.
+
+        The server compares the desired set with current effective keys. A higher explicit change to the
+        same target/key can replace lower decisions; restoring an ancestor account does not erase an independent
+        child deny.
+
+        Unchanged existing keys may be retained even when the actor cannot delegate them. Every added
+        or removed key must be within actor authority; only added keys are checked against target role
+        and inherited limits. Empty desired sets are allowed subject to those change checks.'
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountPermissionsPatch'
+      responses:
+        '200':
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+  /api/v1/account-options:
+    parameters: []
+    get:
+      tags:
+      - Options
+      operationId: accountOptions
+      summary: خيارات الحسابات
+      description: Authoritative active governorate names; management of governorates is outside this
+        phase.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      responses:
+        '200':
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountOptions'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+  /api/v1/permission-catalog:
+    parameters: []
+    get:
+      tags:
+      - PermissionProfiles
+      operationId: permissionCatalog
+      summary: كتالوج الصلاحيات المنفذة
+      description: Only keys backed by implemented server policies; unimplemented financial and product
+        permissions are not selectable.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      responses:
+        '200':
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionCatalog'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+  /api/v1/accounts/{id}/staff:
+    parameters:
+    - $ref: '#/components/parameters/AccountId'
+    get:
+      tags:
+      - Staff
+      operationId: listStaff
+      summary: موظفو الحساب
+      description: Requires staff.view; both employer account and each membership scope must be authorized.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      responses:
+        '200':
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+    post:
+      tags:
+      - Staff
+      operationId: createStaff
+      summary: إضافة موظف
+      description: Requires staff.create. Employer derives from the scoped route; kind employee is server-selected.
+        Active profile, nonempty roots and capability ceilings are enforced.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StaffCreate'
+      responses:
+        '201':
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+  /api/v1/accounts/{id}/staff/{memberId}:
+    parameters:
+    - $ref: '#/components/parameters/AccountId'
+    - $ref: '#/components/parameters/MembershipId'
+    patch:
+      tags:
+      - Staff
+      operationId: updateStaff
+      summary: تعديل موظف
+      description: Requires staff.update. Profile and scope changes additionally require staff.role/staff.scope.
+        Owner/self privilege edits are protected; login/password/employer/kind cannot be smuggled in.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StaffPatch'
+      responses:
+        '200':
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+  /api/v1/accounts/{id}/staff/{memberId}/status:
+    parameters:
+    - $ref: '#/components/parameters/AccountId'
+    - $ref: '#/components/parameters/MembershipId'
+    patch:
+      tags:
+      - Staff
+      operationId: setStaffStatus
+      summary: إيقاف أو تفعيل موظف
+      description: Requires staff.toggle and valid version/reason. Self and protected owners cannot be
+        disabled by this route; revoked sessions do not revive on enable.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusPatch'
+      responses:
+        '200':
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+  /api/v1/accounts/{id}/permission-profiles:
+    parameters:
+    - $ref: '#/components/parameters/AccountId'
+    get:
+      tags:
+      - PermissionProfiles
+      operationId: listPermissionProfiles
+      summary: أنواع صلاحيات الحساب
+      description: Requires permission_profile.view. Profiles, membership counts and keys are scoped to
+        the employer account.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      responses:
+        '200':
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionProfileCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+    post:
+      tags:
+      - PermissionProfiles
+      operationId: createPermissionProfile
+      summary: إضافة نوع صلاحية
+      description: Requires permission_profile.create. Nonempty known keys, view prerequisites, grant
+        ceilings and unique name inside account.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PermissionProfileCreate'
+      responses:
+        '201':
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+  /api/v1/accounts/{id}/permission-profiles/{profileId}:
+    parameters:
+    - $ref: '#/components/parameters/AccountId'
+    - $ref: '#/components/parameters/ProfileId'
+    patch:
+      tags:
+      - PermissionProfiles
+      operationId: updatePermissionProfile
+      summary: تعديل نوع صلاحية
+      description: Requires permission_profile.update, version and reason. Own assigned profile and shared
+        profile affecting users outside authority are protected. Unchanged existing grants may be retained
+        during a metadata edit; added or removed keys require actor authority. Newly added keys must also
+        fit the current employer owner ceiling. This retention rule does not permit reactivation or assignment
+        above the live ceiling.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PermissionProfilePatch'
+      responses:
+        '200':
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+    delete:
+      tags:
+      - PermissionProfiles
+      operationId: deletePermissionProfile
+      summary: حذف نوع صلاحية غير مرتبط
+      description: Requires permission_profile.delete. Linked/protected profiles cannot be deleted, including
+        concurrent assignment.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VersionAction'
+      responses:
+        '204':
+          description: Operation completed.
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+  /api/v1/accounts/{id}/permission-profiles/{profileId}/status:
+    parameters:
+    - $ref: '#/components/parameters/AccountId'
+    - $ref: '#/components/parameters/ProfileId'
+    patch:
+      tags:
+      - PermissionProfiles
+      operationId: setPermissionProfileStatus
+      summary: تفعيل أو تعطيل نوع صلاحية
+      description: Requires permission_profile.toggle. Activation cannot restore keys above the actor
+        ceiling; changes take effect on subsequent requests.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProfileStatusPatch'
+      responses:
+        '200':
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PermissionProfileResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+  /api/v1/accounts/{id}/attachments:
+    parameters:
+    - $ref: '#/components/parameters/AccountId'
+    get:
+      tags:
+      - Attachments
+      operationId: listAccountAttachments
+      summary: مرفقات الحساب
+      description: Requires account.attachments.view and scoped account. At most 50 private files; document
+        labels mirror original UI.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      responses:
+        '200':
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+    post:
+      tags:
+      - Attachments
+      operationId: uploadAccountAttachment
+      summary: إضافة صورة أو مستمسك
+      description: Requires account.attachments.manage for authorized subordinate accounts. Upload happens
+        after saving account details, replacing embedded legacy base64. PNG/JPEG/WEBP limit 700000 bytes
+        and 50 files/account; agent/personal singletons replace atomically. Management additionally requires
+        account.update and a subordinate non-System target; the actor cannot manage its own account images.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/AttachmentUpload'
+      responses:
+        '201':
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+        '503':
+          description: Private file storage failed; no committed attachment change.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/v1/accounts/{id}/attachments/{attachment}:
+    parameters:
+    - $ref: '#/components/parameters/AccountId'
+    - $ref: '#/components/parameters/AttachmentId'
+    delete:
+      tags:
+      - Attachments
+      operationId: deleteAccountAttachment
+      summary: حذف مرفق حساب
+      description: Scoped attachment, manage permission, account version and reason; returns the new account
+        version. Requires account.update plus account.attachments.manage on a subordinate non-System target.
+        reason must contain 3..2000 characters.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AttachmentDelete'
+      responses:
+        '200':
+          description: Operation completed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentDeleted'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+  /api/v1/auth/profile:
+    patch:
+      tags:
+      - Session
+      operationId: updateOwnProfile
+      summary: تعديل اسم المالك الحالي
+      description: Owner membership only. Updates the authenticated user name and membership version with
+        audit. Email, password, role, scope and status cannot change here.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OwnProfilePatch'
+      responses:
+        '200':
+          description: Current owner name updated; returns identity.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IdentityResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+  /api/v1/accounts/{id}/attachments/{attachment}/content:
+    parameters:
+    - $ref: '#/components/parameters/AccountId'
+    - $ref: '#/components/parameters/AttachmentContentId'
+    get:
+      tags:
+      - Attachments
+      operationId: downloadAccountAttachment
+      summary: قراءة صورة أو مستمسك محمي
+      description: Requires a current authenticated session, account.attachments.view and matching scoped
+        account/attachment. Content URL remains same-origin; no public filesystem path or bypass URL.
+      security:
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      responses:
+        '200':
+          description: Private validated image bytes.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+              description: Private, no-store.
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+            image/webp:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/catalog/products:
+    get:
+      tags:
+      - Catalog
+      summary: عرض الفئات
+      description: صلاحية products.view مطلوبة. عرض الفئات ضمن الشبكة المسموحة؛ principal يبدأ بقائمة
+        فارغة حتى التعيين، وقواعد الأسلاف تتقاطع. كل mutation للكتالوج العالمي مقصور على حساب النظام أو
+        موظف يشمل نطاقه النظام.
+      security: &id001
+      - AdminSession: []
+      - AgentsSession: []
+      - PosSession: []
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - &id003
+        in: query
+        name: page
+        schema:
+          type: integer
+          minimum: 1
+      - &id004
+        in: query
+        name: per_page
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+      - &id005
+        in: query
+        name: query
+        schema:
+          type: string
+          maxLength: 160
+      - &id006
+        in: query
+        name: provider
+        schema:
+          type: integer
+          minimum: 1
+      - &id007
+        in: query
+        name: kind
+        schema:
+          type: string
+          enum:
+          - محلية
+          - عالمية
+      - &id008
+        in: query
+        name: state
+        schema:
+          type: string
+          enum:
+          - active
+          - inactive
+      - &id009
+        in: query
+        name: supplier
+        schema:
+          type: string
+          maxLength: 160
+      - &id010
+        in: query
+        name: connection
+        schema:
+          type: string
+          enum:
+          - ملفات
+          - API
+      - &id011
+        in: query
+        name: from
+        schema:
+          type: string
+          format: date
+      - &id012
+        in: query
+        name: to
+        schema:
+          type: string
+          format: date
+      responses:
+        '200':
+          description: نجاح
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogProductCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+    post:
+      tags:
+      - Catalog
+      summary: إضافة الفئات
+      description: 'صلاحية products.view مطلوبة. عرض الفئات ضمن الشبكة المسموحة؛ principal يبدأ بقائمة
+        فارغة حتى التعيين، وقواعد الأسلاف تتقاطع. كل mutation للكتالوج العالمي مقصور على حساب النظام أو
+        موظف يشمل نطاقه النظام. صور وإزالة: صلاحية products.images. إرسال image وremove_image معًا مرفوض.'
+      security: *id001
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      responses:
+        '201':
+          description: نجاح
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogProductResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogProductCreate'
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                payload:
+                  type: string
+                  description: JSON مطابق لـCreate أو Patch بحسب العملية، بلا id أو status.
+                image:
+                  type: string
+                  format: binary
+                  description: PNG/JPEG حتى 700000 بايت وأبعاد 4096×4096؛ حفظ خاص ضمن نفس المعاملة.
+                _method:
+                  type: string
+                  enum:
+                  - PATCH
+                  description: يرسل عند تعديل multipart عبر POST إلى مسار السجل.
+              required:
+              - payload
+  /api/v1/catalog/products/{id}:
+    patch:
+      tags:
+      - Catalog
+      summary: تعديل الفئات
+      description: 'صلاحية products.view مطلوبة. عرض الفئات ضمن الشبكة المسموحة؛ principal يبدأ بقائمة
+        فارغة حتى التعيين، وقواعد الأسلاف تتقاطع. كل mutation للكتالوج العالمي مقصور على حساب النظام أو
+        موظف يشمل نطاقه النظام. version يمنع الكتابة فوق تعديل أحدث. صور وإزالة: صلاحية products.images.
+        إرسال image وremove_image معًا مرفوض.'
+      security: *id001
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - &id002
+        in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      - $ref: '#/components/parameters/XsrfToken'
+      responses:
+        '200':
+          description: نجاح
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogProductResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogProductPatch'
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                payload:
+                  type: string
+                  description: JSON مطابق لـCreate أو Patch بحسب العملية، بلا id أو status.
+                image:
+                  type: string
+                  format: binary
+                  description: PNG/JPEG حتى 700000 بايت وأبعاد 4096×4096؛ حفظ خاص ضمن نفس المعاملة.
+                _method:
+                  type: string
+                  enum:
+                  - PATCH
+                  description: يرسل عند تعديل multipart عبر POST إلى مسار السجل.
+              required:
+              - payload
+  /api/v1/catalog/products/{id}/status:
+    patch:
+      tags:
+      - Catalog
+      summary: تفعيل أو تعطيل الفئات
+      description: صلاحية products.view مطلوبة. عرض الفئات ضمن الشبكة المسموحة؛ principal يبدأ بقائمة
+        فارغة حتى التعيين، وقواعد الأسلاف تتقاطع. كل mutation للكتالوج العالمي مقصور على حساب النظام أو
+        موظف يشمل نطاقه النظام.
+      security: *id001
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - *id002
+      - $ref: '#/components/parameters/XsrfToken'
+      responses:
+        '200':
+          description: نجاح
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogProductResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogStatusPatch'
+  /api/v1/catalog/products/{id}/image:
+    get:
+      tags:
+      - Catalog
+      summary: صورة الفئات
+      description: قراءة صورة خاصة بعد فحص الصلاحيات والنطاق؛ no-store وnosniff؛ لا مسارات التخزين الداخلية.
+      security: *id001
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - *id002
+      - in: query
+        name: v
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: صورة خاصة
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+  /api/v1/catalog/products/export:
+    get:
+      tags:
+      - Catalog
+      summary: تصدير الفئات
+      description: صلاحية products.view مطلوبة. عرض الفئات ضمن الشبكة المسموحة؛ principal يبدأ بقائمة
+        فارغة حتى التعيين، وقواعد الأسلاف تتقاطع. كل mutation للكتالوج العالمي مقصور على حساب النظام أو
+        موظف يشمل نطاقه النظام. تصدير حسب الفلاتر والنطاق، حد 10000 سجل، CSV UTF-8 BOM مع حماية خلايا
+        الصيغ. تصدير الفئات يحتاج products.export وdata.cost؛ لا تتضمن الملفات مسار تخزين داخلي.
+      security: *id001
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      - *id009
+      - *id010
+      - *id011
+      - *id012
+      responses:
+        '200':
+          description: نجاح
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CatalogExport'
+                required:
+                - data
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+  /api/v1/catalog/providers:
+    get:
+      tags:
+      - Catalog
+      summary: عرض الشركات
+      description: صلاحية providers.view مطلوبة. قراءة وإدارة الشركات ضمن إدارة النظام ونطاقها فقط.
+      security: *id001
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      - *id009
+      - *id010
+      - *id011
+      - *id012
+      responses:
+        '200':
+          description: نجاح
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogProviderCollection'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+    post:
+      tags:
+      - Catalog
+      summary: إضافة الشركات
+      description: 'صلاحية providers.view مطلوبة. قراءة وإدارة الشركات ضمن إدارة النظام ونطاقها فقط. صور
+        وإزالة: صلاحية providers.images. إرسال image وremove_image معًا مرفوض.'
+      security: *id001
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      responses:
+        '201':
+          description: نجاح
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogProviderResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogProviderCreate'
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                payload:
+                  type: string
+                  description: JSON مطابق لـCreate أو Patch بحسب العملية، بلا id أو status.
+                image:
+                  type: string
+                  format: binary
+                  description: PNG/JPEG حتى 700000 بايت وأبعاد 4096×4096؛ حفظ خاص ضمن نفس المعاملة.
+                _method:
+                  type: string
+                  enum:
+                  - PATCH
+                  description: يرسل عند تعديل multipart عبر POST إلى مسار السجل.
+              required:
+              - payload
+  /api/v1/catalog/providers/{id}:
+    patch:
+      tags:
+      - Catalog
+      summary: تعديل الشركات
+      description: 'صلاحية providers.view مطلوبة. قراءة وإدارة الشركات ضمن إدارة النظام ونطاقها فقط. version
+        يمنع الكتابة فوق تعديل أحدث. صور وإزالة: صلاحية providers.images. إرسال image وremove_image معًا
+        مرفوض.'
+      security: *id001
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - *id002
+      - $ref: '#/components/parameters/XsrfToken'
+      responses:
+        '200':
+          description: نجاح
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogProviderResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogProviderPatch'
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                payload:
+                  type: string
+                  description: JSON مطابق لـCreate أو Patch بحسب العملية، بلا id أو status.
+                image:
+                  type: string
+                  format: binary
+                  description: PNG/JPEG حتى 700000 بايت وأبعاد 4096×4096؛ حفظ خاص ضمن نفس المعاملة.
+                _method:
+                  type: string
+                  enum:
+                  - PATCH
+                  description: يرسل عند تعديل multipart عبر POST إلى مسار السجل.
+              required:
+              - payload
+  /api/v1/catalog/providers/{id}/status:
+    patch:
+      tags:
+      - Catalog
+      summary: تفعيل أو تعطيل الشركات
+      description: صلاحية providers.view مطلوبة. قراءة وإدارة الشركات ضمن إدارة النظام ونطاقها فقط.
+      security: *id001
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - *id002
+      - $ref: '#/components/parameters/XsrfToken'
+      responses:
+        '200':
+          description: نجاح
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CatalogProviderResponse'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogStatusPatch'
+  /api/v1/catalog/providers/{id}/image:
+    get:
+      tags:
+      - Catalog
+      summary: صورة الشركات
+      description: قراءة صورة خاصة بعد فحص الصلاحيات والنطاق؛ no-store وnosniff؛ لا مسارات التخزين الداخلية.
+      security: *id001
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - *id002
+      - in: query
+        name: v
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: صورة خاصة
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+  /api/v1/catalog/providers/export:
+    get:
+      tags:
+      - Catalog
+      summary: تصدير الشركات
+      description: صلاحية providers.view مطلوبة. قراءة وإدارة الشركات ضمن إدارة النظام ونطاقها فقط. تصدير
+        حسب الفلاتر والنطاق، حد 10000 سجل، CSV UTF-8 BOM مع حماية خلايا الصيغ. تصدير الفئات يحتاج products.export
+        وdata.cost؛ لا تتضمن الملفات مسار تخزين داخلي.
+      security: *id001
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - *id003
+      - *id004
+      - *id005
+      - *id006
+      - *id007
+      - *id008
+      - *id009
+      - *id010
+      - *id011
+      - *id012
+      responses:
+        '200':
+          description: نجاح
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CatalogExport'
+                required:
+                - data
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+  /api/v1/catalog/options:
+    get:
+      tags:
+      - Catalog
+      summary: خيارات الكتالوج
+      description: الشركات مرتبطة بالمنتجات المتاحة للموظف أو الوكيل؛ الخيارات لا توسع نطاقه.
+      security: *id001
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      responses:
+        '200':
+          description: نجاح
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CatalogOptions'
+                required:
+                - data
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+  /api/v1/catalog/preferences:
+    get:
+      tags:
+      - Catalog
+      summary: اختيار أعمدة الفئات الخاص بالمستخدم
+      description: ''
+      security: *id001
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      responses:
+        '200':
+          description: نجاح
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CatalogPreferences'
+                required:
+                - data
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+    put:
+      tags:
+      - Catalog
+      summary: حفظ اختيار الأعمدة في DB
+      description: products.view مطلوبة؛ name/actions لا يمكن إخفاؤهما. لا تخزين محلي.
+      security: *id001
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - $ref: '#/components/parameters/XsrfToken'
+      responses:
+        '200':
+          description: نجاح
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CatalogPreferences'
+                required:
+                - data
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CatalogPreferences'
+  /api/v1/catalog/products/{id}/move:
+    patch:
+      tags:
+      - Catalog
+      summary: تحريك ترتيب فئة
+      description: products.order وإدارة النظام؛ ترتيب متسلسل تحت قفل DB مع تغيير نسختي الصفين المتبادلين.
+      security: *id001
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - *id002
+      - $ref: '#/components/parameters/XsrfToken'
+      responses:
+        '200':
+          description: نجاح
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      catalog_version: &id013
+                        type: integer
+                        minimum: 1
+                    required:
+                    - catalog_version
+                required:
+                - data
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                version: *id013
+                direction:
+                  type: string
+                  enum:
+                  - up
+                  - down
+                reason:
+                  type: string
+                  nullable: true
+                  maxLength: 2000
+              required:
+              - version
+              - direction
+  /api/v1/accounts/{id}/categories:
+    get:
+      tags:
+      - Catalog
+      summary: قراءة الفئات المسموحة للتابع
+      description: account.view والنطاق؛ DTO اختياري يتضمن القيمة الاسمية دون minimum_price أو تفاصيل
+        خاصة. can_manage false للموظف أو الحساب نفسه.
+      security: *id001
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - *id002
+      responses:
+        '200':
+          description: نجاح
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AccountCategories'
+                required:
+                - data
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+    put:
+      tags:
+      - Catalog
+      summary: حفظ الفئات المسموحة للتابع
+      description: مالك حساب أعلى مع agents.categories؛ يمنع تجاوز قيود الأسلاف أو الشبكات الأجنبية. []
+        منع كامل، وversion مع catalog_version للتزامن. المستوى الأعلى يستبدل القرارات الأدنى على الهدف
+        نفسه مع بقاء قيود الآباء. POS يتبع أي مستوى وكيل.
+      security: *id001
+      parameters:
+      - $ref: '#/components/parameters/LocalPortal'
+      - *id002
+      - $ref: '#/components/parameters/XsrfToken'
+      responses:
+        '200':
+          description: نجاح
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AccountCategories'
+                required:
+                - data
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/ValidationFailure'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '419':
+          $ref: '#/components/responses/CsrfFailure'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountCategoriesPatch'
+components:
+  securitySchemes:
+    AdminSession:
+      type: apiKey
+      in: cookie
+      name: masal_admin_session
+      description: Browser-managed HttpOnly cookie issued only by the admin portal
+    AgentsSession:
+      type: apiKey
+      in: cookie
+      name: masal_agents_session
+      description: Browser-managed HttpOnly cookie issued only by the agents portal
+    PosSession:
+      type: apiKey
+      in: cookie
+      name: masal_pos_session
+      description: Browser-managed HttpOnly cookie issued only by the POS portal
+  parameters:
+    LocalPortal:
+      name: X-Masal-Portal
+      in: header
+      required: false
+      description: 'فقط عند التطوير/الاختبار على مضيف محلي مشترك. في الإنتاج لا يحدد
+
+        هذا الحقل البوابة ولا يمنح وصولًا؛ يعتمد السيرفر المضيف المحدد في إعداداته.
+
+        '
+      schema:
+        type: string
+        enum:
+        - admin
+        - agents
+        - pos
+    XsrfToken:
+      name: X-XSRF-TOKEN
+      in: header
+      required: false
+      description: Client always sends the URL-decoded current host XSRF-TOKEN cookie; Laravel 13 uses
+        token validation as fallback when same-origin verification does not pass
+      schema:
+        type: string
+    AccountId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    MembershipId:
+      name: memberId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    ProfileId:
+      name: profileId
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    AttachmentId:
+      name: attachment
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+    AttachmentContentId:
+      name: attachment
+      in: path
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+  schemas:
+    Portal:
+      type: string
+      enum:
+      - admin
+      - agents
+      - pos
+    Account:
+      type: object
+      required:
+      - id
+      - name
+      - type
+      - parent_id
+      - status
+      - version
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          minLength: 1
+          maxLength: 190
+        type:
+          type: string
+          enum:
+          - system
+          - main_agent
+          - sub_agent
+          - sub_branch
+          - pos
+        parent_id:
+          type: integer
+          nullable: true
+          description: POS may be directly under main_agent, sub_agent, or sub_branch. Creation selects
+            a parent that the server validates against account type and actor scope; reparenting is unavailable.
+        status:
+          type: string
+          enum:
+          - active
+          - disabled
+        city:
+          type: string
+          maxLength: 80
+          nullable: true
+        phone:
+          type: string
+          pattern: ^[+0-9() -]+$
+          maxLength: 30
+          nullable: true
+        support:
+          type: string
+          maxLength: 500
+          nullable: true
+        color:
+          type: string
+          pattern: ^#[0-9a-fA-F]{6}$
+          maxLength: 7
+          nullable: true
+        owner_name:
+          type: string
+          maxLength: 190
+          nullable: true
+        address:
+          type: string
+          maxLength: 500
+          nullable: true
+        serial:
+          type: string
+          maxLength: 190
+          nullable: true
+        device_model:
+          type: string
+          maxLength: 190
+          nullable: true
+        app_version:
+          type: string
+          maxLength: 190
+          nullable: true
+        notes:
+          type: string
+          maxLength: 2000
+          nullable: true
+        version:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency version; stale requests return 409.
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+        parent:
+          type: object
+          properties:
+            id:
+              type: integer
+              minimum: 1
+            name:
+              type: string
+            type:
+              type: string
+              enum:
+              - system
+              - main_agent
+              - sub_agent
+              - sub_branch
+              - pos
+          required:
+          - id
+          - name
+          - type
+          nullable: true
+          description: Only returned when the parent is inside the actor scope; never reveals an excluded
+            ancestor.
+        children_count:
+          type: integer
+          minimum: 0
+        network_pos_count:
+          type: integer
+          minimum: 0
+        permissions:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+          maxItems: 100
+          description: Present only when authorized to manage target account permissions; effective implemented
+            keys.
+        owner_user:
+          $ref: '#/components/schemas/User'
+          description: Conditionally authorized owner identity on detail/create/mutation resources; omitted
+            from the account index.
+        grantable_permissions:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+          description: Conditional on account.permissions in detail/mutation resources. Server-derived
+            actor permissions intersected with target role ceiling and inherited/higher restrictions;
+            UI options only, never authority input.
+        profile_grantable_permissions:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+          description: Conditional on permission_profile.view or staff.create in detail/mutation resources.
+            Actor permissions intersected with current account owner permissions for employee/profile
+            assignment.
+    User:
+      type: object
+      required:
+      - id
+      - name
+      - login
+      - email
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+        login:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+      description: User identity always contains login and email properties; one can be null for a single
+        identifier. No credentials are returned.
+    IdentityResponse:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: object
+          required:
+          - user
+          - account
+          - portal
+          - permissions
+          - membership
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+            account:
+              $ref: '#/components/schemas/AccountCore'
+            portal:
+              $ref: '#/components/schemas/Portal'
+            permissions:
+              type: array
+              items:
+                type: string
+              description: Effective implemented catalog keys, calculated from role/owner rules or employee
+                profile intersected with the current owner ceiling and ancestor/authority restrictions.
+                No financial/product permissions are implied.
+              example:
+              - account.create
+              - account.view
+            membership:
+              $ref: '#/components/schemas/MembershipIdentity'
+    CreateAccountRequest:
+      type: object
+      additionalProperties: false
+      required:
+      - name
+      - type
+      - parent_id
+      - city
+      - phone
+      - user
+      properties:
+        _token:
+          type: string
+          writeOnly: true
+          description: Optional Laravel transport CSRF token; this field is not passed into account creation,
+            and the Vue client uses X-XSRF-TOKEN instead
+        name:
+          type: string
+          minLength: 1
+          maxLength: 190
+        type:
+          type: string
+          enum:
+          - main_agent
+          - sub_agent
+          - sub_branch
+          - pos
+        parent_id:
+          type: integer
+          minimum: 1
+          description: Must identify a scoped, active parent compatible with the child type
+        user:
+          type: object
+          additionalProperties: false
+          required:
+          - password
+          - password_confirmation
+          properties:
+            name:
+              type: string
+              minLength: 1
+              description: Optional; defaults to account.name.
+              maxLength: 190
+              nullable: true
+            login:
+              type: string
+              minLength: 3
+              description: Trimmed, lowercase username or valid email. ASCII usernames use 3..64 characters,
+                begin with a letter and may contain digits, dot, underscore or hyphen. Email identifiers
+                populate email and leave login null.
+              maxLength: 190
+              nullable: true
+            email:
+              type: string
+              format: email
+              description: Optional compatibility email or the identifier fallback; stored emails are
+                accepted for login. Conflicting supplied email identifiers are rejected. The Vue creation
+                form supplies one email identifier.
+              maxLength: 190
+              nullable: true
+            password:
+              type: string
+              minLength: 12
+              maxLength: 72
+              writeOnly: true
+              description: Requires letters and numbers; the server also enforces a maximum of 72 UTF-8
+                bytes for bcrypt, which can be fewer than 72 characters
+            password_confirmation:
+              type: string
+              writeOnly: true
+              description: Must exactly match password, including the 72-byte limit
+          anyOf:
+          - required:
+            - login
+            properties:
+              login:
+                type: string
+                nullable: false
+                minLength: 3
+          - required:
+            - email
+            properties:
+              email:
+                type: string
+                nullable: false
+                format: email
+                minLength: 1
+        city:
+          type: string
+          maxLength: 80
+          nullable: false
+          minLength: 1
+        phone:
+          type: string
+          pattern: ^[+0-9() -]+$
+          maxLength: 30
+          nullable: false
+          minLength: 1
+        support:
+          type: string
+          maxLength: 500
+          nullable: true
+        color:
+          type: string
+          pattern: ^#[0-9a-fA-F]{6}$
+          maxLength: 7
+          nullable: true
+        owner_name:
+          type: string
+          maxLength: 190
+          nullable: true
+        address:
+          type: string
+          maxLength: 500
+          nullable: true
+        serial:
+          type: string
+          maxLength: 190
+          nullable: true
+        device_model:
+          type: string
+          maxLength: 190
+          nullable: true
+        app_version:
+          type: string
+          maxLength: 190
+          nullable: true
+        notes:
+          type: string
+          maxLength: 2000
+          nullable: true
+      description: The server checks parent scope and account type. Agents require name, city, phone and
+        color; POS requires name, owner_name, city, address, phone, serial, device_model and app_version.
+        Non-POS targets reject POS-only fields. Active governorate and unique normalized serial are checked.
+        Product assignment and registration controls remain pending.
+      oneOf:
+      - properties:
+          type:
+            type: string
+            enum:
+            - main_agent
+            - sub_agent
+            - sub_branch
+          color:
+            type: string
+            nullable: false
+            minLength: 1
+        required:
+        - color
+        not:
+          anyOf:
+          - required:
+            - owner_name
+          - required:
+            - address
+          - required:
+            - serial
+          - required:
+            - device_model
+          - required:
+            - app_version
+      - properties:
+          type:
+            type: string
+            enum:
+            - pos
+          owner_name:
+            type: string
+            nullable: false
+            minLength: 1
+          address:
+            type: string
+            nullable: false
+            minLength: 1
+          serial:
+            type: string
+            nullable: false
+            minLength: 1
+          device_model:
+            type: string
+            nullable: false
+            minLength: 1
+          app_version:
+            type: string
+            nullable: false
+            minLength: 1
+        required:
+        - owner_name
+        - address
+        - serial
+        - device_model
+        - app_version
+    CreatedAccountResponse:
+      type: object
+      required:
+      - data
+      properties:
+        data:
+          type: object
+          required:
+          - account
+          - user
+          properties:
+            account:
+              $ref: '#/components/schemas/Account'
+            user:
+              $ref: '#/components/schemas/User'
+    AccountCollection:
+      type: object
+      required:
+      - data
+      - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Account'
+        links:
+          type: object
+          properties:
+            first:
+              type: string
+              nullable: true
+            last:
+              type: string
+              nullable: true
+            prev:
+              type: string
+              nullable: true
+            next:
+              type: string
+              nullable: true
+        meta:
+          type: object
+          required:
+          - current_page
+          - last_page
+          - per_page
+          - total
+          properties:
+            current_page:
+              type: integer
+              minimum: 1
+            last_page:
+              type: integer
+              minimum: 1
+            per_page:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+            summary:
+              $ref: '#/components/schemas/AccountSummary'
+    Error:
+      type: object
+      required:
+      - message
+      properties:
+        message:
+          type: string
+    ValidationError:
+      type: object
+      required:
+      - message
+      - errors
+      properties:
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+    AccountCore:
+      type: object
+      required:
+      - id
+      - name
+      - type
+      - parent_id
+      - status
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+          - system
+          - main_agent
+          - sub_agent
+          - sub_branch
+          - pos
+        parent_id:
+          type: integer
+          nullable: true
+          description: POS may be directly under main_agent, sub_agent, or sub_branch. Creation selects
+            a parent that the server validates against account type and actor scope; reparenting is unavailable.
+        status:
+          type: string
+          enum:
+          - active
+          - disabled
+    MembershipIdentity:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum:
+          - owner
+          - employee
+        version:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency version; stale requests return 409.
+        scope_roots:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+          uniqueItems: true
+        include_descendants:
+          type: boolean
+      required:
+      - kind
+      - version
+      - scope_roots
+      - include_descendants
+    AccountPatch:
+      type: object
+      properties:
+        _token:
+          type: string
+          writeOnly: true
+          description: Optional Laravel transport token; Vue sends X-XSRF-TOKEN.
+        version:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency version; stale requests return 409.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 190
+        city:
+          type: string
+          maxLength: 80
+          nullable: true
+        phone:
+          type: string
+          pattern: ^[+0-9() -]+$
+          maxLength: 30
+          nullable: true
+        support:
+          type: string
+          maxLength: 500
+          nullable: true
+        color:
+          type: string
+          pattern: ^#[0-9a-fA-F]{6}$
+          maxLength: 7
+          nullable: true
+        owner_name:
+          type: string
+          maxLength: 190
+          nullable: true
+        address:
+          type: string
+          maxLength: 500
+          nullable: true
+        serial:
+          type: string
+          maxLength: 190
+          nullable: true
+        device_model:
+          type: string
+          maxLength: 190
+          nullable: true
+        app_version:
+          type: string
+          maxLength: 190
+          nullable: true
+        notes:
+          type: string
+          maxLength: 2000
+          nullable: true
+        reason:
+          type: string
+          maxLength: 500
+          nullable: true
+      required:
+      - version
+      additionalProperties: false
+      description: The server merges this patch with current account data and requires the original mandatory
+        fields for the existing type. Omitted fields are retained; required fields cannot become null
+        or empty. Older rows missing required fields must be completed before this update. Changed POS
+        device fields require pos.device; changed city/address require pos.location. Type and parent are
+        immutable.
+    StatusPatch:
+      type: object
+      properties:
+        _token:
+          type: string
+          writeOnly: true
+          description: Optional Laravel transport token; Vue sends X-XSRF-TOKEN.
+        version:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency version; stale requests return 409.
+        status:
+          type: string
+          enum:
+          - active
+          - disabled
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+      - version
+      - status
+      - reason
+      additionalProperties: false
+    AccountLoginPatch:
+      type: object
+      properties:
+        _token:
+          type: string
+          writeOnly: true
+          description: Optional Laravel transport token; Vue sends X-XSRF-TOKEN.
+        version:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency version; stale requests return 409.
+        login:
+          type: string
+          minLength: 3
+          description: Trimmed, lowercase username or valid email. ASCII usernames use 3..64 characters,
+            begin with a letter and may contain digits, dot, underscore or hyphen. Email identifiers populate
+            email and leave login null.
+          maxLength: 190
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+      - version
+      - login
+      - reason
+      additionalProperties: false
+    AccountPermissionsPatch:
+      type: object
+      properties:
+        _token:
+          type: string
+          writeOnly: true
+          description: Optional Laravel transport token; Vue sends X-XSRF-TOKEN.
+        version:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency version; stale requests return 409.
+        permissions:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+          maxItems: 100
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+      - version
+      - permissions
+      - reason
+      additionalProperties: false
+    AccountSummary:
+      type: object
+      properties:
+        main_agent:
+          type: integer
+          minimum: 0
+        sub_agent:
+          type: integer
+          minimum: 0
+        sub_branch:
+          type: integer
+          minimum: 0
+        pos:
+          type: integer
+          minimum: 0
+      required:
+      - main_agent
+      - sub_agent
+      - sub_branch
+      - pos
+    Staff:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        user_id:
+          type: integer
+          minimum: 1
+        account_id:
+          type: integer
+          minimum: 1
+        kind:
+          type: string
+          enum:
+          - owner
+          - employee
+        name:
+          type: string
+        login:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        status:
+          type: string
+          enum:
+          - active
+          - disabled
+        permission_profile_id:
+          type: integer
+          nullable: true
+        scope_roots:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+          uniqueItems: true
+        include_descendants:
+          type: boolean
+        notes:
+          type: string
+          maxLength: 2000
+          nullable: true
+        version:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency version; stale requests return 409.
+        permission_profile_name:
+          type: string
+          nullable: true
+        scope_accounts:
+          type: array
+          description: Authorized assigned root labels; no unscoped accounts.
+          items:
+            type: object
+            required:
+            - id
+            - name
+            properties:
+              id:
+                type: integer
+                minimum: 1
+              name:
+                type: string
+      required:
+      - id
+      - user_id
+      - account_id
+      - kind
+      - name
+      - login
+      - email
+      - status
+      - permission_profile_id
+      - scope_roots
+      - include_descendants
+      - notes
+      - version
+      - permission_profile_name
+      - scope_accounts
+      description: id identifies the membership, not the users row. Owner memberships are protected from
+        staff mutation; secrets are never included.
+    StaffResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Staff'
+      required:
+      - data
+    StaffCollection:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Staff'
+        meta:
+          type: object
+          required:
+          - current_page
+          - last_page
+          - per_page
+          - total
+          properties:
+            current_page:
+              type: integer
+              minimum: 1
+            last_page:
+              type: integer
+              minimum: 1
+            per_page:
+              type: integer
+              minimum: 1
+            total:
+              type: integer
+              minimum: 0
+        links:
+          type: object
+          properties:
+            next:
+              type: string
+              nullable: true
+            prev:
+              type: string
+              nullable: true
+      required:
+      - data
+    StaffCreate:
+      type: object
+      properties:
+        _token:
+          type: string
+          writeOnly: true
+          description: Optional Laravel transport token; Vue sends X-XSRF-TOKEN.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 190
+        email:
+          type: string
+          format: email
+          maxLength: 190
+        permission_profile_id:
+          type: integer
+          minimum: 1
+        scope_roots:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+        include_descendants:
+          type: boolean
+        notes:
+          type: string
+          maxLength: 2000
+          nullable: true
+        login:
+          type: string
+          pattern: ^[A-Za-z][A-Za-z0-9._-]{2,63}$
+          description: Optional username in addition to the required email; either registered identifier
+            can be used for login.
+          maxLength: 64
+          nullable: true
+        password:
+          type: string
+          minLength: 12
+          maxLength: 72
+          writeOnly: true
+          description: Requires letters and numbers; the server also enforces a maximum of 72 UTF-8 bytes
+            for bcrypt, which can be fewer than 72 characters
+        password_confirmation:
+          type: string
+          writeOnly: true
+      required:
+      - name
+      - email
+      - permission_profile_id
+      - scope_roots
+      - include_descendants
+      - password
+      - password_confirmation
+      additionalProperties: false
+    StaffPatch:
+      type: object
+      properties:
+        _token:
+          type: string
+          writeOnly: true
+          description: Optional Laravel transport token; Vue sends X-XSRF-TOKEN.
+        version:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency version; stale requests return 409.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 190
+        email:
+          type: string
+          format: email
+          maxLength: 190
+        permission_profile_id:
+          type: integer
+          minimum: 1
+        scope_roots:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+        include_descendants:
+          type: boolean
+        notes:
+          type: string
+          maxLength: 2000
+          nullable: true
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+      - version
+      - reason
+      additionalProperties: false
+    PermissionProfile:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        account_id:
+          type: integer
+          minimum: 1
+        name:
+          type: string
+          maxLength: 80
+        permissions:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+          maxItems: 100
+        status:
+          type: string
+          enum:
+          - active
+          - disabled
+        version:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency version; stale requests return 409.
+        members_count:
+          type: integer
+          minimum: 0
+        builtin:
+          type: boolean
+      required:
+      - id
+      - account_id
+      - name
+      - permissions
+      - status
+      - version
+      - members_count
+      - builtin
+    PermissionProfileResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/PermissionProfile'
+      required:
+      - data
+    PermissionProfileCollection:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PermissionProfile'
+        links:
+          type: object
+          properties:
+            next:
+              type: string
+              nullable: true
+            prev:
+              type: string
+              nullable: true
+        meta:
+          $ref: '#/components/schemas/StaffCollection/properties/meta'
+      required:
+      - data
+    PermissionProfileCreate:
+      type: object
+      properties:
+        _token:
+          type: string
+          writeOnly: true
+          description: Optional Laravel transport token; Vue sends X-XSRF-TOKEN.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        permissions:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+          maxItems: 100
+          minItems: 1
+      required:
+      - name
+      - permissions
+      additionalProperties: false
+    PermissionProfilePatch:
+      type: object
+      properties:
+        _token:
+          type: string
+          writeOnly: true
+          description: Optional Laravel transport token; Vue sends X-XSRF-TOKEN.
+        version:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency version; stale requests return 409.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 80
+        permissions:
+          type: array
+          items:
+            type: string
+          uniqueItems: true
+          maxItems: 100
+          minItems: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+      - version
+      - reason
+      additionalProperties: false
+    ProfileStatusPatch:
+      type: object
+      properties:
+        _token:
+          type: string
+          writeOnly: true
+          description: Optional Laravel transport token; Vue sends X-XSRF-TOKEN.
+        version:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency version; stale requests return 409.
+        status:
+          type: string
+          enum:
+          - active
+          - disabled
+        reason:
+          type: string
+          maxLength: 500
+          nullable: true
+      required:
+      - version
+      - status
+      additionalProperties: false
+    VersionAction:
+      type: object
+      properties:
+        _token:
+          type: string
+          writeOnly: true
+          description: Optional Laravel transport token; Vue sends X-XSRF-TOKEN.
+        version:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency version; stale requests return 409.
+        reason:
+          type: string
+          maxLength: 500
+          nullable: true
+      required:
+      - version
+      additionalProperties: false
+    PermissionCatalog:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+              label:
+                type: string
+              group:
+                type: string
+            required:
+            - key
+            - label
+            - group
+      required:
+      - data
+    AccountOptions:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            cities:
+              type: array
+              items:
+                type: string
+          required:
+          - cities
+      required:
+      - data
+    AccountResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Account'
+      required:
+      - data
+    Attachment:
+      type: object
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        kind:
+          type: string
+          enum:
+          - agent_image
+          - personal_image
+          - document
+        document_type:
+          type: string
+          enum:
+          - civil_id
+          - national_card
+          - residence
+          - shop_license
+          - other
+          nullable: true
+        label:
+          type: string
+        content_url:
+          type: string
+          description: Same-origin gated download URL; no public storage URL or filesystem path.
+        bytes:
+          type: integer
+          minimum: 1
+          maximum: 700000
+        mime_type:
+          type: string
+          enum:
+          - image/png
+          - image/jpeg
+          - image/webp
+      required:
+      - id
+      - kind
+      - document_type
+      - label
+      - content_url
+      - bytes
+      - mime_type
+    AttachmentCollection:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attachment'
+          maxItems: 50
+        account_version:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency version; stale requests return 409.
+      required:
+      - data
+      - account_version
+    AttachmentResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Attachment'
+        account_version:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency version; stale requests return 409.
+      required:
+      - data
+      - account_version
+    AttachmentDeleted:
+      type: object
+      properties:
+        account_version:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency version; stale requests return 409.
+      required:
+      - account_version
+    AttachmentUpload:
+      type: object
+      properties:
+        version:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency version; stale requests return 409.
+        kind:
+          type: string
+          enum:
+          - agent_image
+          - personal_image
+          - document
+        file:
+          type: string
+          format: binary
+          description: Server validates real PNG/JPEG/WEBP content, at most 700000 bytes and dimensions
+            at most 4096 by 4096 pixels. The pixel bound is a new server limit.
+        document_type:
+          type: string
+          enum:
+          - civil_id
+          - national_card
+          - residence
+          - shop_license
+          - other
+          nullable: true
+        _token:
+          type: string
+          writeOnly: true
+          description: Optional Laravel transport token; Vue uses X-XSRF-TOKEN.
+      required:
+      - version
+      - kind
+      - file
+      additionalProperties: false
+      oneOf:
+      - properties:
+          kind:
+            type: string
+            enum:
+            - document
+          document_type:
+            type: string
+            nullable: false
+        required:
+        - document_type
+      - properties:
+          kind:
+            type: string
+            enum:
+            - agent_image
+            - personal_image
+          document_type:
+            nullable: true
+            enum:
+            - null
+            type: string
+      description: agent_image is allowed only for agents. personal_image/document are allowed only for
+        POS. document_type is required for document and must be omitted or null otherwise. At most 50
+        records per account; singleton image upload replaces the existing kind atomically.
+    AttachmentDelete:
+      type: object
+      properties:
+        _token:
+          type: string
+          writeOnly: true
+          description: Optional Laravel transport token; Vue sends X-XSRF-TOKEN.
+        version:
+          type: integer
+          minimum: 1
+          description: Optimistic concurrency version; stale requests return 409.
+        reason:
+          type: string
+          minLength: 3
+          maxLength: 2000
+      required:
+      - version
+      - reason
+      additionalProperties: false
+    OwnProfilePatch:
+      type: object
+      additionalProperties: false
+      required:
+      - version
+      - name
+      properties:
+        version:
+          type: integer
+          minimum: 1
+          description: Current identity.membership.version.
+        name:
+          type: string
+          minLength: 1
+          maxLength: 120
+        _token:
+          type: string
+          writeOnly: true
+    CatalogProduct:
+      type: object
+      properties:
+        id: &id015
+          type: integer
+        name: &id016
+          type: string
+          maxLength: 160
+        provider_id: &id017
+          type: integer
+          minimum: 1
+        provider_name: &id018
+          type: string
+        provider_status:
+          type: string
+          enum:
+          - active
+          - disabled
+        provider_logo_url:
+          type: string
+          nullable: true
+        kind:
+          type: string
+          enum:
+          - محلية
+          - عالمية
+        currency: &id019
+          type: string
+          enum:
+          - IQD
+          - USD
+        face_value: &id014
+          type: string
+          pattern: ^\d+(\.\d{1,2})?$
+          nullable: true
+          description: قيمة decimal كنص؛ null يعني غير محددة في قاموس الأصل، وليس صفرًا أو تكلفة مفترضة.
+        minimum_price: *id014
+        daily_limit_type:
+          type: string
+          enum:
+          - ''
+          - quantity
+          - amount
+          description: الفئات المرجعية المستوردة تبدأ بلا حد؛ الحفظ الجديد يلزم quantity أو amount.
+        daily_quantity:
+          type: integer
+          nullable: true
+          minimum: 1
+        daily_amount: *id014
+        field_policy:
+          type: object
+          properties:
+            pin:
+              type: string
+              enum:
+              - required
+            expiry:
+              type: string
+              enum:
+              - required
+            serial:
+              type: string
+              enum:
+              - required
+              - unused
+            cvc:
+              type: string
+              enum:
+              - required
+              - unused
+            reference:
+              type: string
+              enum:
+              - required
+              - unused
+          required:
+          - pin
+          - expiry
+          - serial
+          - cvc
+          - reference
+          additionalProperties: false
+        extra_fields:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+                pattern: ^[a-z][a-z0-9_]{1,30}$
+              label:
+                type: string
+                maxLength: 160
+              required:
+                type: boolean
+            required:
+            - key
+            - label
+            - required
+          maxItems: 30
+        display_order:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        import_codes:
+          type: array
+          items:
+            type: string
+            maxLength: 80
+          maxItems: 50
+          uniqueItems: true
+        receipt_language:
+          type: string
+          enum:
+          - ''
+          - ar
+          - en
+          - ku
+        receipt_width:
+          type: integer
+          enum:
+          - 58
+          - 80
+        receipt_header:
+          type: string
+          maxLength: 1000
+        receipt_footer:
+          type: string
+          maxLength: 1000
+        allowed_cities:
+          type: array
+          items:
+            type: string
+          maxItems: 19
+          uniqueItems: true
+        status: &id020
+          type: string
+          enum:
+          - active
+          - disabled
+        image_url:
+          type: string
+          nullable: true
+        version: *id013
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - id
+      - name
+      - provider_id
+      - provider_name
+      - provider_status
+      - provider_logo_url
+      - kind
+      - currency
+      - face_value
+      - minimum_price
+      - daily_limit_type
+      - daily_quantity
+      - daily_amount
+      - field_policy
+      - extra_fields
+      - display_order
+      - import_codes
+      - receipt_language
+      - receipt_width
+      - receipt_header
+      - receipt_footer
+      - allowed_cities
+      - status
+      - image_url
+      - version
+      - created_at
+    CatalogProvider:
+      type: object
+      properties:
+        id: &id021
+          type: integer
+        name: &id022
+          type: string
+          maxLength: 160
+        supplier:
+          type: string
+          maxLength: 160
+        connection:
+          type: string
+          enum:
+          - ملفات
+          - API
+        status: &id023
+          type: string
+          enum:
+          - active
+          - disabled
+        logo_url:
+          type: string
+          nullable: true
+        version: *id013
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+      required:
+      - id
+      - name
+      - supplier
+      - connection
+      - status
+      - logo_url
+      - version
+      - created_at
+    CatalogPageMeta:
+      type: object
+      properties:
+        current_page:
+          type: integer
+          minimum: 1
+        last_page:
+          type: integer
+          minimum: 1
+        per_page:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+      required:
+      - current_page
+      - last_page
+      - per_page
+      - total
+    CatalogProductCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        provider_id:
+          type: integer
+          minimum: 1
+        kind:
+          type: string
+          enum:
+          - محلية
+          - عالمية
+        currency:
+          type: string
+          enum:
+          - IQD
+          - USD
+        face_value:
+          oneOf:
+          - type: number
+            minimum: 1
+            maximum: 999999999999.99
+          - type: string
+            pattern: ^\d+(\.\d{1,2})?$
+          description: رقم أو نص عشري موجب، منزلتان كحد أقصى.
+        minimum_price:
+          oneOf:
+          - type: number
+            minimum: 1
+            maximum: 999999999999.99
+          - type: string
+            pattern: ^\d+(\.\d{1,2})?$
+          description: رقم أو نص عشري موجب، منزلتان كحد أقصى.
+        daily_limit_type:
+          type: string
+          enum:
+          - quantity
+          - amount
+        daily_quantity:
+          type: integer
+          nullable: true
+          minimum: 1
+        daily_amount:
+          oneOf:
+          - type: number
+            minimum: 0.01
+            maximum: 999999999999.99
+          - type: string
+            pattern: ^\d+(\.\d{1,2})?$
+          nullable: true
+        field_policy:
+          type: object
+          properties:
+            pin:
+              type: string
+              enum:
+              - required
+            expiry:
+              type: string
+              enum:
+              - required
+            serial:
+              type: string
+              enum:
+              - required
+              - unused
+            cvc:
+              type: string
+              enum:
+              - required
+              - unused
+            reference:
+              type: string
+              enum:
+              - required
+              - unused
+          required:
+          - pin
+          - expiry
+          - serial
+          - cvc
+          - reference
+          additionalProperties: false
+        extra_fields:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+                pattern: ^[a-z][a-z0-9_]{1,30}$
+              label:
+                type: string
+                maxLength: 160
+              required:
+                type: boolean
+            required:
+            - key
+            - label
+            - required
+          maxItems: 30
+        display_order:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        import_codes:
+          type: array
+          items:
+            type: string
+            maxLength: 80
+          maxItems: 50
+          uniqueItems: true
+        receipt_language:
+          type: string
+          enum:
+          - ''
+          - ar
+          - en
+          - ku
+          nullable: true
+        receipt_width:
+          type: integer
+          enum:
+          - 58
+          - 80
+        receipt_header:
+          type: string
+          maxLength: 1000
+        receipt_footer:
+          type: string
+          maxLength: 1000
+        allowed_cities:
+          type: array
+          items:
+            type: string
+          maxItems: 19
+          uniqueItems: true
+        remove_image:
+          type: boolean
+        reason:
+          type: string
+          nullable: true
+          maxLength: 2000
+      required:
+      - name
+      - provider_id
+      - kind
+      - face_value
+      - currency
+      - minimum_price
+      - daily_limit_type
+      - field_policy
+      - extra_fields
+      - display_order
+      - import_codes
+      - receipt_width
+      - allowed_cities
+      additionalProperties: false
+    CatalogProductPatch:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        provider_id:
+          type: integer
+          minimum: 1
+        kind:
+          type: string
+          enum:
+          - محلية
+          - عالمية
+        currency:
+          type: string
+          enum:
+          - IQD
+          - USD
+        face_value:
+          oneOf:
+          - type: number
+            minimum: 1
+            maximum: 999999999999.99
+          - type: string
+            pattern: ^\d+(\.\d{1,2})?$
+          description: رقم أو نص عشري موجب، منزلتان كحد أقصى.
+        minimum_price:
+          oneOf:
+          - type: number
+            minimum: 1
+            maximum: 999999999999.99
+          - type: string
+            pattern: ^\d+(\.\d{1,2})?$
+          description: رقم أو نص عشري موجب، منزلتان كحد أقصى.
+        daily_limit_type:
+          type: string
+          enum:
+          - quantity
+          - amount
+        daily_quantity:
+          type: integer
+          nullable: true
+          minimum: 1
+        daily_amount:
+          oneOf:
+          - type: number
+            minimum: 0.01
+            maximum: 999999999999.99
+          - type: string
+            pattern: ^\d+(\.\d{1,2})?$
+          nullable: true
+        field_policy:
+          type: object
+          properties:
+            pin:
+              type: string
+              enum:
+              - required
+            expiry:
+              type: string
+              enum:
+              - required
+            serial:
+              type: string
+              enum:
+              - required
+              - unused
+            cvc:
+              type: string
+              enum:
+              - required
+              - unused
+            reference:
+              type: string
+              enum:
+              - required
+              - unused
+          required:
+          - pin
+          - expiry
+          - serial
+          - cvc
+          - reference
+          additionalProperties: false
+        extra_fields:
+          type: array
+          items:
+            type: object
+            properties:
+              key:
+                type: string
+                pattern: ^[a-z][a-z0-9_]{1,30}$
+              label:
+                type: string
+                maxLength: 160
+              required:
+                type: boolean
+            required:
+            - key
+            - label
+            - required
+          maxItems: 30
+        display_order:
+          type: integer
+          minimum: 0
+          maximum: 1000000
+        import_codes:
+          type: array
+          items:
+            type: string
+            maxLength: 80
+          maxItems: 50
+          uniqueItems: true
+        receipt_language:
+          type: string
+          enum:
+          - ''
+          - ar
+          - en
+          - ku
+          nullable: true
+        receipt_width:
+          type: integer
+          enum:
+          - 58
+          - 80
+        receipt_header:
+          type: string
+          maxLength: 1000
+        receipt_footer:
+          type: string
+          maxLength: 1000
+        allowed_cities:
+          type: array
+          items:
+            type: string
+          maxItems: 19
+          uniqueItems: true
+        remove_image:
+          type: boolean
+        reason:
+          type: string
+          nullable: true
+          maxLength: 2000
+        version: *id013
+      required:
+      - name
+      - provider_id
+      - kind
+      - face_value
+      - currency
+      - minimum_price
+      - daily_limit_type
+      - field_policy
+      - extra_fields
+      - display_order
+      - import_codes
+      - receipt_width
+      - allowed_cities
+      - version
+      additionalProperties: false
+    CatalogProductResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/CatalogProduct'
+      required:
+      - data
+    CatalogProductCollection:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogProduct'
+        meta:
+          $ref: '#/components/schemas/CatalogPageMeta'
+        links:
+          type: object
+          properties: {}
+      required:
+      - data
+      - meta
+    CatalogProviderCreate:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        supplier:
+          type: string
+          maxLength: 160
+          minLength: 1
+        connection:
+          type: string
+          enum:
+          - ملفات
+          - API
+        remove_image:
+          type: boolean
+        reason:
+          type: string
+          nullable: true
+          maxLength: 2000
+      required:
+      - name
+      - supplier
+      - connection
+      additionalProperties: false
+    CatalogProviderPatch:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 160
+        supplier:
+          type: string
+          maxLength: 160
+          minLength: 1
+        connection:
+          type: string
+          enum:
+          - ملفات
+          - API
+        remove_image:
+          type: boolean
+        reason:
+          type: string
+          nullable: true
+          maxLength: 2000
+        version: *id013
+      required:
+      - name
+      - supplier
+      - connection
+      - version
+      additionalProperties: false
+    CatalogProviderResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/CatalogProvider'
+      required:
+      - data
+    CatalogProviderCollection:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CatalogProvider'
+        meta:
+          $ref: '#/components/schemas/CatalogPageMeta'
+        links:
+          type: object
+          properties: {}
+      required:
+      - data
+      - meta
+    CatalogPreferences:
+      type: object
+      properties:
+        hidden_columns:
+          type: array
+          items:
+            type: string
+            enum:
+            - importCodes
+            - image
+            - kind
+            - provider
+            - face
+            - currency
+            - min
+            - dailyQty
+            - dailyAmount
+            - field_pin
+            - field_expiry
+            - field_serial
+            - field_cvc
+            - field_reference
+            - allowedCities
+            - receiptWidth
+            - receiptHeader
+            - receiptFooter
+            - order
+            - active
+          maxItems: 20
+          uniqueItems: true
+      required:
+      - hidden_columns
+      additionalProperties: false
+    AccountCategories:
+      type: object
+      properties:
+        account_id:
+          type: integer
+        account_version: *id013
+        catalog_version: *id013
+        can_manage:
+          type: boolean
+        selected_ids:
+          type: array
+          items:
+            type: integer
+        products:
+          type: array
+          items:
+            type: object
+            properties:
+              id: *id015
+              name: *id016
+              provider_id: *id017
+              provider_name: *id018
+              face_value: *id014
+              currency: *id019
+              status: *id020
+            required:
+            - id
+            - name
+            - provider_id
+            - provider_name
+            - face_value
+            - currency
+            - status
+      required:
+      - account_id
+      - account_version
+      - catalog_version
+      - can_manage
+      - selected_ids
+      - products
+    AccountCategoriesPatch:
+      type: object
+      properties:
+        version: *id013
+        catalog_version: *id013
+        product_ids:
+          type: array
+          items:
+            type: integer
+            minimum: 1
+          maxItems: 10000
+          uniqueItems: true
+        reason:
+          type: string
+          nullable: true
+          maxLength: 2000
+      required:
+      - version
+      - catalog_version
+      - product_ids
+      additionalProperties: false
+    CatalogExport:
+      type: object
+      properties:
+        filename:
+          type: string
+        csv:
+          type: string
+        count:
+          type: integer
+          minimum: 0
+          maximum: 10000
+      required:
+      - filename
+      - csv
+      - count
+    CatalogOptions:
+      type: object
+      properties:
+        providers:
+          type: array
+          items:
+            type: object
+            properties:
+              id: *id021
+              name: *id022
+              status: *id023
+              version: *id013
+        suppliers:
+          type: array
+          items:
+            type: string
+        connections:
+          type: array
+          items:
+            type: string
+        kinds:
+          type: array
+          items:
+            type: string
+        cities:
+          type: array
+          items:
+            type: string
+        catalog_version: *id013
+      required:
+      - providers
+      - suppliers
+      - connections
+      - kinds
+      - cities
+      - catalog_version
+    CatalogStatusPatch:
+      type: object
+      properties:
+        version: *id013
+        status:
+          type: string
+          enum:
+          - active
+          - disabled
+        reason:
+          type: string
+          nullable: true
+          maxLength: 2000
+      required:
+      - version
+      - status
+  responses:
+    Unauthenticated:
+      description: Missing, expired, or invalid session
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Unknown host, portal mismatch, disabled session account chain, or insufficient permission
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    CsrfFailure:
+      description: Origin verification did not pass and CSRF token is missing or invalid; initialize a
+        fresh CSRF session before retrying login
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    ValidationFailure:
+      description: Invalid input or generic rejected login; no account existence or portal reason is revealed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+    NotFound:
+      description: Account does not exist or is outside the authenticated account scope
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    TooManyRequests:
+      description: Login attempt rate limit reached
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds before another attempt may be allowed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: Stale optimistic version, or a linked permission profile that cannot be deleted. No
+        requested mutation is committed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

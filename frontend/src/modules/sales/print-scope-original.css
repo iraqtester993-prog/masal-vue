@@ -1,0 +1,248 @@
+/* Scope picker geometry from the original source. */
+.sales-workspace .print-scope-picker {
+  margin: 18px 0;
+  border: 1px solid #d5e5ed;
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--card, #fff);
+}
+.sales-workspace .scope-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+}
+.sales-workspace .scope-count {
+  font-size: 12px;
+  border-radius: 20px;
+  padding: 4px 12px;
+  background: #e6f6fa;
+  color: #087f98;
+}
+.sales-workspace .scope-picker-tools {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 18px 14px;
+  flex-wrap: wrap;
+}
+.sales-workspace .scope-kind-tabs {
+  display: flex;
+  padding: 4px;
+  gap: 4px;
+  background: #eff5f8;
+  border-radius: 10px;
+}
+.sales-workspace .scope-kind-tabs button {
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #526f84;
+  padding: 9px 16px;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.sales-workspace .scope-kind-tabs button.active {
+  background: #0799b7;
+  color: white;
+  box-shadow: 0 2px 5px #0799b722;
+}
+.sales-workspace .scope-picker-tools > input {
+  flex: 1;
+  min-width: 160px;
+  max-width: 420px;
+}
+.sales-workspace .print-scope-picker .scope-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 16px 18px;
+  border: 0;
+  border-top: 1px solid #e4edf2;
+  border-radius: 0;
+  max-height: 350px;
+  background: #f7fafc;
+  align-items: start;
+}
+.sales-workspace .scope-choice-card {
+  border: 1px solid #dce7ed;
+  background: #fff;
+  border-radius: 10px;
+  padding: 12px;
+  min-width: 0;
+}
+.sales-workspace .scope-choice-card.is-selected {
+  border-color: #0799b7;
+  background: #f0fbfe;
+  box-shadow: 0 0 0 1px #0799b714;
+}
+.sales-workspace .scope-choice-main {
+  cursor: pointer;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  margin: 0 !important;
+}
+.sales-workspace .scope-choice-main input {
+  accent-color: #0799b7;
+  width: 18px !important;
+  height: 18px;
+  flex: none;
+}
+.sales-workspace .scope-choice-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.sales-workspace .scope-choice-text strong {
+  font-size: 14px;
+  color: #214c64;
+}
+.sales-workspace .scope-choice-text small {
+  font-size: 11px;
+  color: #748c9d;
+}
+.sales-workspace .scope-choice-card .scope-coverage {
+  margin-top: 10px;
+  height: 38px;
+  min-height: 38px;
+  font-size: 12px;
+  background: #fff;
+  width: 100%;
+}
+.sales-workspace .scope-selected-mark {
+  display: block;
+  margin-top: 8px;
+  color: #07829d;
+  font-size: 11px;
+}
+.sales-workspace .scope-empty {
+  grid-column: 1/-1;
+  text-align: center;
+  color: #78909f;
+  padding: 18px;
+}
+html[data-theme="dark"] .sales-workspace .print-scope-picker,
+html[data-theme="dark"] .sales-workspace .scope-choice-card {
+  background: #152b3b;
+  border-color: #355164;
+}
+html[data-theme="dark"] .sales-workspace .print-scope-picker .scope-card-grid,
+html[data-theme="dark"] .sales-workspace .scope-kind-tabs {
+  background: #112532;
+}
+html[data-theme="dark"] .sales-workspace .scope-choice-card.is-selected {
+  background: #153d4b;
+  border-color: #0799b7;
+}
+html[data-theme="dark"] .sales-workspace .scope-choice-text strong {
+  color: #d5edf5;
+}
+@media (max-width: 650px) {
+  .sales-workspace .scope-picker-tools {
+    align-items: stretch;
+  }
+}
+@media (max-width: 650px) {
+  .sales-workspace .scope-kind-tabs {
+    width: 100%;
+  }
+}
+@media (max-width: 650px) {
+  .sales-workspace .scope-kind-tabs button {
+    flex: 1;
+    padding: 9px 8px;
+  }
+}
+@media (max-width: 650px) {
+  .sales-workspace .scope-picker-tools > input {
+    max-width: none;
+    width: 100%;
+  }
+}
+@media (max-width: 650px) {
+  .sales-workspace .print-scope-picker .scope-card-grid {
+    grid-template-columns: 1fr;
+    padding: 12px;
+  }
+}
+@media (max-width: 650px) {
+  .sales-workspace .scope-picker-head {
+    padding: 12px;
+  }
+}
+.sales-workspace .scope-picker-filters {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 0 18px 16px;
+}
+.sales-workspace .scope-picker-filters > label {
+  flex: 1;
+  min-width: 180px;
+  margin: 0;
+}
+.sales-workspace .scope-picker-filters select {
+  width: 100%;
+  margin-top: 6px;
+}
+.sales-workspace .scope-picker-filters .scope-selected-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  min-width: 0;
+}
+.sales-workspace .scope-selected-filter input {
+  width: 18px;
+  height: 18px;
+  accent-color: #0799b7;
+}
+.sales-workspace .scope-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 18px;
+  font-size: 12px;
+  flex-wrap: wrap;
+}
+.sales-workspace .scope-pagination > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+@media (max-width: 650px) {
+  .sales-workspace .scope-picker-filters {
+    gap: 12px;
+  }
+}
+@media (max-width: 650px) {
+  .sales-workspace .scope-picker-filters > label {
+    min-width: 100%;
+  }
+}
+@media (max-width: 650px) {
+  .sales-workspace .scope-pagination {
+    padding: 12px;
+  }
+}
+
+html[data-theme="dark"] .sales-workspace .print-scope-picker{color:var(--ink);border-color:var(--line);background:var(--panel)}
+html[data-theme="dark"] .sales-workspace .scope-kind-tabs{background:var(--raised)}
+html[data-theme="dark"] .sales-workspace .scope-kind-tabs button{color:var(--muted)}
+html[data-theme="dark"] .sales-workspace .scope-kind-tabs button.active{color:#fff;background:var(--accent)}
+html[data-theme="dark"] .sales-workspace .scope-count{background:var(--accent-soft);color:var(--blue-text)}
+html[data-theme="dark"] .sales-workspace .print-scope-picker .scope-card-grid{background:var(--raised);border-color:var(--line)}
+html[data-theme="dark"] .sales-workspace .scope-choice-card{background:var(--panel);border-color:var(--line)}
+html[data-theme="dark"] .sales-workspace .scope-choice-card.is-selected{background:var(--accent-soft);border-color:var(--accent)}
+html[data-theme="dark"] .sales-workspace .scope-choice-text strong{color:var(--ink)}
+html[data-theme="dark"] .sales-workspace .scope-choice-text small,html[data-theme="dark"] .sales-workspace .scope-empty{color:var(--muted)}
+html[data-theme="dark"] .sales-workspace .scope-choice-card .scope-coverage{background:var(--raised);color:var(--ink);border-color:var(--line)}
+html[data-theme="dark"] .sales-workspace .scope-selected-mark{color:var(--blue-text)}

@@ -1,22 +1,17 @@
 {
-  "name": "masal-frontend",
-  "version": "1.0.0",
+  "name": "masal-workspace",
   "private": true,
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "vite build",
-    "preview": "vite preview --host 127.0.0.1"
-  },
-  "dependencies": {
-    "leaflet": "1.9.4",
-    "vue": "3.5.13"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-vue": "6.0.9",
-    "vite": "8.3.2"
-  },
-  "type": "module",
-  "engines": {
-    "node": ">=22.12.0"
+    "dev:admin": "npm --prefix frontend run dev:admin",
+    "dev:agents": "npm --prefix frontend run dev:agents",
+    "dev:pos": "npm --prefix frontend run dev:pos",
+    "dev:public": "npm --prefix frontend run dev:public",
+    "dev:legacy": "npm --prefix frontend run dev:legacy",
+    "build": "npm --prefix frontend run build && npm --prefix frontend run build:public",
+    "build:public": "npm --prefix frontend run build:public",
+    "build:legacy": "npm --prefix frontend run build:legacy",
+    "frontend:test": "npm --prefix frontend test",
+    "backend:serve": "pwsh -NoProfile -File scripts/backend.ps1 artisan serve --host=127.0.0.1 --port=8000",
+    "backend:test": "pwsh -NoProfile -File scripts/backend.ps1 artisan test"
   }
 }

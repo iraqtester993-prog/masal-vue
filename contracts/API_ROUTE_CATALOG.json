@@ -1,0 +1,2784 @@
+[
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/account-options",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountManagementController@options",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/accounts",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountController@index",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/accounts",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountController@store",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/accounts/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountController@show",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/accounts/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountManagementController@update",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/accounts/{id}/attachments",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountAttachmentController@index",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/accounts/{id}/attachments",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountAttachmentController@store",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/v1/accounts/{id}/attachments/{attachment}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountAttachmentController@destroy",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/accounts/{id}/attachments/{attachment}/content",
+    "name": "account.attachments.content",
+    "action": "App\\Http\\Controllers\\AccountAttachmentController@content",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/accounts/{id}/categories",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CatalogController@categories",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/accounts/{id}/categories",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CatalogController@saveCategories",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/accounts/{id}/login",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountManagementController@login",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/accounts/{id}/permission-profiles",
+    "name": null,
+    "action": "App\\Http\\Controllers\\PermissionProfileController@index",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/accounts/{id}/permission-profiles",
+    "name": null,
+    "action": "App\\Http\\Controllers\\PermissionProfileController@store",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/accounts/{id}/permission-profiles/{profileId}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\PermissionProfileController@update",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/v1/accounts/{id}/permission-profiles/{profileId}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\PermissionProfileController@destroy",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/accounts/{id}/permission-profiles/{profileId}/status",
+    "name": null,
+    "action": "App\\Http\\Controllers\\PermissionProfileController@status",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/accounts/{id}/permissions",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountManagementController@permissions",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/accounts/{id}/reference-profile",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ReferenceController@profile",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/accounts/{id}/reference-profile",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ReferenceController@saveProfile",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/accounts/{id}/staff",
+    "name": null,
+    "action": "App\\Http\\Controllers\\StaffController@index",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/accounts/{id}/staff",
+    "name": null,
+    "action": "App\\Http\\Controllers\\StaffController@store",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/accounts/{id}/staff/{memberId}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\StaffController@update",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/accounts/{id}/staff/{memberId}/status",
+    "name": null,
+    "action": "App\\Http\\Controllers\\StaffController@status",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/accounts/{id}/status",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountManagementController@status",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/auth/login",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AuthController@login",
+    "middleware": [
+      "web",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:login"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/auth/logout",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AuthController@logout",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership:session"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/auth/me",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AuthController@me",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/auth/profile",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AuthController@profile",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/backups",
+    "name": "backups.index",
+    "action": "App\\Http\\Controllers\\Backups\\BackupController@index",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/backups",
+    "name": "backups.create",
+    "action": "App\\Http\\Controllers\\Backups\\BackupController@create",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:2,1,backup-create:"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/backups/previews",
+    "name": "backups.preview",
+    "action": "App\\Http\\Controllers\\Backups\\BackupController@preview",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:4,1,backup-preview:"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/backups/restore-jobs",
+    "name": "backups.restore",
+    "action": "App\\Http\\Controllers\\Backups\\BackupController@restore",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:4,1,backup-restore:"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/backups/restore-jobs/{id}",
+    "name": "backups.job",
+    "action": "App\\Http\\Controllers\\Backups\\BackupController@job",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/backups/{id}/download",
+    "name": "backups.download",
+    "action": "App\\Http\\Controllers\\Backups\\BackupController@download",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/catalog/options",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CatalogController@options",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/catalog/preferences",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CatalogController@preferences",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/catalog/preferences",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CatalogController@savePreferences",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/catalog/products",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CatalogController@products",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/catalog/products",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CatalogController@storeProduct",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/catalog/products/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CatalogController@updateProduct",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/catalog/products/{id}/image",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CatalogController@productImage",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/catalog/products/{id}/move",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CatalogController@moveProduct",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/catalog/products/{id}/status",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CatalogController@productStatus",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/catalog/providers",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CatalogController@providers",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/catalog/providers",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CatalogController@storeProvider",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/catalog/providers/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CatalogController@updateProvider",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/catalog/providers/{id}/image",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CatalogController@providerImage",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/catalog/providers/{id}/status",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CatalogController@providerStatus",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/catalog/{kind}/export",
+    "name": null,
+    "action": "App\\Http\\Controllers\\CatalogExportController",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/company/assets",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyController@upload",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:20,1,company-upload:"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/company/assets/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyController@asset",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/company/inquiries",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyPublicController@inquiry",
+    "middleware": [
+      "web",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:5,1,company-inquiries:"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/company/inquiries",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyController@inquiries",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/company/inquiries/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyController@review",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/company/profile",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyController@profile",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/company/profile",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyController@save",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/company/public",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyPublicController@profile",
+    "middleware": [
+      "web",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:60,1,company-public:"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/company/public/assets/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyPublicController@asset",
+    "middleware": [
+      "web",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:120,1,company-public-assets:"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/dashboard/summary",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Reports\\ReportController@dashboard",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/digital/connections",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@connections",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/digital/connections",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@storeConnection",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/digital/connections/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@updateConnection",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/digital/connections/{id}/balance",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@balance",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/digital/connections/{id}/catalog",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@catalog",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/digital/connections/{id}/grants/{target}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@grant",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/digital/device-session",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@heartbeat",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/digital/history",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@history",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/digital/offers",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@offers",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/digital/options",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@options",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/digital/orders",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@index",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/digital/orders",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@store",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/digital/orders/export",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@export",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/digital/orders/summary",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@summary",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/digital/orders/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@show",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/digital/orders/{id}/print-authorization",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@printAuthorization",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/digital/orders/{id}/receipt",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@receipt",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/digital/orders/{id}/refund-status",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@refundStatus",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/digital/orders/{id}/verify",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@verify",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/finance/bulk-transfers",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@bulkTransfers",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/finance/deposits",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@deposits",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/finance/funding-policy",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@policy",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/finance/funding-policy",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@savePolicy",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/finance/funding-requests",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@fundingRequests",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/finance/funding-requests",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@storeFundingRequest",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/finance/funding-requests/{id}/cancel",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@cancelFundingRequest",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/finance/funding-requests/{id}/review",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@reviewFundingRequest",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/finance/invoices",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@invoices",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/finance/invoices",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@storeInvoice",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/finance/invoices/{id}/settle",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@settleInvoice",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/finance/ledger",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@ledger",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/finance/options",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@options",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/finance/price-requests",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@priceRequests",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/finance/price-requests",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@storePriceRequest",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/finance/price-requests/{id}/reverse",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@reversePriceRequest",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/finance/price-requests/{id}/review",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@reviewPriceRequest",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/finance/prices",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@prices",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/finance/recoveries",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@recoveries",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/finance/transfers",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@transfers",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/finance/transfers",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@transferHistory",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/finance/transfers/{id}/recover",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@recoverTransfer",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/finance/wallets",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@wallets",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/maps/accounts/{id}/location",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Maps\\MapController@saveLocation",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/maps/disconnect",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Maps\\MapController@disconnect",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/maps/heartbeat",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Maps\\MapController@heartbeat",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:10,1"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/maps/location",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Maps\\MapController@locate",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:10,1"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/maps/own",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Maps\\MapController@own",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/maps/users",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Maps\\MapController@index",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/notifications",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Notifications\\NotificationController@index",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/notifications",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Notifications\\NotificationController@create",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/notifications/export",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Notifications\\NotificationController@export",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/notifications/options",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Notifications\\NotificationController@options",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/notifications/read-page",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Notifications\\NotificationController@readPage",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/notifications/summary",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Notifications\\NotificationController@summary",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/notifications/{id}/read",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Notifications\\NotificationController@read",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/operations/account-times",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Operations\\OperationController@times",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/operations/account-times/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Operations\\OperationController@time",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/operations/account-times/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Operations\\OperationController@saveTime",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/operations/activity",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Operations\\OperationController@activity",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/operations/archive",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Operations\\OperationController@archives",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/operations/archive/accounts/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Operations\\OperationController@createArchive",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/operations/archive/accounts/{id}/eligibility",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Operations\\OperationController@eligibility",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/operations/archive/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Operations\\OperationController@archive",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/operations/archive/{id}/image",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Operations\\OperationController@image",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/operations/security",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Operations\\OperationController@security",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/operations/security/accounts/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Operations\\OperationController@direct",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/operations/security/restore-global",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Operations\\OperationController@restoreGlobal",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/operations/security/stops",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Operations\\OperationController@createStop",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/operations/security/stops/{id}/resume",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Operations\\OperationController@resume",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/permission-catalog",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountManagementController@catalog",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/preferences",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Preferences\\UserPreferenceController@index",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/preferences",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Preferences\\UserPreferenceController@update",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/reference/options",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ReferenceController@options",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/reference/representatives/{id}/photos",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ReferencePhotoController@store",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "DELETE",
+    "uri": "api/v1/reference/representatives/{id}/photos/{photo}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ReferencePhotoController@destroy",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/reference/representatives/{id}/photos/{photo}/content",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ReferencePhotoController@content",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/reference/{kind}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ReferenceController@index",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/reference/{kind}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ReferenceController@store",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/reference/{kind}/export",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ReferenceController@export",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/reference/{kind}/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ReferenceController@update",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/reference/{kind}/{id}/status",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ReferenceController@status",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/reports/export",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Reports\\ReportController@export",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/reports/options",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Reports\\ReportController@options",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/reports/sections/{section}/rows",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Reports\\ReportController@rows",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/reports/sections/{section}/rows/{rowKey}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Reports\\ReportController@row",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/reports/summary",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Reports\\ReportController@summary",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/sales",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@index",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/sales",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@create",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/sales/configuration-options",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@configurationOptions",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/sales/device-session",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@heartbeat",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/sales/export",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@export",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/sales/limits",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@limits",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/sales/limits",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@saveLimit",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/sales/options",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@options",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/sales/print-policy",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@policy",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/sales/print-policy",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@savePolicy",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/sales/print-rules",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@rules",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/sales/print-rules",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@saveRule",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/sales/print-rules/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@saveRule",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/sales/products",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@products",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/sales/products/{id}/images/{kind}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@image",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/sales/receipt-layouts/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@layout",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/sales/receipt-layouts/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@saveLayout",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/sales/reprint-requests",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@reprintRequests",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/sales/reprint-requests/{id}/escalate",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@escalate",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/sales/reprint-requests/{id}/review",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@review",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/sales/reservations",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@reserve",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/sales/reservations/{id}/cancel",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@cancel",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/sales/reservations/{id}/issue",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@issue",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/sales/summary",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@summary",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/sales/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@show",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/sales/{id}/deliver",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@deliver",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/sales/{id}/print/result",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@result",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/sales/{id}/print/retry",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@retry",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/sales/{id}/print/start",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@start",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/sales/{id}/receipt",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@receipt",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/sales/{id}/reprint-request",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@requestReprint",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/stock/adjustments",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@adjustments",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/stock/batches",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@batches",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/stock/batches/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@batch",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/stock/batches/{id}/actions",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@batchAction",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/stock/batches/{id}/actions/preview",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@previewAction",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/stock/batches/{id}/cards",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@cards",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/stock/batches/{id}/claims",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@claim",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/stock/batches/{id}/copy",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@copy",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/stock/batches/{id}/selection",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@selection",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/stock/claims",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@claims",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/stock/claims/{id}/settle",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@settleClaim",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/stock/options",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@options",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/stock/orders",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@orders",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/stock/orders",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@submit",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/stock/orders/preview",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@preview",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/stock/orders/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@showOrder",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/stock/orders/{id}/resubmit",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@resubmit",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/stock/orders/{id}/review",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@review",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/stock/read",
+    "name": null,
+    "action": "App\\Http\\Controllers\\ImportReadController",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/stock/summary",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@summary",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/stock/withdrawals",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@withdrawals",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/stock/withdrawals",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@requestWithdrawal",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/stock/withdrawals/{id}/download",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@downloadWithdrawal",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/stock/withdrawals/{id}/review",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Stock\\StockController@reviewWithdrawal",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/support/attachments",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Support\\SupportController@upload",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/support/attachments/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Support\\SupportController@attachment",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/support/broadcasts",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Support\\SupportController@broadcast",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/support/options",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Support\\SupportController@options",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/support/phones/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Support\\SupportController@phones",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/support/phones/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Support\\SupportController@savePhones",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/support/tickets",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Support\\SupportController@index",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/support/tickets",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Support\\SupportController@create",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/support/tickets/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Support\\SupportController@show",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/support/tickets/{id}/read",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Support\\SupportController@read",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/support/tickets/{id}/replies",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Support\\SupportController@reply",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/support/tickets/{id}/status",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Support\\SupportController@status",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "sanctum/csrf-cookie",
+    "name": "sanctum.csrf-cookie",
+    "action": "Laravel\\Sanctum\\Http\\Controllers\\CsrfCookieController@show",
+    "middleware": [
+      "web"
+    ],
+    "path": null
+  }
+]

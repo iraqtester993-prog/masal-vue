@@ -1,0 +1,150 @@
+/* Shared control rows for all three portals. Keep scrolling inside tables,
+   rather than clipping menus in the toolbar that opens them. */
+.portal-main :is(.toolbar,.filter-bar-fields:not(.topup-filter-tools):not(.wallet-filter-toolbar),
+  .catalog-filter-head,.catalog-filter-fields,.inventory-controls,.inventory-toolbar,
+  .inventory-original-toolbar,.account-time-toolbar,.notice-toolbar,.user-map-filters,
+  .scope-picker-filters,.site-inbox-filters,.wallet-history-filter,.digital-filters,
+  .price-bulk-toolbar,.price-editor-toolbar,.report-table-tools,.print-policy-header,
+  .reference-network,.simple-card-controls,.permission-editor-toolbar) {
+  display:flex!important;
+  align-items:flex-end!important;
+  justify-content:flex-start!important;
+  flex-wrap:wrap!important;
+  gap:10px!important;
+  min-width:0;
+  max-width:100%;
+  overflow:visible!important;
+}
+.portal-main :is(.toolbar,.filter-bar-fields,.catalog-filter-head,
+  .catalog-filter-fields,.inventory-controls,.inventory-toolbar,.account-time-toolbar,
+  .notice-toolbar,.user-map-filters,.scope-picker-filters,.site-inbox-filters,
+  .wallet-history-filter,.digital-filters,.price-bulk-toolbar,.price-editor-toolbar,
+  .report-table-tools,.print-policy-header,.reference-network,.simple-card-controls,
+  .permission-editor-toolbar) > label {
+  display:grid;
+  gap:5px;
+  margin:0!important;
+  min-width:0;
+  flex:1 1 160px;
+  max-width:280px;
+}
+.portal-main :is(.toolbar,.filter-bar-fields,.catalog-filter-head,
+  .catalog-filter-fields,.inventory-controls,.account-time-toolbar,.notice-toolbar,
+  .user-map-filters,.scope-picker-filters,.site-inbox-filters,.wallet-history-filter,
+  .digital-filters,.price-bulk-toolbar,.print-policy-header,.simple-card-controls) 
+  :is(input:not([type=checkbox]):not([type=radio]):not([type=color]),select,.btn,summary) {
+  height:44px;
+  min-height:44px;
+  box-sizing:border-box;
+}
+.portal-main :is(.toolbar,.filter-bar-fields,.catalog-filter-head,
+  .inventory-toolbar,.inventory-original-toolbar,.report-unified-toolbar) 
+  > :is(.actions,.workspace-actions) {
+  display:flex!important;
+  align-items:center!important;
+  flex-wrap:wrap;
+  gap:8px!important;
+  width:auto!important;
+  margin:0!important;
+  padding:0;
+  flex:0 0 auto;
+  overflow:visible!important;
+}
+.portal-main :is(.actions,.formfoot,.formfoot,.backup-actions,.phone-recovery-actions,
+  .digital-receipt-actions,.print-policy-inline-actions,.permission-role-actions) {
+  display:flex;
+  align-items:center;
+  flex-direction:row;
+  flex-wrap:wrap;
+  gap:8px;
+}
+.portal-main :is(.toolbar,.filter-bar-fields,.catalog-filter-head,.inventory-toolbar)
+  > :is(.caption,small,.badge) {flex:0 0 auto;white-space:nowrap}
+.portal-main :is(.toolbar,.inventory-toolbar,.inventory-original-toolbar,
+  .filter-bar-fields) > input:not([type=checkbox]):not([type=radio]) {
+  flex:1 1 180px;
+  width:auto!important;
+  min-width:120px;
+  max-width:360px!important;
+  margin:0;
+}
+.portal-main .filter-bar-fields>select {flex:0 1 180px;max-width:220px}
+.portal-main :is(.filter-bar-fields,.catalog-filter-head)
+  select[aria-label^="عدد"][aria-label$="في الصفحة"] {
+  flex:0 0 80px!important;
+  width:80px!important;
+  min-width:80px!important;
+  max-width:80px!important;
+}
+/* Open menus sit above adjacent table headings without hiding their items. */
+.portal-main .catalog-filter-head {align-items:center!important}
+.portal-main .catalog-filter-head>.filter-bar {margin:0;min-width:0}
+.portal-main .catalog-filter-head .filter-bar-fields {padding:0!important}
+.portal-main .cardhead:has(>label) {
+  display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px;
+}
+.portal-main .cardhead>label {display:grid;gap:5px;flex:0 1 260px;min-width:0}
+.portal-main .cardhead>label> :is(input,select) {width:100%;height:44px;margin:0}
+.portal-main .control-inline-form {display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px}
+.portal-main .control-inline-form>.formgrid {display:contents}
+.portal-main .control-inline-form>.formgrid>label {flex:0 1 260px;min-width:0}
+.portal-main .control-inline-form>.formfoot {margin:0;padding:0;border:0}
+.portal-main .control-inline-form>.help {flex-basis:100%;order:1;margin:0}
+.portal-main :is(.filter-bar-fields,.catalog-filter-head,.toolbar,
+  .inventory-toolbar):has(details[open],.category-column-options,
+  .pos-column-menu,.wallet-extra-options) {position:relative;z-index:5}
+.portal-main .filter-bar-fields[style*="display: none"] {display:none!important}
+@media(min-width:1400px) {
+  .portal-main :is(.filter-bar-fields:not(.topup-filter-tools):not(.wallet-filter-toolbar),
+    .catalog-filter-head,.catalog-filter-fields,.inventory-controls,
+    .account-time-toolbar,.notice-toolbar,.scope-picker-filters,
+    .digital-filters,.price-bulk-toolbar,.report-table-tools,.reference-network) {
+    flex-wrap:nowrap!important;
+  }
+  .portal-main :is(.catalog-filter-fields,.digital-filters)>label {
+    flex:1 1 130px;
+    max-width:240px;
+  }
+  .portal-main :is(.filter-bar-fields,.catalog-filter-head)>.tabs {
+    margin:0;
+    flex:0 1 auto;
+    min-width:0;
+    max-width:100%;
+  }
+  .portal-main .filter-bar-fields>.tabs button {padding-inline:9px}
+}
+@media(min-width:1100px) {
+  .portal-main .formgrid:not(.pos-purchase-grid) {
+    grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+    align-items:start;
+    gap:14px;
+  }
+  .portal-main .formgrid>:is(.full,.wide,label:has(textarea)) {grid-column:1/-1}
+}
+@media(max-width:700px) {
+  .portal-main :is(.filter-bar-fields,.catalog-filter-head,.catalog-filter-fields,
+    .toolbar,.inventory-controls,.inventory-toolbar,.notice-toolbar,
+    .digital-filters,.scope-picker-filters) {
+    flex-wrap:wrap!important;
+    overflow:visible!important;
+  }
+  .portal-main :is(.toolbar,.filter-bar-fields,.catalog-filter-fields,
+    .inventory-controls,.digital-filters)>label {
+    flex:1 1 140px;
+    max-width:none;
+  }
+  .portal-main :is(.toolbar,.filter-bar-fields)>input[type=search] {
+    flex-basis:100%;
+    max-width:none;
+  }
+  .portal-main .filter-bar-fields>.tabs {
+    flex-wrap:wrap;
+    max-width:100%;
+    margin:0;
+  }
+  .portal-main .report-unified-toolbar>.actions {width:100%!important}
+}
+@media print {
+  .portal-main :is(.filter-bar,.catalog-filter,.inventory-controls,
+    .notice-toolbar,.report-table-tools,.price-bulk-toolbar) {display:none!important}
+}
