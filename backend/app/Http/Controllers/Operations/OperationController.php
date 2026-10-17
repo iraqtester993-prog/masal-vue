@@ -28,8 +28,15 @@ class OperationController extends Controller
     {
         $actor = $request->user();
         $this->access->requireSecurity($actor);
-        $accounts = $this->access->accounts($actor)->orderBy('id')->limit(10001)->get();
-        abort_if($accounts->count() > 10000, 422, 'ضيّق نطاق الحسابات إلى 10000 أو أقل.');
+        $scope = $this->access->accounts($actor);
+        $totals = (clone $scope)->selectRaw('type,COUNT(*) AS total')->groupBy('type')->pluck('total', 'type');
+        $accountsQuery = clone $scope;
+        if ($request->boolean('compact_accounts') && ! $this->access->stops($actor)->where('active', true)->exists()) {
+            $candidates = DB::table('account_closure')->join('accounts as ancestors', 'ancestors.id', '=', 'ancestor_id')
+                ->where(fn ($query) => $query->where('ancestors.status', '<>', 'active')->orWhereNotNull('ancestors.archived_at')->orWhereIn('ancestor_id', DirectStop::select('account_id')))->select('descendant_id');
+            $accountsQuery->whereIn('id', $candidates);
+        }
+        $accounts = $accountsQuery->orderBy('id')->get();
         $rules = $this->access->stops($actor)->where('active', true)->orderByDesc('id')->limit(1001)->get();
         abort_if($rules->count() > 1000, 422, 'تجاوز عدد قرارات التوقيف حد العرض.');
         $direct = DirectStop::whereIn('account_id', $accounts->pluck('id'))->get()->keyBy('account_id');
@@ -48,7 +55,7 @@ class OperationController extends Controller
         $total = $restricted->count();
         $global = $this->access->canRestoreGlobal($actor) ? DirectStop::find($actor->membership->account_id) : null;
 
-        return response()->json(['data' => ['accounts' => $rows->map(fn ($a) => array_intersect_key($a, array_flip(['id', 'name', 'type'])))->values()->all(), 'active_stops' => OperationResource::collection($rules)->resolve($request), 'restricted' => $restricted->slice(($page - 1) * $perPage, $perPage)->values()->all(), 'restricted_total' => $rows->filter(fn ($row) => count($row['stops']) > 0)->count(), 'legacy_global' => $global ? ['stops' => $global->stops, 'version' => $global->version] : null, 'can_manage' => in_array('security.policies', $actor->membership->permissions(), true)], 'meta' => ['current_page' => $page, 'last_page' => max(1, (int) ceil($total / $perPage)), 'total' => $total, 'per_page' => $perPage]]);
+        return response()->json(['data' => ['account_totals' => $totals, 'accounts' => $request->boolean('compact_accounts') ? [] : $rows->map(fn ($a) => array_intersect_key($a, array_flip(['id', 'name', 'type'])))->values()->all(), 'active_stops' => OperationResource::collection($rules)->resolve($request), 'restricted' => $restricted->slice(($page - 1) * $perPage, $perPage)->values()->all(), 'restricted_total' => $rows->filter(fn ($row) => count($row['stops']) > 0)->count(), 'legacy_global' => $global ? ['stops' => $global->stops, 'version' => $global->version] : null, 'can_manage' => in_array('security.policies', $actor->membership->permissions(), true)], 'meta' => ['current_page' => $page, 'last_page' => max(1, (int) ceil($total / $perPage)), 'total' => $total, 'per_page' => $perPage]]);
     }
 
     public function createStop(OperationRequest $request): OperationResource

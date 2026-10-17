@@ -5,6 +5,7 @@ import {usePortal} from '../auth/session.js';
 import {createCompanyApi} from './company-api.js';
 import {COMPANY_SECTIONS,COMPANY_GALLERIES,displayProfile,moveCompanyItem,profilePayload,safeHttps,sectionVisible,companyTime} from './company-model.js';
 import ImageAttachment from './CompanyImage.vue';
+import AppSettings from './AppSettings.vue';
 import './company-parity.css';
 import './inquiries.css';
 import {inquiryTrackingUrl} from './inquiry-model.js';
@@ -39,7 +40,7 @@ function jumpHero(){profileRoot.value?.querySelector('.site-hero')?.scrollIntoVi
 function jump(key){profileNavOpen.value=false;profileRoot.value?.querySelector('#company-'+key)?.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});}
 function activate(){
   if(!mounted||!record.value||props.management)return;
-  stop();opening.value=true;void nextTick(()=>introDialog.value?.showModal());introTimer=setTimeout(endIntro,3000);
+  stop();
   timer=setInterval(()=>{if(!editing.value&&!paused.value&&!autoplayPaused.value&&!document.hidden&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&slides.value.length>1)next(1);},5500);
 }
 function edit(){if(!editable.value||!record.value)return;stop();saveError.value='';success.value='';draft.value=JSON.parse(JSON.stringify(record.value.profile));tab.value='about';editing.value=true;for(const key of Object.keys(busy))delete busy[key];}
@@ -93,6 +94,7 @@ onBeforeUnmount(()=>{alive=false;mounted=false;loadRevision++;inboxRevision++;re
 </script>
 
 <template>
+  <AppSettings v-if="editable"/>
   <section
     ref="profileRoot"
     class="company-profile-page"

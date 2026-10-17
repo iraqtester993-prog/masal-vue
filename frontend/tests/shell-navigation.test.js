@@ -24,11 +24,11 @@ test('POS history is discoverable only with current read grants and translated n
 });
 
 test("final original navigation retains original destinations and adds the isolated Topup category group", () => {
-  assert.equal(NAVIGATION_DESTINATIONS.length, 37);
+  assert.equal(NAVIGATION_DESTINATIONS.length, 38);
   const groups = navigationGroups({ routes: NAVIGATION_DESTINATIONS.map((item) => route(item.id)), identity: identity(), can: () => true });
   assert.deepEqual(groups.map((group) => group.title), ["نظرة عامة", "البطاقات والمخزون", "عمليات البطاقات", "Topup — آسياسيل", "شبكة التوزيع", "التواصل والدعم", "المستخدمون والصلاحيات", "إعدادات النظام", "إعدادات البطاقات والموقع"]);
-  assert.equal(new Set(visibleIds(groups)).size, 34);
-  assert.equal(visibleIds(groups).length, 34);
+  assert.equal(new Set(visibleIds(groups)).size, 35);
+  assert.equal(visibleIds(groups).length, 35);
   assert.deepEqual(groups.find((group) => group.id === "catalog").items.map((item) => item.id), ["inventory", "import", "products", "prices", "providers", "sources"]);
   assert.equal(groups[0].direct, true);
   assert.equal(groups.slice(1).some((group) => group.direct), false);
@@ -134,4 +134,17 @@ test("Topup distribution separates owner, downstream agents and POS surfaces", (
   for (const type of ['main_agent','sub_agent','sub_branch']) assert.deepEqual(ids(type), ['topupDistribution']);
   assert.deepEqual(ids('pos'), ['topupAvailable']);
   assert.deepEqual(ids('main_agent','owner',()=>false), []);
+});
+
+
+
+test('owners can discover their own profile without account administration grants', () => {
+  const routes=[route('profile')];
+  for(const type of ['system','main_agent','sub_agent','sub_branch']) {
+    const items=navigationGroups({routes,identity:identity(type),can:()=>false});
+    assert.deepEqual(visibleIds(items),['profile']);
+    assert.deepEqual(items[0].items[0].to,{name:'profile'});
+    assert.deepEqual(navigationGroups({routes,identity:{...identity(type),membership:{kind:'employee'}},can:()=>true}),[]);
+  }
+  assert.deepEqual(navigationGroups({routes:[],identity:identity('main_agent'),can:()=>true}),[]);
 });

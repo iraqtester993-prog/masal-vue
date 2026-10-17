@@ -2,7 +2,6 @@
 
 namespace App\Services\Operations;
 
-use App\Models\Account;
 use App\Models\AccountAttachment;
 use App\Models\AccountMembership;
 use App\Models\Operations\AccountArchive;
@@ -13,6 +12,7 @@ use App\Models\Operations\OperationStop;
 use App\Models\User;
 use App\Services\AccountScope;
 use App\Services\AuditLogger;
+use App\Services\Sales\PosLoginDevice;
 use App\Services\SessionRevoker;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,19 +24,26 @@ class OperationWorkflow
 {
     public function __construct(private OperationAccess $access, private AccountScope $scope, private AuditLogger $audit, private SessionRevoker $revoker, private ArchiveBlockers $blockers) {}
 
-    private function execute(User $actor, string $action, array $data, callable $callback): array
+    private function execute(User $actor, string $action, array $data, callable $callback, array $accountIds = []): array
     {
         unset($data['password']);
         $hash = hash('sha256', json_encode([$action, $data], JSON_THROW_ON_ERROR));
 
-        return DB::transaction(function () use ($actor, $action, $data, $callback, $hash): array {
-            app(MutationGuard::class)->lockRuntime();
+        return DB::transaction(function () use ($actor, $action, $data, $callback, $hash, $accountIds): array {
+            $guard = app(MutationGuard::class);
+            $guard->lockRuntime();
             $version = (int) ($actor->session_version ?? 1);
+            $targets = array_merge($accountIds, $guard->targets($data), $data['account_ids'] ?? []);
+            $targets = $this->scope->query($actor, true)->whereIn('id', $targets)->pluck('id')->all();
+            $targets[] = $actor->membership->account_id;
+            $ancestors = DB::table('account_closure')->whereIn('descendant_id', $targets)->pluck('ancestor_id')->unique()->all();
+            $guard->lockAccounts($ancestors, $actor->membership->account_id);
             $user = User::whereKey($actor->id)->lockForUpdate()->firstOrFail();
             abort_unless((int) $user->session_version === $version, 401);
             abort_unless($user->isOperational(), 403);
+            $actor->setRawAttributes($user->getAttributes(), true);
             $actor->unsetRelation('membership');
-            $actor->refresh();
+            app(PosLoginDevice::class)->assertCurrent($actor, request(), required: false);
             $record = OperationMutation::where('user_id', $actor->id)->where('key', $data['idempotency_key'])->lockForUpdate()->first();
             if ($record) {
                 abort_unless(hash_equals($record->fingerprint, $hash), 409, 'مفتاح العملية مستخدم لطلب مختلف.');
@@ -170,8 +177,6 @@ class OperationWorkflow
         $result = $this->execute($actor, 'account.archive:'.$id, $data, function () use ($actor, $id, $data, $request, $credential): array {
             $this->access->archiveTarget($actor, $id);
             abort_unless(hash_equals(User::findOrFail($actor->id)->password, $credential), 409, 'تغير الحساب؛ أعد التأكيد.');
-            $ancestors = DB::table('account_closure')->where('descendant_id', $id)->pluck('ancestor_id');
-            Account::whereIn('id', $ancestors)->orderBy('id')->lockForUpdate()->get();
             $account = $this->access->archiveTarget($actor, $id, true);
             abort_if($account->archived_at || $account->version !== (int) $data['version'], 409, 'تغير الحساب؛ أعد التأكيد.');
             $reasons = $this->blockers->reasons($account, true);
@@ -201,7 +206,7 @@ class OperationWorkflow
             $this->audit->record('account.archive', $request, $actor, $id, ['archive_id' => $entry->id, 'reason' => $entry->reason, 'version' => $account->version]);
 
             return ['id' => $entry->id, 'account_id' => $id, 'version' => $account->version, 'archived_at' => $account->archived_at];
-        });
+        }, [$id]);
         RateLimiter::clear($rate);
 
         return $result;

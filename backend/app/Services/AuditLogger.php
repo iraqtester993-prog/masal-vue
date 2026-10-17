@@ -23,7 +23,7 @@ class AuditLogger
                 'created_at' => now(),
                 'details' => $details ? json_encode($details, JSON_THROW_ON_ERROR) : null,
             ]);
-            if (class_exists(ActivityNotifications::class) && Schema::hasTable('notices')) {
+            if (class_exists(ActivityNotifications::class) && ActivityNotifications::supports($action) && Schema::hasTable('notices')) {
                 app(ActivityNotifications::class)->publish((int) $auditId);
             }
         });

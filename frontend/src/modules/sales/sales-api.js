@@ -11,11 +11,15 @@ export function queryString(values = {}) {
 export function createSalesApi(api) {
   const base = '/sales';
   return {
-    options: signal => api.request(`${base}/options`,{signal}),
-    configuration: signal => api.request(`${base}/configuration-options`,{signal}),
-    products: signal => api.request(`${base}/products`,{signal}),
-    summary: (params,signal) => api.request(`${base}/summary?${queryString(params)}`,{signal}),
-    list: (kind = '',params = {},signal) => api.request(`${base}${kind ? `/${kind}` : ''}?${queryString(params)}`,{signal}),
+    options: signal => api.request(`${base}/options?compact=1`,{signal}),
+    configuration: signal => api.request(`${base}/configuration-options?compact=1`,{signal}),
+    products: (signal,options={}) => api.request(`${base}/products`,{signal,...options}),
+    peekOptions: (configuration=false) => api.peekRequest?.(`${base}/${configuration?'configuration-options':'options'}?compact=1`,120000),
+    peekProducts: () => api.peekRequest?.(`${base}/products`,120000),
+    peekList: (kind='',params={}) => api.peekRequest?.(`${base}${kind?`/${kind}`:''}?${queryString(params)}`,120000),
+    peekSummary: (params={}) => api.peekRequest?.(`${base}/summary?${queryString(params)}`,120000),
+    summary: (params,signal,options={}) => api.request(`${base}/summary?${queryString(params)}`,{signal,...options}),
+    list: (kind = '',params = {},signal,options={}) => api.request(`${base}${kind ? `/${kind}` : ''}?${queryString(params)}`,{signal,...options}),
     show: (id,signal) => api.request(`${base}/${id}`,{signal}),
     receipt: (id,signal) => api.request(`${base}/${id}/receipt`,{signal}),
     create: (payload,reserve = false,signal) => api.mutate(`${base}${reserve ? '/reservations' : ''}`,'POST',payload,signal),

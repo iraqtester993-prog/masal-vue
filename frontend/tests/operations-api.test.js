@@ -8,7 +8,7 @@ import {trackTimeActivity} from '../src/modules/security/time-activity.js';
 test('operations API preserves server version and idempotency contracts and sends no client time or invented scope',async () => {
   const calls=[],signal=new AbortController().signal,client={request:async (path,options)=>{calls.push({path,...options});return {data:[]};},mutate:async (path,method,body,signal)=>{calls.push({path,method,body,signal});return {data:{}};}},api=createOperationsApi(client);
   await api.security({page:2,query:'فرع & بغداد'},signal);
-  assert.equal(calls[0].path,'/operations/security?page=2&query=%D9%81%D8%B1%D8%B9+%26+%D8%A8%D8%BA%D8%AF%D8%A7%D8%AF');
+  assert.equal(calls[0].path,'/operations/security?compact_accounts=1&page=2&query=%D9%81%D8%B1%D8%B9+%26+%D8%A8%D8%BA%D8%AF%D8%A7%D8%AF');
   const stop={scope:'main',actions:['sales'],reason:'مراجعة',idempotency_key:'once'};await api.createStop(stop,signal);assert.equal(calls[1].body,stop);
   const resume={version:7,idempotency_key:'resume'};await api.resume(81,resume,signal);assert.equal(calls[2].path,'/operations/security/stops/81/resume');assert.deepEqual(calls[2].body,resume);
   await api.saveTime(13,{policy:emptyTimePolicy(),version:0,idempotency_key:'time'},signal);assert.equal(calls[3].method,'PUT');assert.equal(calls[3].path,'/operations/account-times/13');

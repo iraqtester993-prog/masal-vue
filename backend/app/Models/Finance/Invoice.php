@@ -3,6 +3,7 @@
 namespace App\Models\Finance;
 
 use App\Models\Account;
+use App\Models\Digital\DigitalOrder;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -31,5 +32,10 @@ class Invoice extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'creator_id')->select(['id', 'name']);
+    }
+
+    public function digitalOrder(): BelongsTo
+    {
+        return $this->belongsTo(DigitalOrder::class, 'source_id');
     }
 }

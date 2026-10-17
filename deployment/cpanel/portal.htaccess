@@ -50,3 +50,15 @@ DirectoryIndex index.html
 <FilesMatch "^(?:\.env(?:\..*)?|php\.ini|composer\.(?:json|lock)|package(?:-lock)?\.json)$">
     Require all denied
 </FilesMatch>
+
+
+# Security policy shared by static SPA pages and API/error responses.
+<IfModule mod_headers.c>
+    Header always set Strict-Transport-Security "max-age=31536000"
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(self), camera=(self), microphone=(), payment=(), usb=()"
+    Header always set Content-Security-Policy "frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'"
+    Header always set Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'self'"
+</IfModule>

@@ -4,6 +4,7 @@ import TablePanel from '../../shared/components/TablePanel.vue';
 import {computed,onBeforeUnmount,onMounted,reactive,ref,watch} from 'vue';
 import {useSalesRuntime} from './sales-runtime.js';
 import {copyPolicy} from './sales-model.js';
+import {selectedPrintTargets} from './print-scope.js';
 import PrintScopePicker from './PrintScopePicker.vue';
 import AgentProductPicker from '../catalog/AgentProductPicker.vue';
 import '../catalog/catalog.css';
@@ -24,7 +25,7 @@ function edit(rule){mode.value='custom';ruleId.value=rule.id;ruleVersion.value=r
 function targetNames(rule){return rule.targets.map(target=>targets.value.find(row=>row.key===`${target.kind}:${target.id}`)?.name || `#${target.id}`).join(' · ');}
 async function save(){if(!draft.value)return;const policy=copyPolicy(draft.value);policy.daily_products=policy.daily_product_mode==='all'?[]:policy.daily_products.map(Number);
   if(mode.value==='general'){const response=await vm.execute({version:base.value.version,policy},generalKey,(payload,signal)=>vm.api.savePolicy(payload,signal),'تم حفظ ضوابط الطباعة.');if(response){base.value=response;draft.value=copyPolicy(response.policy);}}
-  else{const selectedSet=new Set(selected.value);const payload={version:ruleVersion.value,name:name.value.trim(),active:active.value,targets:targets.value.filter(target=>selectedSet.has(target.key)).map(({kind,id})=>({kind,id})),policy};const response=await vm.execute(payload,ruleKey,(value,signal)=>vm.api.saveRule(ruleId.value,value,signal),'تم حفظ قاعدة الطباعة.');if(response){edit(response);await loadRules(meta.current_page);}}
+  else{const selectedSet=new Set(selected.value);const payload={version:ruleVersion.value,name:name.value.trim(),active:active.value,targets:selectedPrintTargets([...selectedSet]),policy};const response=await vm.execute(payload,ruleKey,(value,signal)=>vm.api.saveRule(ruleId.value,value,signal),'تم حفظ قاعدة الطباعة.');if(response){edit(response);await loadRules(meta.current_page);}}
 }
 async function toggle(rule){if(!toggleKeys.has(rule.id))toggleKeys.set(rule.id,vm.key());const result=await vm.execute({version:rule.version,name:rule.name,targets:rule.targets,policy:copyPolicy(rule.policy),active:!rule.active},toggleKeys.get(rule.id),(payload,signal)=>vm.api.saveRule(rule.id,payload,signal),rule.active?'تم تعطيل القاعدة.':'تم تفعيل القاعدة.');if(result)await loadRules(meta.current_page);}
 watch(mode,value=>{if(value==='general'&&base.value)draft.value=copyPolicy(base.value.policy);});

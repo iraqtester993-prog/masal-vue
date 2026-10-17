@@ -5,10 +5,11 @@ import {createMapsApi} from './maps-api.js';
 import {createPresenceRuntime} from './presence-runtime.js';
 import {identityKey} from './maps-model.js';
 import {trackTimeActivity} from '../security/time-activity.js';
+import {clientAppVersion} from '../../shared/client-version.js';
 import LocationGate from './LocationGate.vue';
 const props=defineProps({deviceModel:{type:String,default:''},appVersion:{type:String,default:''}}),emit=defineEmits(['ready','changed','error']);
 const {session}=usePortal(),state=reactive({required:false,ready:false,sharing:false,permission:'',status:'',checking:false});
-const base=createMapsApi(session.api),api={...base,heartbeat:(_,signal)=>base.heartbeat({...props.deviceModel?{device_model:props.deviceModel}:{},...props.appVersion?{app_version:props.appVersion}:{}},signal)};
+const base=createMapsApi(session.api),api={...base,heartbeat:(_,signal)=>{const version=clientAppVersion({browserVersion:props.appVersion||undefined});return base.heartbeat({...props.deviceModel?{device_model:props.deviceModel}:{},...version?{app_version:version}:{}},signal);}};
 let runtime,untrack;
 function startLocationSharing(){return runtime?.startLocationSharing();}function stopLocationSharing(){return runtime?.stopLocationSharing();}
 async function logout(){try{await session.logout();}catch(cause){state.status=cause.message;emit('error',cause);}}

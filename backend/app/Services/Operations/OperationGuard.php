@@ -2,9 +2,11 @@
 
 namespace App\Services\Operations;
 
+use App\Enums\AccountType;
 use App\Models\Account;
 use App\Models\Operations\DirectStop;
 use App\Models\Operations\OperationStop;
+use App\Support\RequestReadCache;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -86,26 +88,44 @@ class OperationGuard
     public function reason(int $accountId, string $key): ?string
     {
         abort_unless(in_array($key, self::KEYS, true), 500);
-        $account = Account::findOrFail($accountId);
-        if (! $account->isOperational()) {
-            return 'الحساب أو الجهة الأعلى موقوفة.';
+
+        return RequestReadCache::remember('OperationGuard.reason:'.$accountId.':'.$key, fn (): ?string => $this->resolveReason($accountId, $key));
+    }
+
+    private function context(int $accountId): array
+    {
+        return RequestReadCache::remember('OperationGuard.context:'.$accountId, function () use ($accountId): array {
+            $account = Account::findOrFail($accountId);
+            if (! $account->isOperational()) {
+                return ['blocked' => 'الحساب أو الجهة الأعلى موقوفة.'];
+            }
+            $ancestors = DB::table('account_closure')->where('descendant_id', $accountId)->pluck('ancestor_id');
+            if (Account::whereIn('id', $ancestors)->whereNotNull('archived_at')->exists()) {
+                return ['blocked' => 'الحساب مؤرشف ولا يقبل عمليات جديدة.'];
+            }
+            $type = array_search($account->type->value, OperationAccess::TYPES, true);
+            $rules = OperationStop::where('active', true)->where(function ($q) use ($type, $accountId): void {
+                $q->where('scope', 'all')->orWhere('scope', $type ?: 'none')->orWhere(function ($custom) use ($accountId): void {
+                    $custom->where('scope', 'custom')->whereIn('id', DB::table('operation_stop_targets')->where('account_id', $accountId)->select('stop_id'));
+                });
+            })->orderByDesc('id')->get();
+
+            return ['blocked' => null, 'rules' => $rules, 'direct' => DirectStop::whereIn('account_id', $ancestors)->get()];
+        });
+    }
+
+    private function resolveReason(int $accountId, string $key): ?string
+    {
+        $context = $this->context($accountId);
+        if ($context['blocked']) {
+            return $context['blocked'];
         }
-        $ancestors = DB::table('account_closure')->where('descendant_id', $accountId)->pluck('ancestor_id');
-        if (Account::whereIn('id', $ancestors)->whereNotNull('archived_at')->exists()) {
-            return 'الحساب مؤرشف ولا يقبل عمليات جديدة.';
-        }
-        $type = array_search($account->type->value, OperationAccess::TYPES, true);
-        $rules = OperationStop::where('active', true)->where(function ($q) use ($type, $accountId): void {
-            $q->where('scope', 'all')->orWhere('scope', $type ?: 'none')->orWhere(function ($custom) use ($accountId): void {
-                $custom->where('scope', 'custom')->whereIn('id', DB::table('operation_stop_targets')->where('account_id', $accountId)->select('stop_id'));
-            });
-        })->orderByDesc('id')->get();
-        foreach ($rules as $rule) {
-            if ((in_array('app', $rule->actions, true) || in_array($key, $rule->actions, true)) && $this->access->matchedAccounts($rule)->whereKey($accountId)->exists()) {
+        foreach ($context['rules'] as $rule) {
+            if ((in_array('app', $rule->actions, true) || in_array($key, $rule->actions, true)) && RequestReadCache::remember('OperationGuard.match:'.$rule->id.':'.$accountId, fn (): bool => $this->access->matchedAccounts($rule)->whereKey($accountId)->exists())) {
                 return 'موقوف: '.$rule->reason;
             }
         }
-        foreach (DirectStop::whereIn('account_id', $ancestors)->get() as $direct) {
+        foreach ($context['direct'] as $direct) {
             if (($direct->stops['app'] ?? false) || ($direct->stops[$key] ?? false)) {
                 return 'العملية موقوفة لهذه الجهة أو الجهة الأعلى.';
             }
@@ -118,6 +138,34 @@ class OperationGuard
     {
         if ($reason = $this->reason($accountId, $key)) {
             abort(423, $reason);
+        }
+    }
+
+    /** Recheck admission after the actor's account lineage has been locked. */
+    public function assertAllowedCurrent(int $accountId, string $key): void
+    {
+        abort_unless(DB::transactionLevel() > 0 && in_array($key, self::KEYS, true), 500);
+        $account = Account::whereKey($accountId)->sharedLock()->firstOrFail();
+        $ancestors = DB::table('account_closure')->where('descendant_id', $accountId)->pluck('ancestor_id')->all();
+        $custom = DB::table('operation_stop_targets')->where('account_id', $accountId)->sharedLock()->pluck('stop_id')->all();
+        $type = array_search($account->type->value, OperationAccess::TYPES, true);
+        $rules = OperationStop::where('active', true)->where(function ($query) use ($type, $custom): void {
+            $query->where('scope', 'all')->orWhere('scope', $type ?: 'none')->orWhere(fn ($query) => $query->where('scope', 'custom')->whereIn('id', $custom));
+        })->orderByDesc('id')->sharedLock()->get();
+        foreach ($rules as $rule) {
+            if ($account->type === AccountType::System) {
+                continue;
+            }
+            $roots = $rule->include_descendants ? $ancestors : [$accountId];
+            if ($rule->scope_roots !== null && ! array_intersect($rule->scope_roots, $roots)) {
+                continue;
+            }
+            if (in_array('app', $rule->actions, true) || in_array($key, $rule->actions, true)) {
+                abort(423, 'موقوف: '.$rule->reason);
+            }
+        }
+        foreach (DirectStop::whereIn('account_id', $ancestors)->sharedLock()->get() as $direct) {
+            abort_if(($direct->stops['app'] ?? false) || ($direct->stops[$key] ?? false), 423, 'العملية موقوفة لهذه الجهة أو الجهة الأعلى.');
         }
     }
 }

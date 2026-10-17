@@ -32,6 +32,7 @@ Route::prefix('sales')->group(function (): void {
     Route::get('{id}', [$controller, 'show'])->whereNumber('id');
     Route::get('{id}/receipt', [$controller, 'receipt'])->whereNumber('id');
     Route::post('{id}/print/start', [$controller, 'start'])->whereNumber('id');
+    Route::post('{id}/print/copy', [$controller, 'copy'])->whereNumber('id');
     Route::post('{id}/print/result', [$controller, 'result'])->whereNumber('id');
     Route::post('{id}/print/retry', [$controller, 'retry'])->whereNumber('id');
     Route::post('{id}/reprint-request', [$controller, 'requestReprint'])->whereNumber('id');

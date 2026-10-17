@@ -2,6 +2,7 @@
 
 namespace App\Services\Digital;
 
+use App\Enums\AccountType;
 use App\Models\CatalogProduct;
 use App\Models\CatalogProvider;
 use App\Models\Digital\CatalogSnapshot;
@@ -31,7 +32,8 @@ class TopupCatalog
             $result['balance'] = 'skipped';
         } else {
             try {
-                $this->configuration->balance($actor, $id, $request);
+                $balance = $this->configuration->balance($actor, $id, $request);
+                $version = $balance['version'];
                 $result['balance'] = 'ok';
             } catch (\Throwable) {
                 $result['balance_message'] = 'تعذر تحديث الرصيد من الشركة؛ القراءة السابقة لا تمثل رصيدًا محدثًا.';
@@ -96,7 +98,7 @@ class TopupCatalog
             }
             TopupCategory::where('connection_id', $current->id)->whereNotIn('id', $ids)->update(['active' => false, 'version' => DB::raw('version + 1')]);
             DigitalOffer::where('connection_id', $current->id)->whereNotNull('topup_category_id')->whereNull('manual_category_version')->whereNotIn('topup_category_id', $ids)->update(['active' => false, 'version' => DB::raw('version + 1')]);
-            if ($ids && $current->account->type === \App\Enums\AccountType::MainAgent) {
+            if ($ids && $current->account->type === AccountType::MainAgent) {
                 TopupGrant::firstOrCreate(['target_account_id' => $current->account_id], ['main_account_id' => $current->account_id, 'from_account_id' => $current->account->parent_id, 'category_ids' => $ids, 'active' => true, 'version' => 1]);
             }
             $current->update(['version' => $current->version + 1]);

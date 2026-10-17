@@ -4,7 +4,9 @@ namespace App\Services\Backups;
 
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use RuntimeException;
 
 class SnapshotArchive
@@ -12,6 +14,30 @@ class SnapshotArchive
     public function __construct(private SnapshotSchema $schema) {}
 
     public function create(Connection $db, string $path): array
+    {
+        return app(BackupCoordination::class)->read(function () use ($db, $path): array {
+            // Never inherit a caller's transaction/isolation or retain its account locks.
+            if ($db->getDriverName() === 'sqlite' && $db->getDatabaseName() === ':memory:') {
+                return $this->writeArchive($db, $path);
+            }
+            $name = 'backup_snapshot_'.str_replace('-', '', (string) Str::uuid());
+            config(['database.connections.'.$name => ['name' => $name] + $db->getConfig()]);
+            try {
+                $snapshot = DB::connection($name);
+                if (in_array($snapshot->getDriverName(), ['mysql', 'mariadb'], true)) {
+                    $snapshot->statement('SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+                    $snapshot->statement('SET SESSION TRANSACTION READ ONLY');
+                }
+
+                return $this->writeArchive($snapshot, $path);
+            } finally {
+                DB::purge($name);
+                config(['database.connections.'.$name => null]);
+            }
+        });
+    }
+
+    private function writeArchive(Connection $db, string $path): array
     {
         $disk = Storage::disk('local');
         $disk->makeDirectory(dirname($path));
@@ -23,15 +49,15 @@ class SnapshotArchive
         $hash = hash_init('sha256');
         $counts = [];
         $files = 0;
-        $description = $this->schema->describe($db);
         $write = function (array $record) use ($stream, $hash): void {
             $line = json_encode($record, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)."\n";
             $this->write($stream, $line);
             hash_update($hash, $line);
         };
         try {
-            $write(['format' => SnapshotSchema::FORMAT, 'version' => SnapshotSchema::VERSION, 'created_at' => now()->toIso8601String(), 'schema' => $description]);
-            $db->transaction(function () use ($db, $description, $write, &$counts, &$files): void {
+            $description = $db->transaction(function () use ($db, $write, &$counts, &$files): array {
+                $description = $this->schema->describe($db);
+                $write(['format' => SnapshotSchema::FORMAT, 'version' => SnapshotSchema::VERSION, 'created_at' => now()->toIso8601String(), 'schema' => $description]);
                 foreach ($this->schema->order($description['tables']) as $table) {
                     $counts[$table] = 0;
                     $write($this->encrypted(['kind' => 'table', 'table' => $table]));
@@ -44,6 +70,11 @@ class SnapshotArchive
                         }
                     }
                 }
+                if (! hash_equals($description['fingerprint'], $this->schema->describe($db)['fingerprint'])) {
+                    throw new RuntimeException('تغير مخطط قاعدة البيانات أثناء النسخ؛ أعد المحاولة بعد اكتمال التحديث.');
+                }
+
+                return $description;
             });
             $digest = hash_final($hash);
             $manifest = ['format' => SnapshotSchema::FORMAT, 'version' => SnapshotSchema::VERSION, 'schema_fingerprint' => $description['fingerprint'], 'driver' => $description['driver'], 'migrations' => $description['migrations'], 'counts' => $counts, 'files' => $files, 'content_sha256' => $digest];

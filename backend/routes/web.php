@@ -1,10 +1,13 @@
 <?php
 
 use App\Http\Controllers\AccountController;
+use App\Http\Controllers\AccountLookupController;
 use App\Http\Controllers\AccountManagementController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\CatalogExportController;
+use App\Http\Controllers\DeviceController;
+use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\PermissionProfileController;
 use App\Http\Controllers\PhoneRecoveryController;
 use App\Http\Controllers\StaffController;
@@ -15,15 +18,31 @@ Route::prefix('api/v1')->group(function () {
         require __DIR__.'/company.php';
     }
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
+    Route::post('auth/device-challenge', [AuthController::class, 'deviceChallenge'])->middleware('throttle:device-login-challenge');
     Route::post('auth/recovery/phone', [PhoneRecoveryController::class, 'issue'])->middleware('throttle:5,1');
     Route::post('auth/recovery/reset', [PhoneRecoveryController::class, 'reset'])->middleware('throttle:15,1');
+    Route::post('auth/password-reset/request', [PasswordResetController::class, 'request'])->middleware('throttle:5,1');
+    Route::get('auth/password-reset/request-status', [PasswordResetController::class, 'requestStatus'])->middleware('throttle:60,1');
+    Route::post('auth/password-reset/device-challenge', [PasswordResetController::class, 'deviceChallenge'])->middleware('throttle:10,1');
+    Route::post('auth/password-reset/device-bind', [PasswordResetController::class, 'deviceBind'])->middleware('throttle:10,1');
+    Route::post('auth/password-reset/complete-request', [PasswordResetController::class, 'completeRequest'])->middleware('throttle:10,1');
     Route::post('auth/logout', [AuthController::class, 'logout'])->middleware(['auth:sanctum', 'portal.member:session']);
     Route::middleware(['auth:sanctum', 'portal.member'])->group(function () {
+        Route::post('device/challenge', [DeviceController::class, 'challenge'])->middleware('throttle:60,1');
+        Route::post('device/heartbeat', [DeviceController::class, 'heartbeat'])->middleware('throttle:120,1');
+        Route::get('accounts/{id}/devices', [DeviceController::class, 'index'])->whereNumber('id');
+        Route::patch('accounts/{id}/devices/{deviceId}', [DeviceController::class, 'review'])->whereNumber(['id', 'deviceId']);
+        Route::post('accounts/{id}/devices/{deviceId}/login-access', [DeviceController::class, 'loginAccess'])->whereNumber(['id', 'deviceId']);
         Route::get('auth/me', [AuthController::class, 'me']);
+        Route::get('auth/password-reset/status', [PasswordResetController::class, 'status']);
+        Route::post('auth/password-reset/complete', [PasswordResetController::class, 'complete'])->middleware('throttle:10,1');
+        Route::post('accounts/{id}/password-reset', [PasswordResetController::class, 'issue'])->whereNumber('id')->middleware('throttle:10,1');
+        Route::get('auth/brand-image', [AuthController::class, 'brandImage']);
         Route::patch('auth/profile', [AuthController::class, 'profile']);
         Route::get('accounts', [AccountController::class, 'index']);
         Route::post('accounts', [AccountController::class, 'store']);
         Route::get('accounts/{id}', [AccountController::class, 'show'])->whereNumber('id');
+        Route::match(['GET', 'POST'], 'account-lookup', [AccountLookupController::class, 'accounts']);
         Route::get('account-options', [AccountManagementController::class, 'options']);
         Route::get('permission-catalog', [AccountManagementController::class, 'catalog']);
         Route::patch('accounts/{id}', [AccountManagementController::class, 'update'])->whereNumber('id');

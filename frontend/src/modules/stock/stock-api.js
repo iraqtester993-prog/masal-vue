@@ -2,9 +2,15 @@ export function createStockApi(api) {
   const query = (values = {}) => new URLSearchParams(Object.entries(values).filter(([, value]) => value !== '' && value != null)).toString();
   const post = (path, payload, signal) => api.mutate(`/stock/${path}`, 'POST', payload, signal, {timeoutMs:120000});
   return {
-    options: (signal) => api.request('/stock/options', {signal}),
-    summary: (filters, signal) => api.request(`/stock/summary?${query(filters)}`, {signal}),
-    list: (kind, filters = {}, signal) => api.request(`/stock/${kind}?${query(filters)}`, {signal}),
+    options: (signal,options={}) => api.request('/stock/options', {signal,...options}),
+    peekOptions: () => api.peekRequest?.('/stock/options',120000) ?? null,
+    hasFreshOptions: () => api.hasFreshRequest?.('/stock/options') ?? false,
+    summary: (filters, signal,options={}) => api.request(`/stock/summary?${query(filters)}`, {signal,...options}),
+    peekSummary: filters => api.peekRequest?.(`/stock/summary?${query(filters)}`,120000) ?? null,
+    hasFreshSummary: filters => api.hasFreshRequest?.(`/stock/summary?${query(filters)}`) ?? false,
+    list: (kind, filters = {}, signal,options={}) => api.request(`/stock/${kind}?${query(filters)}`, {signal,...options}),
+    peekList: (kind,filters={}) => api.peekRequest?.(`/stock/${kind}?${query(filters)}`,120000) ?? null,
+    hasFreshList: (kind,filters={}) => api.hasFreshRequest?.(`/stock/${kind}?${query(filters)}`) ?? false,
     get: (kind, id, signal) => api.request(`/stock/${kind}/${id}`, {signal}),
     cards: (id, filters, signal) => api.request(`/stock/batches/${id}/cards?${query(filters)}`, {signal}),
     selection: (id, filters, signal) => api.request(`/stock/batches/${id}/selection?${query(filters)}`, {signal}),

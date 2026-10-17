@@ -22,7 +22,7 @@ test('agent and POS header follows actual router navigation including POS operat
     const layout=(await server.ssrLoadModule('/src/layouts/PortalLayout.vue')).default;
     const {portalContextKey}=await server.ssrLoadModule('/src/modules/auth/session.js');
     for(const type of ['main_agent','pos']){
-      const router=createRouter({history:createMemoryHistory(),routes:[{path:'/dashboard',name:'dashboard',meta:{title:'لوحة التحكم'},component:{render:()=>null}},{path:'/sell',name:'sell',meta:{title:'البيع والطباعة'},component:{render:()=>null}},{path:'/sales',name:'sales',meta:{title:'المبيعات'},component:{render:()=>null}}]});
+      const router=createRouter({history:createMemoryHistory(),routes:[{path:'/more',name:'posMore',meta:{requiresAuth:true,accountTypes:['pos']},component:{render:()=>null}},{path:'/dashboard',name:'dashboard',meta:{title:'لوحة التحكم'},component:{render:()=>null}},{path:'/sell',name:'sell',meta:{title:'البيع والطباعة'},component:{render:()=>null}},{path:'/sales',name:'sales',meta:{title:'المبيعات'},component:{render:()=>null}}]});
       const session={state:reactive({identity:{account:{type,id:1},user:{id:1,name:'Fixture'},membership:{kind:'owner'}},busy:false}),can:()=>true,api:{}};
       for(const [path,title] of [['/dashboard','لوحة التحكم'],['/sell',type==='pos'?'البيع':'البيع والطباعة'],['/sales',type==='pos'?'سجل العمليات':'المبيعات']]){
         await router.push(path);

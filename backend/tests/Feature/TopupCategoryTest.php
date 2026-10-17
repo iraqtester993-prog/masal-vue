@@ -9,7 +9,9 @@ use App\Models\Digital\DigitalOrder;
 use App\Models\Digital\TopupCategory;
 use App\Models\Digital\TopupGrant;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Tests\Support\CreatesSupport;
 use Tests\TestCase;
 
@@ -27,6 +29,27 @@ class TopupCategoryTest extends TestCase
         $this->putJson('/api/v1/topup/categories/'.$manual->id, ['active' => true])->assertNotFound();
         $this->getJson('/api/v1/topup/categories')->assertOk()->assertJsonCount(0, 'data');
         $this->putJson('/api/v1/topup/distribution/'.$f['main']->id, ['category_ids' => [$manual->id], 'active' => true, 'version' => 0, 'idempotency_key' => 'manual-category-blocked'])->assertUnprocessable();
+        Http::assertNothingSent();
+    }
+
+    public function test_company_topup_category_accepts_only_image_changes_and_keeps_remote_name_and_prices(): void
+    {
+        $f = $this->supportFixture();
+        Storage::fake('local');
+        Http::preventStrayRequests();
+        $connection = DigitalConnection::factory()->create(['account_id' => $f['system']->id, 'provider' => 'topup']);
+        $snapshot = CatalogSnapshot::factory()->create(['connection_id' => $connection->id]);
+        $category = TopupCategory::create(['name' => 'Company 5000', 'type' => 'topup', 'connection_id' => $connection->id, 'catalog_snapshot_id' => $snapshot->id, 'remote_id' => 'ASIA-5000', 'cost_minor' => 500000, 'retail_minor' => 500000, 'active' => true]);
+        $offer = DigitalOffer::factory()->create(['connection_id' => $connection->id, 'topup_category_id' => $category->id]);
+        $this->asPortalUser($f['admin']);
+        $this->postJson('/api/v1/topup/categories/'.$category->id.'/image', ['version' => $offer->product->version, 'name' => 'Forged'])->assertUnprocessable();
+        $png = base64_decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aJZkAAAAASUVORK5CYII=');
+        $this->post('/api/v1/topup/categories/'.$category->id.'/image', ['version' => $offer->product->version, 'image' => UploadedFile::fake()->createWithContent('category.png', $png)], ['Accept' => 'application/json'])->assertOk();
+        $this->assertNotNull($offer->product->fresh()->image_path);
+        $this->assertSame('Company 5000', $category->fresh()->name);
+        $this->assertSame(500000, $category->fresh()->retail_minor);
+        $this->asPortalUser($f['agent']);
+        $this->post('/api/v1/topup/categories/'.$category->id.'/image', ['version' => 2, 'remove_image' => true], ['Accept' => 'application/json'])->assertForbidden();
         Http::assertNothingSent();
     }
 

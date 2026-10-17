@@ -50,14 +50,15 @@ const costText = computed(() => state.summary?.available_cost_by_currency ? Obje
 
 function filters(page = 1) {return {page,per_page:pageSize.value,query:state.query,account_id:state.account,product_id:state.product,provider_id:state.provider,status:state.status || (tab.value === 'history' ? 'history' : tab.value === 'withdraw' ? 'active' : '')};}
 
-async function listRows(page,signal){
-
-  if(tab.value!=='stock' || inventoryTab.value==='all' || state.status)return api.list(kind.value,filters(page),signal);
-
-  const status={active:'active',stopped:'Quarantined',cancelled:'Cancelled by Reversal'}[inventoryTab.value] || 'Cancelled by Reversal';
-
-  return api.list('batches',{...filters(page),status},signal);
-
+function listFilters(page){
+  if(tab.value!=='stock'||inventoryTab.value==='all'||state.status)return filters(page);
+  return {...filters(page),status:{active:'active',stopped:'Quarantined',cancelled:'Cancelled by Reversal'}[inventoryTab.value]||'Cancelled by Reversal'};
+}
+async function listRows(page,signal,options={}){return api.list(kind.value,listFilters(page),signal,options);}
+function hydrate(page,withOptions=false){
+ const cached=api.peekList(kind.value,listFilters(page));state.rows=cached?.data??[];state.meta=cached?.meta??{page,last_page:1,total:0};
+ if(withOptions){const options=api.peekOptions();if(options)state.options=options.data;}
+ if(tab.value==='stock'){const summary=api.peekSummary(filters(page));state.summary=summary?.data??null;}
 }
 
 async function exportList(){
@@ -78,11 +79,11 @@ async function failure(cause) {
 
 }
 
-async function load(page = 1, withOptions = false) {
+async function load(page = 1, withOptions = false,fresh = false) {
 
-  reader?.abort(); reader = new AbortController(); const expected = ++revision; state.busy = true; state.error = '';
+  reader?.abort(); reader = new AbortController(); const expected = ++revision;if(!fresh)hydrate(page,withOptions);state.busy=fresh||!api.hasFreshList(kind.value,listFilters(page))||withOptions&&!api.hasFreshOptions()||tab.value==='stock'&&!api.hasFreshSummary(filters(page));state.error = '';
 
-  try {const [response,options,summary] = await Promise.all([listRows(page,reader.signal),withOptions ? api.options(reader.signal) : Promise.resolve(null),tab.value === 'stock' ? api.summary(filters(page),reader.signal) : Promise.resolve(null)]); if (expected !== revision) return; state.rows = response.data; state.meta = response.meta; if (options) state.options = options.data; if (summary) state.summary = summary.data;}
+  try {const [response,options,summary] = await Promise.all([listRows(page,reader.signal,{fresh}),withOptions ? api.options(reader.signal,{fresh}) : Promise.resolve(null),tab.value === 'stock' ? api.summary(filters(page),reader.signal,{fresh}) : Promise.resolve(null)]); if (expected !== revision) return; state.rows = response.data; state.meta = response.meta; if (options) state.options = options.data; if (summary) state.summary = summary.data;}
 
   catch (cause) {if (expected === revision) await failure(cause);} finally {if (expected === revision) state.busy = false;}
 
@@ -180,6 +181,7 @@ watch(() => [state.query,state.account,state.product,state.provider,state.status
 
 watch(tab, () => {state.rows = []; state.summary = null; state.meta = {page:1,last_page:1,total:0}; state.status = ''; claim.value = null; manager.value = null; replacement.value = []; load(1,true);});
 
+hydrate(1,true);
 onMounted(() => load(1,true));
 
 onBeforeUnmount(() => {clearTimeout(timer); reader?.abort(); writer.abort(); replacement.value = [];});
@@ -198,7 +200,7 @@ onBeforeUnmount(() => {clearTimeout(timer); reader?.abort(); writer.abort(); rep
 
       <div v-if="route.name==='inventory'" class="inventory-original-toolbar"><button v-if="session.can('import.preview')" class="btn primary" @click="router.push({name:'import',query:{quick:'import'}})">طلبية جديدة</button><button v-if="session.can('inventory.export')" class="btn" :disabled="!state.rows.length" @click="exportList">تصدير</button><button class="btn" @click="filtersOpen=!filtersOpen" :aria-expanded="filtersOpen">فلترة وبحث</button><span class="caption">المخزون · {{state.meta.total}} سجل مطابق</span><div class="tabs"><button v-for="item in [{id:'all',label:'الكل'},{id:'active',label:'النشطة'},{id:'stopped',label:'الموقوفة'},{id:'cancelled',label:'الملغاة'}]" :class="{active:inventoryTab===item.id}" @click="inventoryTab=item.id;state.status=''">{{uiLabel(item.label)}}</button></div><select v-model.number="pageSize" aria-label="عدد دفعات المخزون في الصفحة"><option v-for="size in [10,25,50,100]" :value="size">{{size}}</option></select><small>{{state.meta.total ? (state.meta.page-1)*pageSize+1 : 0}}–{{Math.min(state.meta.page*pageSize,state.meta.total)}} من {{state.meta.total}}</small></div>
 
-      <div v-if="route.name!=='inventory' || filtersOpen" class="inventory-controls"><input v-model="state.query" placeholder="بحث بالطلبية أو الفئة" aria-label="بحث المخزون"><select v-model="state.account" aria-label="الوكيل"><option value="">جميع الوكلاء</option><option v-for="account in state.options.accounts" :key="account.id" :value="account.id">{{account.name}}</option></select><select v-model="state.provider" aria-label="الشركة"><option value="">جميع الشركات</option><option v-for="provider in state.options.providers" :key="provider.id" :value="provider.id">{{provider.name}}</option></select><select v-model="state.product" aria-label="الفئة"><option value="">جميع الفئات</option><option v-for="product in state.options.products.filter(product => !state.provider || product.provider_id === Number(state.provider))" :key="product.id" :value="product.id">{{product.name}}</option></select><select v-model="state.status" @change="inventoryTab='all'" aria-label="الحالة"><option value="">جميع الحالات</option><option v-for="status in tab === 'stock' ? ['Loaded','Partially Used','Completed','Quarantined','Exported','Cancelled by Reversal'] : tab === 'claims' ? ['pending','restore','compensate','replace','reject','loss'] : ['pending','approved','downloaded','rejected','cancelled']" :key="status" :value="status">{{stockStatus(status)}}</option></select><button type="button" class="btn small" :disabled="state.busy" @click="load(state.meta.page,true)">تحديث</button></div>
+      <div v-if="route.name!=='inventory' || filtersOpen" class="inventory-controls"><input v-model="state.query" placeholder="بحث بالطلبية أو الفئة" aria-label="بحث المخزون"><select v-model="state.account" aria-label="الوكيل"><option value="">جميع الوكلاء</option><option v-for="account in state.options.accounts" :key="account.id" :value="account.id">{{account.name}}</option></select><select v-model="state.provider" aria-label="الشركة"><option value="">جميع الشركات</option><option v-for="provider in state.options.providers" :key="provider.id" :value="provider.id">{{provider.name}}</option></select><select v-model="state.product" aria-label="الفئة"><option value="">جميع الفئات</option><option v-for="product in state.options.products.filter(product => !state.provider || product.provider_id === Number(state.provider))" :key="product.id" :value="product.id">{{product.name}}</option></select><select v-model="state.status" @change="inventoryTab='all'" aria-label="الحالة"><option value="">جميع الحالات</option><option v-for="status in tab === 'stock' ? ['Loaded','Partially Used','Completed','Quarantined','Exported','Cancelled by Reversal'] : tab === 'claims' ? ['pending','restore','compensate','replace','reject','loss'] : ['pending','approved','downloaded','rejected','cancelled']" :key="status" :value="status">{{stockStatus(status)}}</option></select><button type="button" class="btn small" :disabled="state.busy" @click="load(state.meta.page,true,true)">تحديث</button></div>
 
       <TablePanel v-if="tab === 'stock'" class="tablewrap"><table><thead><tr><th>الدفعة</th><th>الوكيل / الفئة</th><template v-if="route.name==='exports'"><th>الإجمالي</th><th>المتاح</th><th>المباع</th><th>التالف</th><th>الملغي</th></template><template v-else><th>المتاح للبيع / إجمالي الدفعة</th><th>التكلفة</th><th>الانتهاء</th></template><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody><tr v-for="batch in state.rows" :key="batch.id"><td class="mono">{{batch.id}}</td><td><strong>{{batch.product_name}}</strong><div class="caption">{{batch.account_name}}</div></td><template v-if="route.name==='exports'"><td>{{batch.quantity}}</td><td>{{batch.available_count}}</td><td>{{batch.sold_count ?? '—'}}</td><td>{{batch.damaged_count ?? '—'}}</td><td>{{batch.cancelled_count ?? '—'}}</td></template><template v-else><td>{{batch.available_count}} / {{batch.quantity}}</td><td class="mono">{{batch.cost_total ?? '••••'}} <small>{{batch.currency === 'IQD' ? 'د.ع' : '$'}}</small></td><td>{{batch.min_expiry || '—'}}</td></template><td><span class="badge">{{stockStatus(batch.status)}}</span></td><td><div class="actions"><button v-if="session.can('inventory.details')" type="button" class="btn small" @click="manager = {id:batch.id,inspectOnly:true}">معاينة</button><button v-if="canManage" type="button" class="btn small primary" @click="manager = {id:batch.id,inspectOnly:false}">إدارة</button></div></td></tr></tbody></table></TablePanel>
 

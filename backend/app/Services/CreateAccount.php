@@ -25,7 +25,11 @@ class CreateAccount
                 $type = AccountType::from($attributes['type']);
                 $data = $this->authority->data($actor, $type, $attributes);
                 $account = $this->hierarchy->create($attributes['name'], $type, $parent);
-                $account->fill($data)->save();
+                $account->fill($data);
+                if ($type === AccountType::Pos) {
+                    $account->forceFill(['device_binding_enabled' => true]);
+                }
+                $account->save();
                 if ($type === AccountType::Pos && (array_key_exists('pos_type_id', $attributes) || array_key_exists('representative_ids', $attributes))) {
                     app(ReferencePosProfile::class)->create($actor, $account, $attributes['pos_type_id'] ?? null, $attributes['representative_ids'] ?? []);
                 }

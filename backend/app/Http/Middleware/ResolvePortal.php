@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use Closure;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
 use Symfony\Component\HttpFoundation\Response;
@@ -30,7 +31,19 @@ class ResolvePortal
         Session::getFacadeRoot()->driver()->setName('masal_'.$portal.'_session');
 
         $response = $next($request);
+        if ($response instanceof JsonResponse) {
+            $response->setEncodingOptions($response->getEncodingOptions() | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
         $response->headers->set('Cache-Control', 'no-store, private');
+        $response->headers->set('X-Content-Type-Options', 'nosniff');
+        $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
+        $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
+        $response->headers->set('Permissions-Policy', 'geolocation=(self), camera=(self), microphone=(), payment=(), usb=()');
+        $response->headers->set('Content-Security-Policy', "frame-ancestors 'self'; object-src 'none'; base-uri 'self'; form-action 'self'");
+        if ($request->is('api/*')) {
+            $started = defined('LARAVEL_START') ? LARAVEL_START : ($_SERVER['REQUEST_TIME_FLOAT'] ?? microtime(true));
+            $response->headers->set('Server-Timing', 'app;dur='.number_format(max(0, (microtime(true) - $started) * 1000), 2, '.', ''));
+        }
 
         return $response;
     }

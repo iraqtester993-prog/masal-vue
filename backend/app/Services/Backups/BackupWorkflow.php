@@ -37,22 +37,58 @@ class BackupWorkflow
 
     public function create(User $actor, ?string $connection = null): ServerBackup
     {
-        $this->access->require($actor, 'backup.create');
+        return app(BackupCoordination::class)->read(fn (): ServerBackup => $this->createSnapshot($actor, $connection));
+    }
+
+    private function authorize(User $actor, string $permission, ?string $restoreJob = null): void
+    {
+        if ($restoreJob === null) {
+            app(MutationGuard::class)->lock($actor, [], $permission);
+        } else {
+            $gate = DB::table('runtime_write_gate')->where('id', 1)->sharedLock()->first();
+            abort_unless($gate && $gate->blocked && $gate->restore_job_id === $restoreJob, 409, 'بوابة نسخة الأمان لا تخص عملية الاسترجاع الحالية.');
+            $fresh = User::whereKey($actor->id)->lockForUpdate()->firstOrFail();
+            abort_unless((int) $fresh->session_version === (int) $actor->session_version, 401, 'انتهت صلاحية جلسة مدير النسخة.');
+            $actor->setRawAttributes($fresh->getAttributes(), true);
+            $actor->unsetRelation('membership');
+        }
+        $this->access->require($actor, $permission);
+    }
+
+    private function createSnapshot(User $actor, ?string $connection = null, ?string $restoreJob = null): ServerBackup
+    {
         $db = DB::connection($connection);
-        $backup = ServerBackup::on($db->getName())->create(['id' => (string) Str::uuid(), 'creator_id' => $actor->id, 'status' => 'creating']);
+        $backup = DB::transaction(function () use ($actor, $restoreJob): ServerBackup {
+            $this->authorize($actor, 'backup.create', $restoreJob);
+
+            return ServerBackup::create(['id' => (string) Str::uuid(), 'creator_id' => $actor->id, 'status' => 'creating']);
+        });
         $path = 'backups/snapshots/'.$backup->id.'.json';
         try {
             $data = $this->archive->create($db, $path);
-            $backup->update($data + ['path' => $path, 'status' => 'completed']);
+            DB::transaction(function () use ($actor, $backup, $data, $path, $restoreJob): void {
+                $this->authorize($actor, 'backup.create', $restoreJob);
+                $backup->update($data + ['path' => $path, 'status' => 'completed']);
+            });
 
-            return $backup;
+            return $backup->setConnection($db->getName());
         } catch (\Throwable $failure) {
+            Storage::disk('local')->delete($path);
             $backup->update(['status' => 'failed', 'failure' => get_class($failure) === RuntimeException::class ? mb_substr($failure->getMessage(), 0, 300) : 'تعذر نسخ بيانات النظام أو مرفقاته.']);
             throw $failure;
         }
     }
 
     public function preview(User $actor, ?UploadedFile $file, ?string $backupId): BackupPreview
+    {
+        return app(BackupCoordination::class)->read(function () use ($actor, $file, $backupId): BackupPreview {
+            DB::transaction(fn () => $this->authorize($actor, 'backup.restore'));
+
+            return $this->validatePreview($actor, $file, $backupId);
+        });
+    }
+
+    private function validatePreview(User $actor, ?UploadedFile $file, ?string $backupId): BackupPreview
     {
         $this->access->require($actor, 'backup.restore');
         $id = (string) Str::uuid();
@@ -72,7 +108,13 @@ class BackupWorkflow
         try {
             $verification = $this->importer->preview($path, DB::connection());
 
-            return BackupPreview::create(['id' => $id, 'creator_id' => $actor->id, 'backup_id' => $backup?->id, 'path' => $path, 'sha256' => hash_file('sha256', Storage::disk('local')->path($path)), 'manifest' => $verification['manifest'], 'reference_verified' => $verification['reference_verified'], 'expires_at' => now()->addHours(config('backups.preview_hours'))])->refresh();
+            $sha256 = hash_file('sha256', Storage::disk('local')->path($path));
+
+            return DB::transaction(function () use ($actor, $id, $backup, $path, $sha256, $verification): BackupPreview {
+                $this->authorize($actor, 'backup.restore');
+
+                return BackupPreview::create(['id' => $id, 'creator_id' => $actor->id, 'backup_id' => $backup?->id, 'path' => $path, 'sha256' => $sha256, 'manifest' => $verification['manifest'], 'reference_verified' => $verification['reference_verified'], 'expires_at' => now()->addHours(config('backups.preview_hours'))])->refresh();
+            });
         } catch (\Throwable $failure) {
             if ($file !== null) {
                 Storage::disk('local')->delete($path);
@@ -103,6 +145,11 @@ class BackupWorkflow
     }
 
     public function run(string $id): RestoreJob
+    {
+        return app(BackupCoordination::class)->restore(fn (): RestoreJob => $this->runExclusive($id));
+    }
+
+    private function runExclusive(string $id): RestoreJob
     {
         if (app()->runningInConsole() === false) {
             throw new RuntimeException('الاسترجاع يُنفذ من عامل الأوامر فقط.');
@@ -140,7 +187,7 @@ class BackupWorkflow
             $job->update(['status' => 'validated', 'version' => $job->version + 1]);
             $maintenance = $this->platform()->beginMaintenance($job->id);
             $job->update(['rollback' => $maintenance['rollback'], 'version' => $job->version + 1]);
-            $safety = $this->create($actor, $source->getName());
+            $safety = $this->createSnapshot($actor, $source->getName(), $job->id);
             $job->update(['safety_backup_id' => $safety->id, 'status' => 'switching', 'version' => $job->version + 1]);
             $this->promoteAssets($assetFolder);
             $this->copyControlRecords($source, DB::connection($scratchName));

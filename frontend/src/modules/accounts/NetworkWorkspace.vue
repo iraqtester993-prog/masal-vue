@@ -34,6 +34,7 @@ const DetailsDialog = defineAsyncComponent(
   () => import("./AccountDetailsDialog.vue"),
 );
 const ActionDialog = defineAsyncComponent(() => import("./ActionDialog.vue"));
+const PasswordResetDialog = defineAsyncComponent(() => import('./AccountPasswordResetDialog.vue'));
 const PermissionEditor = defineAsyncComponent(
   () => import("./PermissionEditor.vue"),
 );
@@ -60,6 +61,7 @@ const view = ref("list"),
 const resource = createPagedResource(
   (parameters, signal) => session.api.accounts(parameters, signal),
   handleFailure,
+  {peek:parameters=>session.api.peekAccounts?.(parameters,120000)},
 );
 const state = resource.state;
 const columns = [
@@ -97,6 +99,7 @@ async function load(page = 1, refreshNetwork = false) {
   await resource.load(parameters(page));
   if (refreshNetwork) networkRevision.value++;
 }
+resource.hydrate(parameters());
 async function exportAccounts(){
   try{const {workbook}=await import('../../shared/files/excel-export.js'); const url=URL.createObjectURL(workbook(state.rows.map(row=>({'الوكيل':row.name,'المستوى':accountTypeLabel(row.type),'الوكيل الأعلى':row.parent?.name||'—','المحافظة':row.city||'—','الحالة':row.status==='active'?'مفعل':'موقوف'}))));const link=document.createElement('a');link.href=url;link.download='agents.xlsx';link.click();setTimeout(()=>URL.revokeObjectURL(url),0);}catch(cause){state.error=await handleFailure(cause);}
 }
@@ -137,7 +140,7 @@ async function rowAction(kind, account) {
     newAccount(account.type === "sub_branch" ? "pos" : "agents", account);
     return;
   }
-  if (kind === "edit" || kind === "login" || kind === "permissions") {
+  if (kind === "edit" || kind === "login" || kind === "permissions" || kind === 'password-reset') {
     try {
       const result = await session.api.account(account.id, controller.signal);
       modal.value = { kind, account: result.data };
@@ -242,12 +245,11 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <div class="account-workspace network-workspace" :aria-label="isPos ? 'نقاط البيع' : 'الوكلاء'">
+  <div class="account-workspace network-workspace" :class="{'agent-network-page':!isPos}" :aria-label="isPos ? 'نقاط البيع' : 'الوكلاء'">
     <p v-if="success" class="notice notice-success" role="status">
       {{ success }}
     </p>
     <div class="card workspace-card">
-      <FilterBar class="agents-unified-toolbar" :class="{'pos-original-toolbar':isPos}">
         <div v-if="!isPos" class="tabs" aria-label="طريقة عرض الوكلاء">
           <button :class="{ active: view === 'list' }" @click="view = 'list'">
             قائمة الوكلاء</button
@@ -260,6 +262,7 @@ onBeforeUnmount(() => {
             عرض مختصر
           </button>
         </div>
+      <FilterBar class="agents-unified-toolbar" :class="{'pos-original-toolbar':isPos}">
         <input
           v-model="filters.q"
           type="search"
@@ -415,7 +418,7 @@ onBeforeUnmount(() => {
                       @create="rowAction('create', $event)"
                       @status="rowAction('status', $event)"
                       @permissions="rowAction('permissions', $event)"
-                      @login="rowAction('login', $event)" @archive="rowAction('archive', $event)"
+                      @login="rowAction('login', $event)" @archive="rowAction('archive', $event)" @password-reset="rowAction('password-reset',$event)"
                     />
                   </div>
                 </td>
@@ -480,7 +483,7 @@ onBeforeUnmount(() => {
     />
     <DetailsDialog
       v-if="modal?.kind === 'details'"
-      @login="rowAction('login',$event)" @create="rowAction('create',$event)"
+      @login="rowAction('login',$event)" @create="rowAction('create',$event)" @password-reset="rowAction('password-reset',$event)"
       :account="modal.account"
       @close="modal = null"
       @changed="mediaChanged"
@@ -506,6 +509,7 @@ onBeforeUnmount(() => {
       @close="modal = null"
       @saved="saved"
     />
+    <PasswordResetDialog v-if="modal?.kind==='password-reset'" :account="modal.account" @close="modal=null" @saved="saved"/>
     <PermissionEditor
       v-if="modal?.kind === 'permissions'"
       :account="modal.account"

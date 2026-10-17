@@ -39,6 +39,8 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'session_version' => 'integer',
+            'password_change_required_at' => 'datetime',
+            'password_reset_version' => 'integer',
         ];
     }
 }

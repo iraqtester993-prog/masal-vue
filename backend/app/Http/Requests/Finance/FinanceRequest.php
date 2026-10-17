@@ -25,7 +25,12 @@ class FinanceRequest extends FormRequest
         $read += ['q' => ['sometimes', 'nullable', 'string', 'max:200'], 'from' => ['sometimes', 'date_format:Y-m-d'], 'to' => ['sometimes', 'date_format:Y-m-d', 'after_or_equal:from'], 'account_ids' => ['sometimes', 'array', 'max:10000'], 'account_ids.*' => ['integer', 'min:1', 'distinct']];
         $read += ['direction' => ['sometimes', Rule::in(['incoming', 'outgoing'])]];
         $read += ['recoverable' => ['sometimes', 'boolean'], 'provider_id' => ['sometimes', 'integer', 'min:1'], 'product_id' => ['sometimes', 'integer', 'min:1']];
+        if ($this->route()->getActionMethod() === 'wallets') {
+            $read += ['summary' => ['sometimes', 'boolean'], 'metrics' => ['sometimes', 'boolean']];
+        }
         $read += ['price_state' => ['sometimes', Rule::in(['active', 'inactive', 'priced', 'unpriced'])], 'kind' => ['sometimes', Rule::in(['receivable', 'payable'])]];
+        $accountFilters = ['account_city' => ['sometimes', 'string', 'max:190'], 'account_type' => ['sometimes', Rule::in(['system', 'main_agent', 'sub_agent', 'sub_branch', 'pos'])], 'account_status' => ['sometimes', Rule::in(['active', 'inactive'])], 'account_query' => ['sometimes', 'string', 'max:200'], 'ancestor_id' => ['sometimes', 'integer', 'min:1'], 'parent_id' => ['sometimes', 'integer', 'min:1'], 'exclude_account_id' => ['sometimes', 'integer', 'min:1']];
+        $read += $accountFilters;
         $read['to'] = ['sometimes', 'nullable', 'date_format:Y-m-d'];
         $read['from'] = ['sometimes', 'nullable', 'date_format:Y-m-d'];
         if ($this->filled('from')) {
@@ -46,7 +51,9 @@ class FinanceRequest extends FormRequest
             'storePriceRequest' => $identity + ['source' => ['sometimes', Rule::in(['manual', 'import'])], 'changes' => ['required', 'array', 'min:1', 'max:500'], 'changes.*' => ['required', 'array:product_id,price,expected_price'], 'changes.*.product_id' => ['required', 'integer', 'min:1', 'distinct'], 'changes.*.price' => $amount, 'changes.*.expected_price' => ['present', 'nullable', 'string', 'regex:/\A(?:0|[1-9][0-9]{0,12})(?:\.[0-9]{1,2})?\z/D'], 'idempotency_key' => $key],
             'reviewPriceRequest' => $cas + ['decision' => ['required', Rule::in(['approve', 'reject'])], 'reason' => ['required_if:decision,reject', 'string', 'max:1000']],
             'reversePriceRequest' => $cas + ['reason' => ['required', 'string', 'max:1000']],
-            'options','policy' => [],
+            'options' => ['compact' => ['sometimes', 'boolean']],
+            'accounts' => $read + ['account_types' => ['sometimes', 'array', 'max:5'], 'account_types.*' => [Rule::in(['system', 'main_agent', 'sub_agent', 'sub_branch', 'pos'])], 'lookup_ids' => ['sometimes', 'array', 'max:10000'], 'lookup_ids.*' => ['integer', 'min:1', 'distinct']],
+            'policy' => [],
             default => $read,
         };
     }

@@ -13,9 +13,13 @@ class Ledger
     public function wallet(int $accountId, string $service, string $currency, string $kind = 'account'): Wallet
     {
         abort_unless(DB::transactionLevel() > 0, 500);
+        $identity = Wallet::where(compact('service', 'currency', 'kind'))->where('account_id', $accountId);
+        if ($wallet = (clone $identity)->lockForUpdate()->first()) {
+            return $wallet;
+        }
         DB::table('finance_wallets')->insertOrIgnore(['account_id' => $accountId, 'service' => $service, 'currency' => $currency, 'kind' => $kind, 'balance_minor' => 0, 'held_minor' => 0, 'version' => 1, 'created_at' => now(), 'updated_at' => now()]);
 
-        return Wallet::where(compact('service', 'currency', 'kind'))->where('account_id', $accountId)->lockForUpdate()->firstOrFail();
+        return $identity->lockForUpdate()->firstOrFail();
     }
 
     public static function hash(array $payload): string

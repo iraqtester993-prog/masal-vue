@@ -18,11 +18,11 @@ class DigitalOrder extends Model
 
     protected $guarded = ['id'];
 
-    protected $hidden = ['subscriber', 'receipt', 'receipt_ref', 'request_hash', 'provider_hold', 'provider_evidence', 'provider_purchase_response'];
+    protected $hidden = ['subscriber', 'receipt', 'receipt_ref', 'request_hash', 'provider_hold', 'provider_evidence', 'provider_purchase_response', 'manual_review'];
 
     protected function casts(): array
     {
-        return ['manual_category_name' => 'boolean', 'acknowledged_at' => 'datetime', 'subscriber' => 'encrypted:array', 'receipt' => 'encrypted:array', 'provider_hold' => 'encrypted:array', 'provider_evidence' => 'encrypted:array', 'provider_purchase_response' => 'encrypted:array', 'provider_purchase_started_at' => 'datetime', 'reservation_active' => 'boolean', 'version' => 'integer', 'offer_version' => 'integer', 'quoted_cost_minor' => 'integer', 'quoted_retail_minor' => 'integer', 'actual_cost_minor' => 'integer', 'actual_retail_minor' => 'integer', 'resolved_at' => 'datetime', 'refunded_at' => 'datetime'];
+        return ['manual_review' => 'encrypted:array', 'budget_wallet_id' => 'integer', 'topup_grant_id' => 'integer', 'admin_price_minor' => 'integer', 'accounted_at' => 'datetime', 'manual_category_name' => 'boolean', 'acknowledged_at' => 'datetime', 'subscriber' => 'encrypted:array', 'receipt' => 'encrypted:array', 'provider_hold' => 'encrypted:array', 'provider_evidence' => 'encrypted:array', 'provider_purchase_response' => 'encrypted:array', 'provider_purchase_started_at' => 'datetime', 'reservation_active' => 'boolean', 'version' => 'integer', 'offer_version' => 'integer', 'quoted_cost_minor' => 'integer', 'quoted_retail_minor' => 'integer', 'actual_cost_minor' => 'integer', 'actual_retail_minor' => 'integer', 'resolved_at' => 'datetime', 'refunded_at' => 'datetime'];
     }
 
     public function connection(): BelongsTo

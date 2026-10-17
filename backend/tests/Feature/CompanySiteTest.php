@@ -53,6 +53,82 @@ class CompanySiteTest extends TestCase
         return array_replace(['name' => 'زائر فعلي', 'contact' => '07700000000', 'message' => 'أحتاج تفاصيل الخدمة', 'website_honeypot' => '', 'idempotency_key' => (string) Str::uuid()], $changes);
     }
 
+    public function test_app_configuration_is_managed_only_by_admin_and_survives_site_edits(): void
+    {
+        $tree = $this->actors();
+        $this->asPortalUser($tree['admin']);
+        $original = $this->getJson('/api/v1/company/app-config')->assertOk()->json('data');
+        $config = ['name' => 'دنانير', 'about' => 'معلومات الشركة', 'terms' => 'شروط التطبيق', 'privacy' => 'الخصوصية', 'printers' => [['id' => 'printer-one', 'name' => 'طابعة النقطة', 'profile' => 'GOOJPRT', 'match' => 'JingPu']]];
+        $saved = $this->putJson('/api/v1/company/app-config', ['version' => $original['version'], 'config' => $config])->assertOk()->assertJsonPath('data.config.terms', 'شروط التطبيق')->json('data');
+        $this->putJson('/api/v1/company/app-config', ['version' => $original['version'], 'config' => $config])->assertConflict();
+        $profile = $this->getJson('/api/v1/company/profile')->assertOk()->json('data');
+        $this->assertArrayNotHasKey('app_config', $profile['profile']);
+        $this->putJson('/api/v1/company/profile', ['version' => $profile['version'], 'profile' => $profile['profile']])->assertOk();
+        $this->getJson('/api/v1/company/app-config')->assertOk()->assertJsonPath('data.config', $config);
+        $this->getJson('/api/v1/company/public')->assertOk()->assertJsonMissingPath('data.profile.app_config');
+        $this->asPortalUser($tree['agent']);
+        $this->getJson('/api/v1/company/app-config')->assertOk()->assertJsonPath('data.config', $config);
+        $this->putJson('/api/v1/company/app-config', ['version' => $saved['version'], 'config' => $config])->assertForbidden();
+    }
+
+    public function test_admin_can_disable_and_enable_printer_types_without_deleting_their_configuration(): void
+    {
+        $tree = $this->actors();
+        $this->asPortalUser($tree['admin']);
+        $original = $this->getJson('/api/v1/company/app-config')->assertOk()->json('data');
+        $config = $original['config'];
+        $config['printers'][0]['enabled'] = false;
+        $saved = $this->putJson('/api/v1/company/app-config', ['version' => $original['version'], 'config' => $config])
+            ->assertOk()->assertJsonPath('data.config.printers.0.enabled', false)->json('data');
+        $this->asPortalUser($tree['agent']);
+        $this->getJson('/api/v1/company/app-config')->assertOk()->assertJsonPath('data.config.printers.0.enabled', false);
+        $this->putJson('/api/v1/company/app-config', ['version' => $saved['version'], 'config' => $config])->assertForbidden();
+        $this->asPortalUser($tree['admin']);
+        $config['printers'][0]['enabled'] = true;
+        $this->putJson('/api/v1/company/app-config', ['version' => $saved['version'], 'config' => $config])
+            ->assertOk()->assertJsonPath('data.config.printers.0.enabled', true);
+    }
+
+    public function test_default_printer_catalog_includes_mtp_aliases_and_yhd_8006(): void
+    {
+        $tree = $this->actors();
+        $this->asPortalUser($tree['admin']);
+        $printers = collect($this->getJson('/api/v1/company/app-config')->assertOk()->json('data.config.printers'));
+        $goojprt = $printers->firstWhere('id', 'goojprt');
+        $this->assertSame('GOOJPRT', $goojprt['profile']);
+        $this->assertContains('MTP-2', explode('|', $goojprt['match']));
+        $this->assertContains('MTP-II', explode('|', $goojprt['match']));
+        $this->assertSame('YHD-8006', $printers->firstWhere('id', 'yhd-8006')['profile']);
+    }
+
+    public function test_admin_can_save_and_disable_yhd_without_changing_custom_printers(): void
+    {
+        $tree = $this->actors();
+        $this->asPortalUser($tree['admin']);
+        $data = $this->getJson('/api/v1/company/app-config')->assertOk()->json('data');
+        $custom = ['id' => 'custom-5801', 'name' => 'YHD-5801', 'profile' => 'GOOJPRT', 'match' => 'YHD-5801', 'enabled' => true];
+        $yhd = ['id' => 'yhd-8006', 'name' => 'YHD-8006', 'profile' => 'YHD-8006', 'match' => 'YHD-8006|YHD8006', 'enabled' => false];
+        $data['config']['printers'] = [$custom, $yhd];
+        $this->putJson('/api/v1/company/app-config', $data)->assertOk()
+            ->assertJsonPath('data.config.printers.0', $custom)
+            ->assertJsonPath('data.config.printers.1', $yhd);
+        $this->asPortalUser($tree['agent']);
+        $this->getJson('/api/v1/company/app-config')->assertOk()
+            ->assertJsonPath('data.config.printers.0', $custom)
+            ->assertJsonPath('data.config.printers.1.enabled', false);
+    }
+
+    public function test_unknown_printer_profile_is_rejected_without_changing_saved_config(): void
+    {
+        $tree = $this->actors();
+        $this->asPortalUser($tree['admin']);
+        $data = $this->getJson('/api/v1/company/app-config')->assertOk()->json('data');
+        $invalid = $data;
+        $invalid['config']['printers'][0]['profile'] = 'Printer001';
+        $this->putJson('/api/v1/company/app-config', $invalid)->assertUnprocessable();
+        $this->getJson('/api/v1/company/app-config')->assertOk()->assertJsonPath('data', $data);
+    }
+
     public function test_site_messages_are_visible_in_support_and_replies_reach_private_tracking_page(): void
     {
         $tree = $this->actors();

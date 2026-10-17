@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Masal — isolated portals and implemented v1 system API
-  version: 0.7.0
+  version: 0.8.0
   description: |
     Source snapshot 07 includes the implemented Laravel v1 modules listed below.
     This document retains the 35 paths / 45 detailed operations originally described
@@ -9,11 +9,16 @@ info:
     not complete request/response coverage for snapshot 07. Subsequent implementation
     behavior is authoritative in each current FormRequest, controller, resource and service.
     API_ROUTE_CATALOG.json is generated from the current Laravel route:list --json output;
-    it lists all 214 registered api/v1 and Sanctum CSRF method/path records (180 unique
+    it lists all 249 registered api/v1 and Sanctum CSRF method/path records (213 unique
     URI paths; GET records also include HEAD). The catalog proves registered path coverage,
     not permissions, business correctness, external-provider readiness or production deployment.
     Validation status and remaining native/deployment work are recorded in
-    ../docs/FULL_SYSTEM_07_VERIFICATION.md. Production is still release 06b at this draft.
+    ../docs/FULL_SYSTEM_07_VERIFICATION.md and subsequent release acceptance reports.
+    The route inventory was refreshed on 2026-10-15 for security108: signed device challenges,
+    bounded private report downloads, and audited provider-review notes. Device proof fields
+    and replay protections are authoritative in DeviceProof and RegisteredDevices.
+    single109 adds credential-bound POS login challenges and account-scoped,
+    management-controlled login-device transfer with session revocation.
 servers:
 - url: https://admin.dananir-iq.com
   description: Final System administration portal; same-origin cookie session and /api/v1 paths
@@ -29,9 +34,9 @@ x-route-catalog:
   scope:
   - api/v1/*
   - sanctum/csrf-cookie
-  records: 214
-  unique-uri-paths: 180
-  sha256: 8208296d212b4c285906ebd7c98076afdbdd79e51ae4a66acade14fe5dd7b2f3
+  records: 249
+  unique-uri-paths: 213
+  sha256: adf550532a8a74b936226c707985a6761cbf1edb49d56dfa3195e02e21c8e465
   coverage: Complete registered route inventory; request and response schemas are not inferred
 x-detailed-schema-coverage:
   baseline-version: 0.3.0
@@ -147,6 +152,22 @@ paths:
           $ref: '#/components/responses/ValidationFailure'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  /api/v1/auth/brand-image:
+    get:
+      tags: [Session]
+      operationId: ownPosAgentBrandImage
+      summary: Authenticated POS main-agent brand image
+      security:
+      - PosSession: []
+      responses:
+        '200':
+          description: Own main-agent image; private no-store response
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          description: No supported brand image or not a POS account
   /api/v1/auth/me:
     get:
       tags:

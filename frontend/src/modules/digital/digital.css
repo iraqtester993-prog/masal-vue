@@ -1,7 +1,14 @@
 .digital-services{display:grid;gap:18px}.digital-tabs{padding:12px 18px}.digital-tabs .tabs button.active{background:var(--accent);color:#fff}.digital-tabs .tabs button:not(.active){background:transparent;color:var(--text)}.digital-services h4{margin:22px 0 10px}.digital-config{margin:20px 0;padding:20px;border:1px solid var(--line);border-radius:14px}.digital-checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;max-height:220px;overflow:auto}.digital-checks label{display:flex;flex-direction:row;align-items:center;gap:9px;padding:10px;background:var(--raised);border-radius:8px}.digital-checks input[type=checkbox]{width:18px;height:18px;flex-shrink:0}.digital-sale-summary,.digital-confirm{margin-top:18px;padding:18px;border:1px solid var(--line);border-radius:12px}.digital-sale-summary{display:flex;align-items:center;flex-wrap:wrap;gap:14px}.digital-sale-summary strong{font-size:25px}.digital-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:18px 0}.digital-totals{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:20px}.digital-totals>div{display:grid;gap:7px;padding:14px;background:var(--raised);border-radius:12px}.digital-totals b{font-size:20px}.digital-services td small{display:block;color:var(--muted);margin-top:5px;max-width:260px;overflow-wrap:anywhere}.digital-services td .mono{overflow-wrap:anywhere}.digital-receipt-content{text-align:center}.digital-code{font-size:22px;padding:16px;border:1px dashed var(--line);overflow-wrap:anywhere}.digital-receipt-actions{justify-content:center;margin-top:20px}.digital-services .formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,220px));gap:12px 16px}.digital-connection-fields{display:grid;grid-template-columns:1fr;gap:16px;align-items:start}.digital-services .digital-connection-fields>.formgrid{grid-template-columns:repeat(4,minmax(0,1fr))}.digital-company-catalog{margin:16px 0}.digital-company-category{display:grid;grid-template-columns:minmax(180px,1fr) minmax(180px,280px) minmax(130px,200px);align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--line)}.digital-company-category>div{display:grid;gap:5px}.digital-company-category small{color:var(--muted)}.digital-company-category>label{width:100%}.digital-grant-switch{display:inline-flex;align-items:center;gap:10px;border:0;border-radius:0;background:transparent;color:var(--text);padding:6px 0;cursor:pointer;white-space:nowrap;font:inherit;font-size:14px;font-weight:700;min-height:44px}.digital-grant-switch:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}.digital-switch-track{display:block;direction:ltr;width:56px;height:30px;border-radius:20px;background:#c64151;position:relative;flex-shrink:0;transition:background .15s}.digital-switch-track>span{position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:white;box-shadow:0 1px 3px #0003;transition:transform .15s}.digital-grant-switch.enabled .digital-switch-track{background:#16a34a}.digital-grant-switch.enabled .digital-switch-track>span{transform:translateX(26px)}.digital-totals small{color:var(--muted);font-size:12px}.digital-balance-card b{color:var(--accent)}.digital-status-summary{display:flex;flex-wrap:wrap;gap:18px;color:var(--muted);font-size:13px;margin:-8px 0 16px}
 @media(max-width:700px){.digital-config{padding:12px}.digital-filters{grid-template-columns:1fr 1fr}.digital-services .tabs{display:flex;width:100%}.digital-services .tabs button{flex:1}.digital-company-category{grid-template-columns:1fr}.digital-services .digital-connection-fields>.formgrid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.digital-switch-track,.digital-switch-track>span{transition:none}}
-@media print{body.digital-printing #app{visibility:hidden}body.digital-printing .digital-receipt,body.digital-printing .digital-receipt *{visibility:visible}body.digital-printing .digital-receipt{position:absolute;inset:0 auto auto 0;width:100%;border:0}body.digital-printing .digital-receipt-actions{display:none}}
+.digital-receipt-dialog .digital-receipt{margin:0 auto;max-width:420px;width:100%}
+@media print{
+ body.digital-printing> :not(.digital-receipt-dialog){display:none!important}
+ body.digital-printing .digital-receipt-dialog[open]{display:block!important;position:static!important;inset:auto!important;width:auto!important;max-width:none!important;height:auto!important;max-height:none!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;overflow:visible!important;background:#fff!important;box-shadow:none!important}
+ body.digital-printing .digital-receipt-dialog::backdrop,body.digital-printing .digital-receipt-dialog .dialog-heading,body.digital-printing .digital-receipt-dialog .no-print{display:none!important}
+ body.digital-printing .digital-receipt-dialog .receipt-dialog-body{display:block!important;height:auto!important;max-height:none!important;overflow:visible!important;padding:0!important}
+ body.digital-printing .digital-receipt-dialog .digital-receipt{width:100%;max-width:none;margin:0;border:0;padding:0;box-shadow:none}
+}
 
 /* Final original styles.css / reference-identity.css cascade, limited to this module.
    Child components keep the original .card, .btn, .tabs and form classes. */
@@ -480,12 +487,12 @@ html[data-theme="dark"] .digital-services tbody tr:hover {
   }
 }
 @media print {
-  body.digital-printing .digital-services .digital-receipt {
+  body.digital-printing .digital-receipt-dialog .digital-receipt {
     background: #fff;
     color: #000;
     box-shadow: none;
   }
-  body.digital-printing .digital-services .digital-receipt * {
+  body.digital-printing .digital-receipt-dialog .digital-receipt * {
     color: #000;
   }
 }

@@ -81,6 +81,42 @@ class ReportsReadTest extends TestCase
         $this->assertSame(0, $regions[$tree['other']->id]['pos_count']);
     }
 
+    public function test_initial_dashboard_cards_preserve_values_for_all_portals_without_loading_detail_rows(): void
+    {
+        $tree = $this->setupTree();
+        $this->travelTo(Carbon::parse('2026-10-06 09:00:00', 'UTC'));
+        $this->sale($tree);
+        $this->sale($tree, ['quantity' => 2, 'total_minor' => 20002, 'retail_total_minor' => 24004]);
+
+        foreach (['admin', 'agent', 'seller'] as $role) {
+            $this->asPortalUser($tree[$role]);
+            $full = $this->getJson('/api/v1/dashboard/summary')->assertOk();
+            DB::enableQueryLog();
+            try {
+                $compact = $this->getJson('/api/v1/dashboard/summary?view=cards')->assertOk();
+                $queries = collect(DB::getQueryLog())->pluck('query');
+            } finally {
+                DB::disableQueryLog();
+                DB::flushQueryLog();
+            }
+            $fullCards = collect($full->json('data.cards'))->keyBy('key');
+            foreach ($compact->json('data.cards') as $card) {
+                $this->assertSame($fullCards[$card['key']]['value'], $card['value'], $role.':'.$card['key']);
+                $this->assertSame($fullCards[$card['key']]['available'], $card['available']);
+                $this->assertSame([], $card['rows']);
+            }
+            $this->assertCount(0, $queries->filter(fn (string $sql): bool => preg_match('/limit\\s+5(?:\\s|$)/i', $sql) === 1));
+            $dayQueries = $queries->filter(fn (string $sql): bool => str_contains($sql, 'AS amount,') && str_contains($sql, 'AS quantity'));
+            $this->assertCount(1, $dayQueries);
+            if ($role === 'seller') {
+                $cards = collect($compact->json('data.cards'))->keyBy('key');
+                $this->assertSame('360.06', $cards['sales']['value']);
+                $this->assertSame(3, $cards['quantity']['value']);
+            }
+        }
+        $this->assertDatabaseCount('finance_transactions', 0);
+    }
+
     public function test_summary_counts_only_requested_sections_and_rejects_unknown_sections(): void
     {
         $tree = $this->setupTree();
@@ -157,12 +193,14 @@ class ReportsReadTest extends TestCase
         DB::table('audit_logs')->insert(['user_id' => $tree['admin']->id, 'account_id' => $tree['system']->id, 'subject_account_id' => $tree['other']->id, 'action' => 'account.update', 'portal' => 'admin', 'created_at' => '2026-10-10 09:00:00']);
         $this->asPortalUser($tree['agent']);
         foreach ([10, 20, 50, 100, 'all'] as $limit) {
-            $response = $this->getJson('/api/v1/dashboard/activity?limit='.$limit)->assertOk()->assertJsonCount($limit === 'all' ? 125 : $limit, 'data')->assertJsonPath('data.0.key', 'audit:'.$lastId)
+            $response = $this->getJson('/api/v1/dashboard/activity?limit='.$limit)->assertOk()->assertJsonCount($limit === 'all' ? 100 : $limit, 'data')->assertJsonPath('data.0.key', 'audit:'.$lastId)
                 ->assertJsonPath('data.0.summary_fields.0.value', '2')->assertJsonPath('data.0.summary_fields.1.value', 'تصحيح اسم الحساب');
             foreach (['HIDDEN_SECRET', 'PRIVATE_PHONE', $tree['other']->name] as $secret) {
                 $this->assertStringNotContainsString($secret, $response->getContent());
             }
         }
+        $next = $this->getJson('/api/v1/dashboard/activity?limit=all&cursor='.urlencode($response->json('meta.next_cursor')))->assertOk()->assertJsonCount(25, 'data');
+        $this->assertStringNotContainsString('HIDDEN_SECRET', $next->getContent());
         $this->getJson('/api/v1/dashboard/activity?limit=30')->assertUnprocessable();
         $this->getJson('/api/v1/dashboard/activity?limit=all&account_id='.$tree['other']->id)->assertUnprocessable();
         DB::table('membership_permissions')->insert(['membership_id' => $tree['agent']->membership->id, 'permission_id' => DB::table('permissions')->where('name', 'dashboard.view')->value('id'), 'allowed' => false]);

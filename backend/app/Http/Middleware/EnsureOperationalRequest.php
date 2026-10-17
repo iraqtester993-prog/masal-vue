@@ -44,7 +44,8 @@ class EnsureOperationalRequest
             app(OperationGuard::class)->assertAllowed($user->membership->account_id, $key);
         }
         $presence = str_starts_with($path, 'api/v1/maps/');
-        if (config('maps.require_location') && ! $request->isMethodSafe() && ! $presence && ! $request->is('api/v1/operations/activity', 'api/v1/preferences') && $user->membership->kind === 'owner' && $user->membership->account->type !== AccountType::System) {
+        $deviceBootstrap = $request->isMethod('POST') && in_array($path, ['api/v1/device/challenge', 'api/v1/device/heartbeat'], true);
+        if (config('maps.require_location') && ! $request->isMethodSafe() && ! $presence && ! $deviceBootstrap && ! $request->is('api/v1/operations/activity', 'api/v1/preferences', 'api/v1/auth/password-reset/complete') && $user->membership->kind === 'owner' && $user->membership->account->type !== AccountType::System) {
             abort_unless(app(MapAccess::class)->locationReady($user, $request), 428, 'فعّل مشاركة موقع الجهاز قبل تنفيذ العمليات.');
         }
 

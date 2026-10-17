@@ -1,0 +1,37 @@
+/* One brand palette for both the app shell and dialogs teleported to body. */
+html[data-portal=pos]{--accent:var(--pos-brand,#0d5c63);--accent-ink:var(--pos-brand-ink,#fff)}
+html[data-theme=light][data-portal=pos]{--pos-accent:var(--pos-link-light,#0d5c63);--pos-link:var(--pos-accent);--accent-soft:var(--pos-soft-light,#eaf2f3);--info-accent:var(--pos-accent)}
+html[data-theme=dark][data-portal=pos]{--pos-accent:var(--pos-link-dark,#b4dfe2);--pos-link:var(--pos-accent);--accent-soft:var(--pos-soft-dark,#203b40);--info-accent:var(--pos-accent)}
+html[data-theme][data-portal=pos] .catalog-modal.pos-info-dialog[open]{inset:0!important;margin:0!important;width:100%!important;min-width:0;max-width:none!important;height:100%!important;height:100dvh!important;max-height:100%!important;border:0;border-radius:0!important;display:flex;flex-direction:column;overflow:hidden;padding:0}
+html[data-portal=pos] .pos-info-dialog>.dialog-heading{flex-shrink:0;padding-top:calc(16px + env(safe-area-inset-top,0px))}
+html[data-portal=pos] .pos-info-dialog .pos-info-body{flex:1 1 0;min-height:0;overflow:auto;width:100%;max-width:760px;margin-inline:auto;padding-bottom:calc(24px + env(safe-area-inset-bottom,0px))}
+html[data-portal=pos] .sales-receipt-dialog .receipt-result-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px}
+html[data-portal=pos] .sales-receipt-dialog .receipt-result-options .btn{min-width:0;min-height:46px;padding:10px;justify-content:center;text-align:center;font-size:13px;gap:7px}
+html[data-portal=pos] .sales-receipt-dialog .receipt-result-options .btn::after{font-size:17px}
+html[data-portal=pos] .sales-receipt-dialog .receipt-result-panel{padding:12px;margin-block:12px;border-radius:16px}
+html[data-portal=pos] .sales-receipt-dialog .receipt-result-heading{gap:4px;margin-bottom:10px}
+html[data-portal=pos] .sales-receipt-dialog .receipt-primary-actions{display:flex;flex-wrap:wrap;gap:8px;padding-block:10px;margin-top:8px}
+html[data-portal=pos] .sales-receipt-dialog .receipt-primary-actions>.btn{flex:1 1 130px;min-height:44px;width:auto}
+@media screen and (max-width:800px){
+ html[data-theme=light] .portal-shell.pos-app{--accent-soft:var(--pos-soft-light,#eaf2f3);--pos-accent:var(--pos-link-light,#0d5c63);--pos-link:var(--pos-accent)}
+ html[data-theme=dark] .portal-shell.pos-app{--accent-soft:var(--pos-soft-dark,#203b40);--pos-accent:var(--pos-link-dark,#b4dfe2);--pos-link:var(--pos-accent)}
+ html[data-theme] .portal-shell.pos-app .pos-home-summary{position:relative;overflow:hidden;border:1px solid var(--line);border-inline-start:4px solid var(--pos-accent);background:var(--panel);background:linear-gradient(125deg,var(--accent-soft),var(--panel) 65%);box-shadow:0 8px 24px #071b3410;border-radius:24px;padding:24px 12px}
+ html[data-theme] .portal-shell.pos-app .pos-home-shortcuts a{background:var(--panel);border:1px solid var(--line);box-shadow:0 4px 15px #071b3408;border-radius:20px;transition:transform .16s,background .16s}
+ html[data-theme] .portal-shell.pos-app .pos-home-shortcuts svg{box-sizing:content-box;padding:10px;background:var(--accent-soft);border-radius:16px;width:23px;height:23px;color:var(--pos-accent)}
+ html[data-theme] .portal-shell.pos-app .pos-topup-balance{border:1px solid var(--line);border-radius:18px;background:var(--accent-soft);padding:14px 16px}
+ html[data-theme] .portal-shell.pos-app .pos-activity-row{border:1px solid var(--line);border-radius:18px;margin-block:8px;background:var(--panel);padding:12px;box-shadow:0 3px 12px #071b3406}
+ html[data-theme] .portal-shell.pos-app .pos-header-title strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;font-size:15px}
+ html[data-theme] .portal-shell.pos-app .pos-app-nav{border-radius:22px 22px 0 0;box-shadow:0 -5px 24px #071b340c}
+ .pos-app :is(.pos-home-shortcuts a,.pos-tab,.pos-company-circle):active{transform:scale(.97)}
+ html[data-theme][data-portal=pos] .catalog-modal.pos-receipt-dialog[open]{position:fixed;inset:0;margin:0;min-width:0;width:100%;max-width:none!important;height:100%;height:100dvh;max-height:100%!important;padding:0;border:0;border-radius:0;box-shadow:none;background:var(--canvas,#f4f7fa);display:flex;flex-direction:column;overflow:hidden}
+ html[data-theme=dark][data-portal=pos] .catalog-modal.pos-receipt-dialog[open]{background:var(--canvas,#101b2b)}
+ html[data-portal=pos] .catalog-modal.pos-receipt-dialog>.dialog-heading{display:flex;flex:none;min-height:56px;margin:0;padding:calc(10px + env(safe-area-inset-top,0px)) 16px 10px;border-bottom:1px solid var(--line);background:var(--panel)}
+ html[data-portal=pos] .pos-receipt-dialog>.dialog-heading :is(.dialog-icon,.dialog-section){display:none}
+ html[data-portal=pos] .pos-receipt-dialog>.dialog-heading h2{font-size:16px;margin:0}
+ html[data-portal=pos] .pos-receipt-dialog>.receipt-dialog-body{flex:1 1 0;min-height:0;min-width:0;width:100%;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:14px 16px calc(20px + env(safe-area-inset-bottom,0px));background:inherit}
+}
+@media print{
+ html:has(.pos-receipt-dialog[open]),body:has(.pos-receipt-dialog[open]){height:auto!important;min-height:0!important;overflow:visible!important;background:#fff!important}
+ .catalog-modal.pos-receipt-dialog>.receipt-dialog-body{display:block!important;height:auto!important;max-height:none!important;overflow:visible!important;padding:0!important}
+}
+@media(prefers-reduced-motion:reduce){.pos-app .pos-home-shortcuts a{transition:none}.pos-app :is(.pos-home-shortcuts a,.pos-tab,.pos-company-circle):active{transform:none}}

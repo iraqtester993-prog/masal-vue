@@ -1,6 +1,34 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createApiClient, cookieValue, ApiError } from '../src/shared/api/client.js';
+test('refresh guard stays active until every pending business mutation settles',async()=>{
+ const previousFetch=globalThis.fetch,previousDocument=globalThis.document;globalThis.document={cookie:''};let release;globalThis.fetch=()=>new Promise(resolve=>release=()=>resolve(Response.json({data:{}})));
+ try{const api=createApiClient('/api/v1'),write=api.request('/sales',{method:'POST',body:{}});assert.equal(api.hasPendingMutation(),true);release();await write;assert.equal(api.hasPendingMutation(),false);}finally{globalThis.fetch=previousFetch;globalThis.document=previousDocument;}
+});
+test('recent activity and account options share navigation reads but pending purchases remain live',async()=>{
+ const originalFetch=globalThis.fetch,originalDocument=globalThis.document;globalThis.document={cookie:'XSRF-TOKEN=current'};const calls=new Map();globalThis.fetch=async url=>{calls.set(url,(calls.get(url)||0)+1);return Response.json({data:[]});};
+ try{const api=createApiClient('/api/v1');for(const path of ['/dashboard/activity?limit=20','/account-options','/permission-catalog']){await api.request(path);await api.request(path);assert.equal(calls.get('/api/v1'+path),1);}await api.request('/digital/orders/7');await api.request('/digital/orders/7');assert.equal(calls.get('/api/v1/digital/orders/7'),2);await api.mutate('/accounts/2','PATCH',{});await api.request('/dashboard/activity?limit=20');assert.equal(calls.get('/api/v1/dashboard/activity?limit=20'),2);}finally{globalThis.fetch=originalFetch;globalThis.document=originalDocument;}
+});
+
+test('reload displays a scoped snapshot while fresh requests and financial mutations remain authoritative', async () => {
+  const originals = {fetch:globalThis.fetch,document:globalThis.document,storage:globalThis.sessionStorage};
+  const saved=new Map(); let balance=94000, calls=0;
+  globalThis.sessionStorage={getItem:key=>saved.get(key)??null,setItem:(key,value)=>saved.set(key,value),removeItem:key=>saved.delete(key)};
+  globalThis.document={cookie:'XSRF-TOKEN=current'};
+  globalThis.fetch=async url=>{if(url.includes('/dashboard/'))calls++;return Response.json({data:{cards:[{key:'topup',value:balance}]}});};
+  const path='/dashboard/summary?currency=IQD';
+  try{
+    const first=createApiClient('/api/v1');first.setReadScope('agent14');await first.request(path);
+    const reload=createApiClient('/api/v1');assert.equal(reload.peekRequest(path),null);
+    reload.setReadScope('agent14');assert.equal(reload.peekRequest(path).data.cards[0].value,94000);
+    for(const route of ['/maps/heartbeat','/maps/location','/maps/disconnect','/operations/activity','/account-lookup'])await reload.mutate(route,'POST',{});
+    assert.equal(reload.peekRequest(path).data.cards[0].value,94000);
+    balance=74000;assert.equal((await reload.request(path,{fresh:true})).data.cards[0].value,74000);assert.equal(calls,2);
+    await reload.mutate('/topup/distribution/14','PUT',{});assert.equal(reload.peekRequest(path),null);
+    await reload.request(path);reload.setReadScope('agent33');assert.equal(reload.peekRequest(path),null);
+    reload.clearReadCache();assert.equal(reload.peekRequest(path),null);
+  }finally{globalThis.fetch=originals.fetch;globalThis.document=originals.document;if(originals.storage===undefined)delete globalThis.sessionStorage;else globalThis.sessionStorage=originals.storage;}
+});
 
 test('summary cache respects refresh, financial writes, provider settlement and auth boundaries', async () => {
   const oldFetch = globalThis.fetch, oldDocument = globalThis.document;
@@ -27,6 +55,40 @@ test('summary cache respects refresh, financial writes, provider settlement and 
     await assert.rejects(api.request('/accounts'));
     assert.equal(api.peekRequest(path), null);
   } finally { globalThis.fetch = oldFetch; globalThis.document = oldDocument; }
+});
+
+test('shared page options deduplicate concurrent reads and reload after an edit', async () => {
+  const oldFetch=globalThis.fetch, oldDocument=globalThis.document;
+  globalThis.document={cookie:'XSRF-TOKEN=current'};let calls=0;
+  globalThis.fetch=async()=>Response.json({data:{revision:++calls}});
+  try{
+    const api=createApiClient('/api/v1');api.setReadScope('admin');
+    const [a,b]=await Promise.all([api.request('/catalog/options'),api.request('/catalog/options')]);
+    assert.deepEqual(a,b);assert.equal(calls,1);
+    await api.request('/catalog/options');assert.equal(calls,1);
+    await api.mutate('/catalog/products/1','PATCH',{});
+    assert.equal(api.peekRequest('/catalog/options'),null);
+    await api.request('/catalog/options');assert.equal(calls,3);
+    api.setReadScope('pos');assert.equal(api.peekRequest('/catalog/options'),null);
+  }finally{globalThis.fetch=oldFetch;globalThis.document=oldDocument;}
+});
+
+test('marking visible notices read does not restart in-flight wallet reads, while a money write still invalidates them',async()=>{
+ const previousFetch=globalThis.fetch,previousDocument=globalThis.document;globalThis.document={cookie:'XSRF-TOKEN=current'};
+ let walletCalls=0,release;
+ globalThis.fetch=async(url)=>{
+  if(url.includes('/finance/wallets?')){walletCalls++;if(walletCalls===1)return new Promise(resolve=>release=()=>resolve(Response.json({data:[{available:'3500.00'}]})));}
+  return Response.json({data:[]});
+ };
+ try{
+  const api=createApiClient('/api/v1'),path='/finance/wallets?service=topup&summary=1';
+  const pending=api.request(path);await Promise.resolve();assert.equal(walletCalls,1);
+  await api.mutate('/notifications/read-page','POST',{page:'wallets'});release();
+  assert.equal((await pending).data[0].available,'3500.00');assert.equal(walletCalls,1,'A sidebar acknowledgement must not restart the page request');
+  await api.request(path);assert.equal(walletCalls,1);
+  await api.mutate('/finance/transfers','POST',{service:'topup'});
+  await api.request(path);assert.equal(walletCalls,2,'Actual financial mutations still require a new server balance');
+ }finally{globalThis.fetch=previousFetch;globalThis.document=previousDocument;}
 });
 
 test('CSRF request and login use cookies without a client-selected portal or role', async () => {
@@ -167,4 +229,15 @@ test('API deadline remains active while the response body is downloading', async
     await assert.rejects(createApiClient('/api/v1').request('/dashboard/summary', {timeoutMs:20}), error => error.name === 'ApiError');
     assert.equal(aborted, true);
   } finally { globalThis.fetch = previousFetch; }
+});
+
+test('compact dashboard display survives reload separately from full details and both invalidate after a write',async()=>{
+ const originals={fetch:globalThis.fetch,document:globalThis.document,storage:globalThis.sessionStorage};const saved=new Map();
+ globalThis.sessionStorage={getItem:key=>saved.get(key)??null,setItem:(key,value)=>saved.set(key,value),removeItem:key=>saved.delete(key)};globalThis.document={cookie:'XSRF-TOKEN=current'};
+ globalThis.fetch=async url=>Response.json({data:{cards:[{key:'topup',balanceRows:url.includes('view=cards')?[]:[{name:'detail'}]}]}});
+ const full='/dashboard/summary?currency=IQD',compact=full+'&view=cards';
+ try{const api=createApiClient('/api/v1');api.setReadScope('agent');await api.request(full);await api.request(compact);
+ const reload=createApiClient('/api/v1');reload.setReadScope('agent');assert.equal(reload.peekRequest(full).data.cards[0].balanceRows.length,1);assert.equal(reload.peekRequest(compact).data.cards[0].balanceRows.length,0);
+ await reload.mutate('/finance/transfers','POST',{});assert.equal(reload.peekRequest(full),null);assert.equal(reload.peekRequest(compact),null);
+ }finally{globalThis.fetch=originals.fetch;globalThis.document=originals.document;if(originals.storage===undefined)delete globalThis.sessionStorage;else globalThis.sessionStorage=originals.storage;}
 });

@@ -5,6 +5,7 @@ export const NAVIGATION_DESTINATIONS = Object.freeze([
   { id: "reports", label: "مركز التقارير والعمليات" },
   { id: "company", label: "موقع الشركة" },
   { id: "wallets", label: "المحافظ والتحويلات" },
+  { id: "profile", label: "حسابي", permission: null, excludedAccountTypes: ["pos"], membershipKinds: ["owner"] },
   { id: "inventory", label: "المخزون" },
   { id: "import", label: "الطلبيات" },
   { id: "products", label: "الفئات" },
@@ -46,7 +47,7 @@ export const NAVIGATION_DESTINATIONS = Object.freeze([
 })));
 
 export const NAVIGATION_GROUPS = Object.freeze([
-  { id: "overview", title: "نظرة عامة", direct: true, icon: "dashboard", ids: ["dashboard", "reports", "company", "wallets"] },
+  { id: "overview", title: "نظرة عامة", direct: true, icon: "dashboard", ids: ["dashboard", "reports", "company", "wallets", "profile"] },
   { id: "catalog", title: "البطاقات والمخزون", icon: "inventory", ids: ["inventory", "import", "products", "prices", "providers", "sources"] },
   { id: "operations", title: "عمليات البطاقات", icon: "sell", ids: ["sell", "sales", "digital", "exports", "claims", "exceptions"] },
   { id: "topup", title: "Topup — آسياسيل", icon: "sell", ids: ["topupCategories", "topupAllocation", "topupDistribution", "topupAvailable"] },
@@ -58,6 +59,7 @@ export const NAVIGATION_GROUPS = Object.freeze([
 ].map((group) => Object.freeze({ ...group, ids: Object.freeze(group.ids) })));
 
 const icons = Object.freeze({
+  profile: "M16 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0ZM4 21v-3a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v3",
   company: "M4 21V4h16v17M8 8h3m3 0h2M8 12h3m3 0h2M9 21v-5h6v5",
   dashboard: "M3 10 12 3l9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z",
   reports: "M4 3v18h17M8 16v-5m5 5V6m5 10V9",
@@ -156,3 +158,4 @@ export function synchronizeNavigation(state, groups, routeName) {
   }
   state.menuOpen = false;
 }
+

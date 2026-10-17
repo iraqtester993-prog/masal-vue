@@ -31,7 +31,9 @@ watch(deepLink,link=>{if(!props.focusedOffer)tab.value=authorizedDigitalTab(link
 
 function closeReceipt(){vm.clearReceipt();if(props.focusedOffer)emit('back');}
 
-onMounted(()=>vm.load());
+// The focused seller already has its assigned offer. Recovery and the fresh
+// confirmation quote remain authoritative; settings/catalog reads are unrelated.
+onMounted(()=>{if(!props.focusedOffer)return vm.load(undefined,{withOffers:tab.value==='sell'});});
 
 </script>
 

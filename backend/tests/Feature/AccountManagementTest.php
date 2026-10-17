@@ -386,9 +386,66 @@ class AccountManagementTest extends TestCase
         $this->asPortalUser($user);
         $this->patchJson('/api/v1/auth/profile', ['version' => 1, 'name' => 'Updated Manager'])->assertOk()->assertJsonPath('data.user.name', 'Updated Manager')->assertJsonPath('data.membership.version', 2);
         $this->patchJson('/api/v1/auth/profile', ['version' => 1, 'name' => 'Stale'])->assertConflict();
-        $this->patchJson('/api/v1/auth/profile', ['version' => 2, 'name' => 'Forged', 'email' => 'changed@example.test'])->assertUnprocessable()->assertJsonValidationErrors('email');
+        $this->patchJson('/api/v1/auth/profile', ['version' => 2, 'name' => 'Forged', 'email' => 'changed@example.test'])->assertUnprocessable()->assertJsonValidationErrors('current_password');
         $this->assertSame($hash, $user->fresh()->password);
         $this->assertDatabaseHas('audit_logs', ['action' => 'auth.profile', 'user_id' => $user->id]);
+    }
+
+    public function test_agent_can_change_own_color_email_and_password_with_current_password_without_editing_other_accounts(): void
+    {
+        $system = $this->account(AccountType::System);
+        $agent = $this->account(AccountType::MainAgent, $system);
+        $user = $this->userFor($agent);
+        $user->update(['password' => Hash::make('123456789')]);
+        $this->asPortalUser($user);
+        $input = ['version' => 1, 'name' => $user->name, 'email' => 'agent-new@example.test', 'color' => '#123abc', 'password' => '987654321', 'password_confirmation' => '987654321', 'current_password' => 'wrong-password'];
+        $this->patchJson('/api/v1/auth/profile', $input)->assertUnprocessable()->assertJsonValidationErrors('current_password');
+        $this->patchJson('/api/v1/auth/profile', array_replace($input, ['current_password' => '123456789']))->assertOk()->assertJsonPath('data.user.email', 'agent-new@example.test')->assertJsonPath('data.account.color', '#123ABC')->assertJsonPath('data.membership.version', 2);
+        $this->assertTrue(Hash::check('987654321', $user->fresh()->password));
+        $this->assertSame(2, $user->fresh()->session_version);
+        $this->assertDatabaseHas('accounts', ['id' => $agent->id, 'color' => '#123ABC']);
+        $this->assertDatabaseMissing('accounts', ['id' => $system->id, 'color' => '#123ABC']);
+        $this->assertStringNotContainsString('987654321', (string) DB::table('audit_logs')->where('action', 'auth.profile')->value('details'));
+    }
+
+    public function test_self_profile_accepts_unicode_password_at_exact_bcrypt_byte_limit_and_keeps_current_session(): void
+    {
+        $system = $this->account(AccountType::System);
+        $user = $this->userFor($this->account(AccountType::MainAgent, $system));
+        $user->update(['password' => Hash::make('123456789')]);
+        $this->asPortalUser($user);
+        $password = str_repeat('ا', 35).'ab';
+        $this->assertSame(72, strlen($password));
+        $this->patchJson('/api/v1/auth/profile', ['version' => 1, 'name' => $user->name,
+            'password' => $password, 'password_confirmation' => $password, 'current_password' => '123456789'])
+            ->assertOk()->assertJsonPath('data.membership.version', 2);
+        $fresh = $user->fresh();
+        $this->assertTrue(Hash::check($password, $fresh->password));
+        $this->assertFalse(Hash::check(str_repeat('ا', 35).'cd', $fresh->password));
+        $this->assertSame(2, $fresh->session_version);
+        $this->getJson('/api/v1/auth/me')->assertOk();
+    }
+
+    public function test_self_profile_rejects_overlong_unicode_password_before_hash_profile_or_session_changes(): void
+    {
+        $system = $this->account(AccountType::System);
+        $user = $this->userFor($this->account(AccountType::MainAgent, $system));
+        $user->update(['password' => Hash::make('123456789')]);
+        $original = $user->fresh();
+        $this->asPortalUser($user);
+        $password = str_repeat('ا', 36).'ab';
+        $this->assertSame(74, strlen($password));
+        $this->assertLessThan(72, mb_strlen($password));
+        $this->patchJson('/api/v1/auth/profile', ['version' => 1, 'name' => 'Rejected profile name',
+            'password' => $password, 'password_confirmation' => $password, 'current_password' => '123456789'])
+            ->assertUnprocessable()->assertJsonValidationErrors('password');
+        $fresh = $user->fresh();
+        $this->assertSame($original->password, $fresh->password);
+        $this->assertSame($original->name, $fresh->name);
+        $this->assertSame($original->session_version, $fresh->session_version);
+        $this->assertSame(1, $fresh->membership->version);
+        $this->assertDatabaseMissing('audit_logs', ['action' => 'auth.profile', 'user_id' => $user->id]);
+        $this->getJson('/api/v1/auth/me')->assertOk();
     }
 
     public function test_audit_failure_rolls_back_edit_and_session_revocation(): void

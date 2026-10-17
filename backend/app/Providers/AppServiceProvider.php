@@ -22,6 +22,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        RateLimiter::for('report-export', fn (Request $request): array => [Limit::perMinute(6)->by('user|'.$request->user()?->id), Limit::perMinute(30)->by('ip|'.$request->ip())]);
+        RateLimiter::for('device-login-challenge', fn (Request $request): array => [Limit::perMinute(5)->by($request->ip().'|'.hash('sha256', is_string($request->input('login')) ? mb_strtolower(trim($request->input('login'))) : '')), Limit::perMinute(30)->by('ip|'.$request->ip())]);
         RateLimiter::for('login', function (Request $request): array {
             $portal = $request->attributes->get('portal');
             $submittedLogin = $request->input('login');

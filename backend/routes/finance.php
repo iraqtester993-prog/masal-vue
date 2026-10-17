@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('finance')->group(function (): void {
     $controller = FinanceController::class;
-    foreach (['options', 'wallets', 'ledger', 'invoices', 'prices'] as $path) {
+    foreach (['options', 'accounts', 'wallets', 'ledger', 'invoices', 'prices'] as $path) {
         Route::get($path, [$controller, $path]);
     }
     Route::get('price-template', [$controller, 'priceTemplate']);
@@ -16,6 +16,7 @@ Route::prefix('finance')->group(function (): void {
     Route::post('transfers/{id}/recover', [$controller, 'recoverTransfer'])->whereNumber('id');
     Route::post('bulk-transfers', [$controller, 'bulkTransfers']);
     Route::get('funding-requests', [$controller, 'fundingRequests']);
+    Route::get('funding-requests/{id}/batches', [$controller, 'fundingBatches'])->whereNumber('id');
     Route::post('funding-requests', [$controller, 'storeFundingRequest']);
     Route::post('funding-requests/{id}/review', [$controller, 'reviewFundingRequest'])->whereNumber('id');
     Route::post('funding-requests/{id}/cancel', [$controller, 'cancelFundingRequest'])->whereNumber('id');

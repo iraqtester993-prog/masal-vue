@@ -169,8 +169,12 @@ class StockImportTest extends TestCase
         $fixture = $this->stockFixture();
         $this->asPortalUser($fixture['agent']);
         $id = $this->postJson('/api/v1/finance/funding-requests', ['service' => 'voucher', 'currency' => 'IQD', 'amount' => '13500.75', 'purpose' => 'طلبية كارتات', 'idempotency_key' => 'voucher-funding-001'])->assertCreated()->json('data.id');
+        $this->asPortalUser($fixture['admin']);
+        $this->getJson('/api/v1/finance/funding-requests/'.$id.'/batches')->assertOk()->assertJsonCount(0, 'data');
+        $this->postJson('/api/v1/finance/funding-requests/'.$id.'/review', ['version' => 1, 'decision' => 'approve', 'reference' => 'Invalid batch', 'stock_batch_id' => 999999, 'idempotency_key' => 'invalid-batch-binding'])->assertUnprocessable()->assertJsonValidationErrors('stock_batch_id');
         $this->travel(1)->seconds();
         $batch = $this->approvedStock($fixture);
+        $this->getJson('/api/v1/finance/funding-requests/'.$id.'/batches')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $batch->id);
         $input = ['version' => 1, 'decision' => 'approve', 'reference' => 'ربط طلبية الكارتات', 'stock_batch_id' => $batch->id, 'idempotency_key' => 'voucher-funding-bind'];
         $this->postJson('/api/v1/finance/funding-requests/'.$id.'/review', $input)->assertOk()->assertJsonPath('data.status', 'approved');
         $this->postJson('/api/v1/finance/funding-requests/'.$id.'/review', $input)->assertOk();

@@ -10,8 +10,12 @@ export function formatNumber(value) {
   const fraction = (match[3] || '').replace(/0+$/, '');
   return match[1] + match[2].replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction ? '.' + fraction : '');
 }
-export function reportCell(value, column = {}, row = {}) {
+export function reportCell(value, column = {}, row = {}, sectionId = '') {
   if (value === null || value === undefined || value === '') return '—';
+  if (column.label_type === 'print_result' || sectionId === 'sales-printing' && column.key === 'status') {
+    const labels={pending:'بانتظار تأكيد الطباعة',success:'نجاح الطباعة',failed:'فشل الطباعة'};
+    return Object.hasOwn(labels,value)?labels[value]:systemLabel(value,'status');
+  }
   if (column.type === 'money' || column.type === 'number') return formatNumber(value);
   if (column.type === 'percent') return formatNumber(Number(value).toFixed(2)) + '%';
   if (column.type === 'date') {
@@ -48,7 +52,7 @@ export function groupCards(group, sections) {
 }
 export function errorText(error) { return Object.values(error?.errors??{}).flat().filter((v)=>typeof v==='string').join(' ') || error?.message || 'تعذر تحميل البيانات.'; }
 export function workbookSections(data) {
-  return data.sections.map((section)=>({name:tr(section.title),title:tr(section.title),note:[...new Set([section.reason,section.note,...section.columns.flatMap((column)=>[column.reason,column.source_note])].filter(Boolean)),`العملة: ${data.currency} · ${data.timezone} · ${reportCell(data.generated_at,{type:'date'})}`].join(' · '),headers:section.columns.map((c)=>tr(c.label)),rows:section.rows.map((row)=>section.columns.map((c)=>c.type==='money'?String(row[c.key]??'—'):reportCell(row[c.key],c,row))),emptyMessage:section.available?'لا توجد سجلات مطابقة.':section.reason}));
+  return data.sections.map((section)=>({name:tr(section.title),title:tr(section.title),note:[...new Set([section.reason,section.note,...section.columns.flatMap((column)=>[column.reason,column.source_note])].filter(Boolean)),`العملة: ${data.currency} · ${data.timezone} · ${reportCell(data.generated_at,{type:'date'})}`].join(' · '),headers:section.columns.map((c)=>tr(c.label)),rows:section.rows.map((row)=>section.columns.map((c)=>c.type==='money'?String(row[c.key]??'—'):reportCell(row[c.key],c,row,section.id))),emptyMessage:section.available?'لا توجد سجلات مطابقة.':section.reason}));
 }
 export function printableReport(data) {
   const escape = (s) => String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');

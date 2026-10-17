@@ -17,6 +17,40 @@ class NotificationsTest extends TestCase
 {
     use CreatesSupport,RefreshDatabase;
 
+    public function test_unnotified_activity_is_still_audited_without_loading_a_notification_audience(): void
+    {
+        $fixture = $this->supportFixture();
+        $actor = $fixture['posUser']->load('membership');
+        $request = Request::create('/api/v1/digital/orders', 'POST');
+        $request->attributes->set('portal', 'pos');
+        $actions = ['digital.create', 'inventory.revalue', 'sell.print-start', 'auth.login', 'future.unhandled'];
+        DB::flushQueryLog();
+        DB::enableQueryLog();
+        try {
+            foreach ($actions as $action) {
+                app(AuditLogger::class)->record($action, $request, $actor, $actor->membership->account_id, ['sale_id' => 42]);
+            }
+            $queries = array_column(DB::getQueryLog(), 'query');
+        } finally {
+            DB::disableQueryLog();
+            DB::flushQueryLog();
+        }
+
+        $this->assertCount(count($actions), $queries);
+        foreach ($queries as $query) {
+            $this->assertStringStartsWith('insert into "audit_logs"', $query);
+        }
+        foreach ($actions as $action) {
+            $this->assertDatabaseHas('audit_logs', ['action' => $action, 'user_id' => $actor->id, 'portal' => 'pos']);
+        }
+        $this->assertDatabaseCount('notices', 0);
+        $this->assertDatabaseCount('notice_recipients', 0);
+
+        $id = (int) DB::table('audit_logs')->where('action', 'digital.create')->value('id');
+        app(ActivityNotifications::class)->publish($id);
+        $this->assertDatabaseCount('notices', 0);
+    }
+
     public function test_manual_notice_is_visible_only_to_sender_or_exact_target_and_read_state_is_per_user(): void
     {
         $f = $this->supportFixture();
@@ -36,6 +70,18 @@ class NotificationsTest extends TestCase
         $this->asPortalUser($f['subUser']);
         $this->getJson('/api/v1/notifications')->assertOk()->assertJsonCount(0, 'data');
         $this->postJson('/api/v1/notifications/'.$id.'/read')->assertNotFound();
+    }
+
+    public function test_opening_visible_notices_marks_only_those_ids_and_only_current_users_recipients(): void
+    {
+        $f = $this->supportFixture();
+        $this->asPortalUser($f['admin']);
+        $id = $this->postJson('/api/v1/notifications', ['title' => 'Seen', 'body' => 'Displayed', 'mode' => 'custom', 'user_ids' => [$f['agent']->id, $f['foreignUser']->id], 'idempotency_key' => 'visible-read-notice'])->assertCreated()->json('data.id');
+        $this->asPortalUser($f['agent']);
+        $this->postJson('/api/v1/notifications/read-page', ['page' => 'notifications', 'ids' => [$id]])->assertOk()->assertJsonPath('data.count', 1);
+        $this->getJson('/api/v1/notifications/summary')->assertOk()->assertJsonPath('data.unread', 0);
+        $this->asPortalUser($f['foreignUser']);
+        $this->getJson('/api/v1/notifications/summary')->assertOk()->assertJsonPath('data.unread', 1);
     }
 
     public function test_agent_audience_only_contains_lower_accounts_and_cannot_send_to_parent_own_staff_or_foreign_network(): void

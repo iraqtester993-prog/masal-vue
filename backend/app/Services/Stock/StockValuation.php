@@ -21,7 +21,8 @@ class StockValuation
     public function revalue(User $actor, int $accountId, int $productId, ?int $newPriceMinor, string $key, Request $request): void
     {
         abort_unless(DB::transactionLevel() > 0, 500);
-        $cards = StockCard::where('account_id', $accountId)->where('product_id', $productId)->where('status', 'Available')->where('credit_held', false)->orderBy('id')->lockForUpdate()->get(['id', 'credit_minor']);
+        $cards = StockCard::where('account_id', $accountId)->where('product_id', $productId)->where('status', 'Available')->where('credit_held', false)
+            ->when($newPriceMinor !== null, fn ($query) => $query->where('credit_minor', '<>', $newPriceMinor))->orderBy('id')->lockForUpdate()->get(['id', 'credit_minor']);
         if ($cards->isEmpty()) {
             return;
         }

@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->redirectGuestsTo('/login');
         $middleware->trimStrings(except: ['user.password', 'user.password_confirmation']);
         $middleware->prependToGroup('web', ResolvePortal::class);
         $middleware->alias(['portal.member' => EnsurePortalMembership::class]);

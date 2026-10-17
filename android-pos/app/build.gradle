@@ -1,0 +1,33 @@
+plugins { id 'com.android.application' }
+def managedSigning = ['DANANEER_SIGNING_STORE','DANANEER_SIGNING_STORE_PASSWORD','DANANEER_SIGNING_KEY_ALIAS','DANANEER_SIGNING_KEY_PASSWORD'].collectEntries { [(it):System.getenv(it)] }
+def hasManagedSigning = managedSigning.values().every { it }
+if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') } && !hasManagedSigning) {
+    throw new GradleException('Release signing requires the four DANANEER_SIGNING_* environment values; no development fallback is allowed.')
+}
+android {
+    namespace 'iq.dananir.pos'
+    compileSdk 35
+    defaultConfig { applicationId 'iq.dananir.pos'; minSdk 24; targetSdk 35; versionCode 21; versionName '1.4.7'; testInstrumentationRunner (project.findProperty('dananeerTestRunner') ?: 'iq.dananir.pos.PrinterBindingInstrumentation') }
+    signingConfigs {
+        managedRelease {
+            if (hasManagedSigning) {
+                storeFile file(managedSigning.DANANEER_SIGNING_STORE)
+                storePassword managedSigning.DANANEER_SIGNING_STORE_PASSWORD
+                keyAlias managedSigning.DANANEER_SIGNING_KEY_ALIAS
+                keyPassword managedSigning.DANANEER_SIGNING_KEY_PASSWORD
+            }
+        }
+    }
+    buildTypes {
+        release { debuggable false; signingConfig signingConfigs.managedRelease; minifyEnabled false }
+    }
+    buildFeatures { aidl true }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies {
+    implementation 'androidx.webkit:webkit:1.15.0'
+    implementation 'com.sunmi:printerlibrary:1.0.24'
+    implementation files('libs/rovoo-1.0.5.jar')
+    implementation files('libs/zcs-1.3.5.jar', 'libs/zxing-core-3.2.1.jar')
+    testImplementation 'junit:junit:4.13.2'
+}

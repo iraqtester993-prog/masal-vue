@@ -1,5 +1,9 @@
 import { createRouter, createWebHistory } from "vue-router";
-import {landingRoute, routeAllowed} from './access.js';
+import {createSessionNavigationGuard, routeAllowed} from './access.js';
+import {nextTick} from 'vue';
+import {navigationTiming} from '../shared/api/navigation-timing.js';
+import {createRoutePreloader} from './preload.js';
+import {installPosBackNavigation} from '../shared/pos-back-navigation.js';
 
 export function createPortalRouter(session) {
   const router = createRouter({
@@ -11,7 +15,10 @@ export function createPortalRouter(session) {
         name: "login",
         component: () => import("../modules/auth/LoginPage.vue"),
       },
+      {path:'/change-password',name:'password-change',meta:{requiresAuth:true,title:'تغيير كلمة المرور'},component:()=>import('../modules/auth/PasswordChangePage.vue')},
       {path:'/no-access',name:'no-access',meta:{requiresAuth:true,title:'حسابك'},component:()=>import('../modules/auth/NoAccessPage.vue')},
+      {path:'/session-unavailable',name:'session-unavailable',component:()=>import('../modules/auth/SessionConnectionIssue.vue')},
+      {path:'/more',name:'posMore',meta:{requiresAuth:true,title:'المزيد',accountTypes:['pos']},component:()=>import('../layouts/PosMore.vue')},
       {
         path: "/dashboard",
         name: "dashboard",
@@ -148,7 +155,7 @@ export function createPortalRouter(session) {
         meta: {
           requiresAuth: true,
           permission: "staff.view",
-          title: "الموظفون",
+          title: "مستخدمو النظام",
         },
         component: () => import("../modules/accounts/StaffPage.vue"),
       },
@@ -166,15 +173,27 @@ export function createPortalRouter(session) {
     ],
   });
 
-  router.beforeEach(async (to) => {
-    if (!session.state.checked) await session.refresh();
-    if (to.meta.requiresAuth && !session.state.identity)
-      return { name: "login" };
-    if (to.name === "login" && session.state.identity)
-      return landingRoute(router, session);
-    if (to.name === "agents" && session.state.identity?.account.type === "pos")
-      return { name: "pos" };
-    if (!routeAllowed(to, session)) return landingRoute(router, session);
+  router.posBackNavigation=installPosBackNavigation({router,session});
+  const checkNavigation = createSessionNavigationGuard(session, router);
+  router.beforeEach(async (to, from) => {
+    navigationTiming?.start(to.path);
+    return checkNavigation(to, from);
   });
+  const preloader = createRoutePreloader({
+    routes: () => router.getRoutes(), allowed: route => !!session.state.identity && routeAllowed(route, session),
+    ready: () => navigationTiming?.ready() ?? true,
+    constrained: () => typeof navigator !== 'undefined' && (navigator.connection?.saveData || /(^|-)2g$/.test(navigator.connection?.effectiveType || '')),
+    schedule: callback => setTimeout(() => {
+      if (typeof requestIdleCallback === 'function') requestIdleCallback(callback, { timeout: 1000 });
+      else callback();
+    }, 500),
+  });
+  router.afterEach((to,from,failure)=>{if(!failure)void nextTick(()=>{
+    navigationTiming?.paint(to.path);
+    if (session.state.identity) {
+      const kind = session.state.identity.account.type;
+      preloader.start(kind === 'pos' ? ['dashboard','sell','reports','sales','wallets'] : ['dashboard','reports','wallets',kind === 'system' ? 'topupAllocation' : 'topupDistribution',kind === 'system' ? 'agents' : 'pos'], to.name);
+    }
+  });});
   return router;
 }

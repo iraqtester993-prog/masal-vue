@@ -1,0 +1,42 @@
+/* Shared screen identity includes dialogs teleported outside the application shell.
+   Receipt paper and print media keep their own saved design. */
+@media screen {
+ html[data-portal=pos][data-theme=light]{--pos-ui-canvas:#f5f7f6;--pos-ui-panel:#fff;--pos-ui-raised:#eef3f2;--pos-ui-ink:#142b2e;--pos-ui-text:#283d40;--pos-ui-muted:#697b7d;--pos-ui-line:#e1e8e6;--pos-ui-soft-line:#e9eeec;--pos-ui-accent:var(--pos-link-light,#0d6268);--pos-ui-soft:var(--pos-soft-light,#e5f0ed);--pos-action-bg:var(--pos-brand,#0d5c63);--pos-action-ink:var(--pos-brand-ink,#fff)}
+ html[data-portal=pos][data-theme=dark]{--pos-ui-canvas:#0d171b;--pos-ui-panel:#142329;--pos-ui-raised:#1b3035;--pos-ui-ink:#ecf5f2;--pos-ui-text:#d5e5e1;--pos-ui-muted:#9db5b6;--pos-ui-line:#294047;--pos-ui-soft-line:#21363d;--pos-ui-accent:var(--pos-link-dark,#8cd0c7);--pos-ui-soft:var(--pos-soft-dark,#1c3b3d);--pos-action-bg:var(--pos-link-dark,#8cd0c7);--pos-action-ink:#111617}
+ html[data-portal=pos][data-theme],
+ html[data-portal=pos][data-theme] :is(.portal-shell.pos-app,dialog,.dashboard-workspace,.catalog-workspace,.account-workspace,.finance-workspace,.reports-workspace,.report-unified-toolbar,.ops-stats>div,.digital-services,.support-workspace,.company-profile-page){--canvas:var(--pos-ui-canvas);--panel:var(--pos-ui-panel);--surface:var(--pos-ui-panel);--raised:var(--pos-ui-raised);--subtle:var(--pos-ui-raised);--ink:var(--pos-ui-ink);--text:var(--pos-ui-text);--muted:var(--pos-ui-muted);--line:var(--pos-ui-line);--soft-line:var(--pos-ui-soft-line);--accent:var(--pos-ui-accent);--accent-soft:var(--pos-ui-soft);--blue-bg:var(--pos-ui-soft);--blue-text:var(--pos-ui-accent);--cyan:var(--pos-ui-accent);--sky:var(--pos-ui-accent);--pos-accent:var(--pos-ui-accent);--pos-accent-soft:var(--pos-ui-soft);--pos-link:var(--pos-ui-accent);--info-accent:var(--pos-ui-accent);--pos-surface:var(--pos-ui-panel)}
+ html[data-portal=pos][data-theme] :is(.portal-shell.pos-app,dialog) :is(.btn.primary,.btn.navy,.button-primary):not(:where(.receipt *,.digital-receipt-content *)),
+ html[data-portal=pos][data-theme] .portal-shell.pos-app :is(.tabs,.account-tabs,.report-nav)>button.active,
+ html[data-portal=pos][data-theme] dialog :is(.tabs,.pos-about-tabs)>button.active{background:var(--pos-action-bg)!important;color:var(--pos-action-ink)!important;border-color:transparent!important;box-shadow:none}
+ html[data-portal=pos][data-theme] :is(.portal-shell.pos-app,dialog) :is(.btn.primary,.btn.navy,.button-primary):hover:not(:disabled):not(:where(.receipt *,.digital-receipt-content *)){background:var(--pos-action-bg)!important;color:var(--pos-action-ink)!important;filter:brightness(.95)}
+ html[data-portal=pos][data-theme] dialog{background:var(--panel);color:var(--ink);border:1px solid var(--line);font-family:Cairo,system-ui,sans-serif;font-size:14px;line-height:1.8;box-shadow:0 22px 65px #001c2838}
+ html[data-portal=pos][data-theme] dialog::backdrop{background:#001c2866;backdrop-filter:blur(4px)}
+ html[data-portal=pos][data-theme] dialog :is(.dialog-heading,.modalhead,.support-section-heading){background:var(--panel);border-color:var(--line);color:var(--ink);gap:12px}
+ html[data-portal=pos][data-theme] .catalog-modal:is(.pos-info-dialog,.pos-receipt-dialog)>.dialog-heading{padding:calc(14px + env(safe-area-inset-top,0px)) max(18px,env(safe-area-inset-right,0px)) 14px max(18px,env(safe-area-inset-left,0px))!important}
+ html[data-portal=pos][data-theme] dialog :is(.dialog-heading,.modalhead,.support-section-heading) h2{font-size:18px;color:var(--ink);line-height:1.6}
+ html[data-portal=pos][data-theme] dialog :is(.dialog-icon,.dialog-section){background:var(--accent-soft);color:var(--pos-accent)}
+ html[data-portal=pos][data-theme] :is(.portal-shell.pos-app,dialog) :is(button,a,input,select,textarea):focus-visible:not(:where(.receipt *,.digital-receipt-content *)){outline:2px solid var(--pos-accent);outline-offset:3px}
+ html[data-portal=pos][data-theme] dialog :is(.btn,.iconbtn,.dialog-close){min-height:44px;border-radius:12px}
+ html[data-portal=pos][data-theme] dialog :is(.iconbtn,.dialog-close){min-width:44px;background:var(--panel);border:1px solid var(--line);color:var(--ink)}
+ html[data-portal=pos][data-theme] dialog :is(input:not([type=checkbox]):not([type=radio]):not([type=color]),select,textarea):not(:where(.receipt *,.digital-receipt-content *)){min-height:46px;max-width:100%;border:1px solid var(--line);border-radius:12px;background:var(--panel)!important;color:var(--ink)!important;font-size:14px}
+ html[data-portal=pos][data-theme] :is(.portal-shell.pos-app,dialog) :is(input[type=checkbox],input[type=radio]){accent-color:var(--pos-accent)}
+ html[data-portal=pos][data-theme] :is(.portal-shell.pos-app,dialog) .btn:not(.primary):not(.navy):not(.danger):not(.active):not([aria-pressed=true]):not(:where(.receipt *,.digital-receipt-content *)){background:var(--panel)!important;color:var(--ink)!important;border-color:var(--line)!important;box-shadow:none}
+ html[data-portal=pos][data-theme] :is(.portal-shell.pos-app,dialog) :is(.report-table-tools,.report-filter-tools,.report-unified-toolbar,.column-picker>div){background:var(--panel)!important;color:var(--ink);border-color:var(--line)!important}
+ html[data-portal=pos][data-theme] :is(.portal-shell.pos-app,dialog) :is(.tablewrap,.table-wrap){border-color:var(--line)}
+ html[data-portal=pos][data-theme] :is(.portal-shell.pos-app,dialog) th:not(:where(.receipt *,.digital-receipt-content *)){background:var(--raised)!important;color:var(--muted)!important;border-color:var(--line)!important}
+ html[data-portal=pos][data-theme] :is(.portal-shell.pos-app,dialog) td:not(:where(.receipt *,.digital-receipt-content *)){background:var(--panel)!important;color:var(--ink);border-color:var(--soft-line)!important}
+ html[data-portal=pos][data-theme] :is(.portal-shell.pos-app,dialog) tbody tr:nth-child(even)>td:not(:where(.receipt *,.digital-receipt-content *)),
+ html[data-portal=pos][data-theme] :is(.portal-shell.pos-app,dialog) tbody tr:hover>td:not(:where(.receipt *,.digital-receipt-content *)){background:var(--raised)!important}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app :is(.card,.panel,.digital-config,.digital-confirm){background:var(--panel);color:var(--ink);border-color:var(--line);border-radius:17px;box-shadow:none}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .brandmark{background:var(--pos-action-bg);color:var(--pos-action-ink);box-shadow:none}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .navitem.active::before{background:var(--pos-accent)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .support-phone-icon{background:var(--pos-action-bg);color:var(--pos-action-ink);box-shadow:none}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app :is(.support-phone-call,.support-phone-heading){color:var(--pos-accent)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .support-phone-card{border-color:var(--line)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .support-phone-card:hover{background:var(--accent-soft)!important;border-color:var(--pos-accent)!important}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app :is(.support-phone-heading>small,.support-phone-order){background:var(--accent-soft);color:var(--pos-accent)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .support-contact-bar summary{border-color:var(--line)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .support-chat-item.unread{border-inline-start-color:var(--pos-accent);background:var(--accent-soft)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .support-chat-item.selected{outline-color:var(--pos-accent)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .support-unread-dot{background:var(--pos-action-bg);color:var(--pos-action-ink)}
+}

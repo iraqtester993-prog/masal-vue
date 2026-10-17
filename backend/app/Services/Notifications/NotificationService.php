@@ -90,14 +90,16 @@ class NotificationService
         });
     }
 
-    public function readPage(User $actor, string $page): int
+    public function readPage(User $actor, string $page, array $ids = []): int
     {
         $this->access->require($actor, 'notifications.view');
 
-        return DB::transaction(function () use ($actor, $page): int {
+        return DB::transaction(function () use ($actor, $page, $ids): int {
             app(MutationGuard::class)->lock($actor, [], 'notifications.view');
 
-            return DB::table('notice_recipients')->where('user_id', $actor->id)->whereNull('read_at')->whereIn('notice_id', Notice::where('page', $page)->select('id'))->update(['read_at' => now()]);
+            $notices = $page === 'notifications' ? $this->visible($actor)->whereIn('id', $ids)->select('notices.id') : Notice::where('page', $page)->select('id');
+
+            return DB::table('notice_recipients')->where('user_id', $actor->id)->whereNull('read_at')->whereIn('notice_id', $notices)->update(['read_at' => now()]);
         });
     }
 

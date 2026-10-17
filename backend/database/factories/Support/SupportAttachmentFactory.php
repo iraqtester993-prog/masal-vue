@@ -13,6 +13,6 @@ class SupportAttachmentFactory extends Factory
 
     public function definition(): array
     {
-        return ['user_id' => User::factory(), 'kind' => 'support', 'path' => 'support/attachments/'.fake()->uuid().'.png', 'mime' => 'image/png', 'bytes' => 67, 'expires_at' => now()->addHour(), 'assigned' => false];
+        return ['user_id' => User::factory(), 'kind' => 'support', 'path' => fn (array $attributes): string => 'support/attachments/'.$attributes['user_id'].'/'.fake()->uuid().'.png', 'mime' => 'image/png', 'bytes' => 67, 'expires_at' => now()->addHour(), 'assigned' => false];
     }
 }

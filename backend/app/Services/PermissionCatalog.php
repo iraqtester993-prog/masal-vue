@@ -37,7 +37,7 @@ class PermissionCatalog
         'agents.categories' => 'تحديد فئات التابعين', 'data.cost' => 'عرض وتصدير التكلفة المالية',
         'account.view' => 'عرض الحسابات', 'account.create' => 'إنشاء حساب تابع',
         'account.update' => 'تعديل بيانات التابع', 'account.toggle' => 'تفعيل وإيقاف التابع',
-        'account.permissions' => 'صلاحيات التابع', 'account.login' => 'تعديل معرف دخول التابع',
+        'account.permissions' => 'صلاحيات التابع', 'account.login' => 'تعديل معرف دخول التابع', 'account.password_reset' => 'إعادة تعيين كلمة مرور التابع',
         'account.attachments.view' => 'عرض صور ومستمسكات الحساب', 'account.attachments.manage' => 'إدارة صور ومستمسكات التابع',
         'pos.device' => 'تعديل بيانات جهاز النقطة', 'pos.location' => 'تعديل عنوان النقطة',
         'staff.view' => 'عرض الموظفين', 'staff.create' => 'إضافة موظف',

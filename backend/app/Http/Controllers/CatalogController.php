@@ -8,8 +8,10 @@ use App\Http\Resources\CatalogProductResource;
 use App\Http\Resources\CatalogProviderResource;
 use App\Models\CatalogProduct;
 use App\Models\CatalogProvider;
+use App\Models\Digital\DigitalOffer;
 use App\Services\AccountScope;
 use App\Services\AuditLogger;
+use App\Services\Backups\BackupCoordination;
 use App\Services\CatalogAccess;
 use App\Services\ManagementAuthority;
 use App\Services\Operations\MutationGuard;
@@ -119,6 +121,9 @@ class CatalogController extends Controller
                 app(MutationGuard::class)->lock($request->user());
                 DB::table('catalog_meta')->where('id', 1)->lockForUpdate()->first();
                 $record = $id ? $class::query()->lockForUpdate()->findOrFail($id) : new $class;
+                if (! $providers && $id && DigitalOffer::where('product_id', $id)->whereNotNull('topup_category_id')->exists()) {
+                    throw ValidationException::withMessages(['image' => 'فئة Topup تابعة للشركة؛ يمكن تعديل صورتها فقط من صفحة فئات Topup.']);
+                }
                 $data = $request->validated();
                 if ($id) {
                     $this->authority->version($record, $data['version']);
@@ -186,7 +191,7 @@ class CatalogController extends Controller
     private function removeFile(string $path): void
     {
         try {
-            if (! Storage::disk('local')->delete($path)) {
+            if (! app(BackupCoordination::class)->deleteAsset($path)) {
                 throw new \RuntimeException;
             }
         } catch (\Throwable) {

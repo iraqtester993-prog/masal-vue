@@ -1,0 +1,40 @@
+Options -Indexes
+AddType application/vnd.android.package-archive .apk
+<IfModule mod_headers.c>
+    <Files "dananeer-print-test-0.1.apk">
+        Header always set Content-Disposition "attachment; filename=dananeer-print-test-0.1.apk"
+        Header always set X-Content-Type-Options "nosniff"
+    </Files>
+    <Files "dananeer-print-test-0.2.apk">
+        Header always set Content-Disposition "attachment; filename=dananeer-print-test-0.2.apk"
+        Header always set X-Content-Type-Options "nosniff"
+    </Files>
+    <Files "dananeer-print-test-0.3.apk">
+        Header always set Content-Disposition "attachment; filename=dananeer-print-test-0.3.apk"
+        Header always set X-Content-Type-Options "nosniff"
+    </Files>
+    <Files "dananeer-print-test-0.4.apk">
+        Header always set Content-Disposition "attachment; filename=dananeer-print-test-0.4.apk"
+        Header always set X-Content-Type-Options "nosniff"
+    </Files>
+    <Files "dananeer-print-test-0.5.apk">
+        Header always set Content-Disposition "attachment; filename=dananeer-print-test-0.5.apk"
+        Header always set X-Content-Type-Options "nosniff"
+    </Files>
+    <Files "dananeer-print-test-0.6.apk">
+        Header always set Content-Disposition "attachment; filename=dananeer-print-test-0.6.apk"
+        Header always set X-Content-Type-Options "nosniff"
+    </Files>
+    <Files "dananeer-print-test-0.7.apk">
+        Header always set Content-Disposition "attachment; filename=dananeer-print-test-0.7.apk"
+        Header always set X-Content-Type-Options "nosniff"
+    </Files>
+    <Files "dananeer-print-test-0.8.apk">
+        Header always set Content-Disposition "attachment; filename=dananeer-print-test-0.8.apk"
+        Header always set X-Content-Type-Options "nosniff"
+    </Files>
+    <Files "dananeer-print-test-0.9.apk">
+        Header always set Content-Disposition "attachment; filename=dananeer-print-test-0.9.apk"
+        Header always set X-Content-Type-Options "nosniff"
+    </Files>
+</IfModule>

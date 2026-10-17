@@ -22,6 +22,15 @@ test('original dictionaries preserve protected record names, digits and unknown 
   const original='بحث: المحفظة — حساب بحث ١٢٣';assert.equal(translate(original,'en',['المحفظة','حساب بحث']), 'Search: المحفظة — حساب بحث ١٢٣');assert.equal(translate(original,'ar'),original);assert.equal(translate(original,'unknown'),original);assert.equal(translate('اسم لا يوجد بالقاموس','en'),'اسم لا يوجد بالقاموس');assert.equal(translate(42,'en'),42);const record={name:'المحفظة'};assert.equal(translate(record,'en'),record);assert.equal(translate('بحثية','en'),'بحثية');
 });
 
+test('Topup allocation actions and stock ledger movements are fully translated in English and Kurdish',async()=>{
+  await prepareLanguage('en');await prepareLanguage('ckb');
+  assert.equal(translate('حفظ الرصيد والفئات','en'),'Save balance and categories');
+  for(const language of ['en','ckb'])for(const label of ['حفظ الرصيد والفئات','حفظ تخصيص الفئات','تحميل مخزون','تسوية المخزون','مالك التوكن','المصروف:','· المحدد:','نوع فئات التبب','تخصيص فئات التبب للوكلاء']){
+    assert.notEqual(translate(label,language),label);
+  }
+  assert.equal(translate('حفظ الرصيد والفئات','ar'),'حفظ الرصيد والفئات');
+});
+
 test('own preferences load server defaults, theme and direction without browser storage or impersonation',async()=>{
   const f=fixture();f.session.api.request=async()=>data('ckb','dark',7);const store=createUserPreferences(f.session,{surface:f.surface});await flush();assert.equal(store.state.language,'ckb');assert.equal(store.dark.value,true);assert.equal(f.surface.documentElement.lang,'ckb');assert.equal(f.surface.documentElement.dir,'rtl');assert.equal(f.surface.documentElement.dataset.theme,'dark');assert.equal(store.t('بحث'),'گەڕان');
   await store.setLanguage('en');assert.equal(f.surface.documentElement.dir,'ltr');assert.deepEqual(f.calls[0][3],{language:'en',theme:'dark',version:7});assert.equal(store.state.version,8);assert.ok(!f.calls[0][3].user_id);store.dispose();

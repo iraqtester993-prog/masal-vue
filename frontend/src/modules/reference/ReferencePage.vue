@@ -29,7 +29,7 @@ const addLabels = {sources:'إضافة مصدر', 'pos-types':'نوع نقطة �
 
 const state = reactive({rows:[], meta:{current_page:1,last_page:1,total:0}, options:{providers:[],agents:[],networks:[],pos_types:[]}, q:'', network:'', busy:false, saving:false, error:'', success:''});
 
-const pageSize=ref(10),networkOpen=ref(false);watch(pageSize,()=>load());
+const pageSize=ref(10);watch(pageSize,()=>load());
 
 const draft = ref(null), photoRows = ref([]), deletedPhotos = ref([]);
 
@@ -99,7 +99,7 @@ function edit(row = null) {
 
   if (!can(row ? 'edit' : 'create', row)) return;
 
-  close(); if(kind.value==='sources' && !row && session.state.identity?.account.type==='system')networkOpen.value=true; state.error = ''; state.success = ''; draft.value = referenceDraft(kind.value, row);
+  close(); state.error = ''; state.success = ''; draft.value = referenceDraft(kind.value, row);
 
   photoRows.value = (row?.photos || []).map(photo => ({...photo}));
 
@@ -217,12 +217,6 @@ onBeforeUnmount(() => {clearTimeout(timer); readController?.abort(); writeContro
 
     <p v-if="state.success" class="notice success" role="status">{{state.success}}</p>
 
-    <FilterBar v-if="kind === 'sources' && networkOpen && session.state.identity?.account.type === 'system'" class="toolbar reference-network">
-
-      <label>الوكيل الرئيسي <select v-model="state.network"><option value="">جميع الوكلاء</option><option v-for="network in networks" :key="network.id" :value="network.id">{{network.name}}</option></select></label>
-
-    </FilterBar>
-
     <div class="card" :class="{'workspace-card':!['sources','governorates'].includes(kind)}">
 
       <FilterBar class="toolbar" :class="{'sources-original-toolbar':kind==='sources'}">
@@ -233,7 +227,9 @@ onBeforeUnmount(() => {clearTimeout(timer); readController?.abort(); writeContro
 
         <input v-model="state.q" :placeholder="kind === 'governorates' ? 'بحث عن محافظة' : kind === 'sources' ? 'بحث باسم المصدر أو الشركة' : 'بحث بالاسم أو المحافظة…'" :aria-label="`بحث ${labels[kind]}`" :style="kind==='sources'?'flex:1;max-width:none':'max-width:300px'" />
 
-        <span v-if="kind === 'governorates'">{{state.rows.filter(row => row.active).length}} محافظة مفعلة</span><span v-else-if="kind!=='sources'" class="caption">{{state.meta.total}} سجل</span><template v-if="kind==='sources'"><select v-model.number="pageSize" aria-label="عدد المصادر في الصفحة"><option v-for="n in [10,25,50,100]" :value="n">{{n}}</option></select><small>{{state.meta.total?(state.meta.current_page-1)*pageSize+1:0}}–{{Math.min(state.meta.current_page*pageSize,state.meta.total)}} من {{state.meta.total}}</small><button v-if="session.state.identity?.account.type==='system'" class="btn small" aria-label="فلترة الوكيل الرئيسي" @click="networkOpen=!networkOpen">⋯</button></template>
+        <label v-if="kind==='sources' && session.state.identity?.account.type==='system'" class="source-network-inline">الوكيل الرئيسي<select v-model="state.network" aria-label="فلترة الوكيل الرئيسي"><option value="">جميع الوكلاء</option><option v-for="network in networks" :key="network.id" :value="network.id">{{network.name}}</option></select></label>
+
+        <span v-if="kind === 'governorates'">{{state.rows.filter(row => row.active).length}} محافظة مفعلة</span><span v-else-if="kind!=='sources'" class="caption">{{state.meta.total}} سجل</span><template v-if="kind==='sources'"><select v-model.number="pageSize" aria-label="عدد المصادر في الصفحة"><option v-for="n in [10,25,50,100]" :value="n">{{n}}</option></select><small>{{state.meta.total?(state.meta.current_page-1)*pageSize+1:0}}–{{Math.min(state.meta.current_page*pageSize,state.meta.total)}} من {{state.meta.total}}</small></template>
 
       </FilterBar>
 

@@ -34,6 +34,7 @@ const { session } = usePortal(),
 const lifetime = new AbortController();
 let read = null,
   revision = 0,
+  displayedQuery = '',
   prefQueue = Promise.resolve();
 const emptyFilters = () => ({
   query: "",
@@ -182,21 +183,28 @@ async function fail(error) {
   }
   vm.error = error.message;
 }
-async function load(page = 1) {
+async function load(page = 1,fresh = false) {
   read?.abort();
   read = new AbortController();
   const ticket = ++revision;
-  vm.busy = true;
+  const parameters={...vm.filters,page:vm.perPage===0?1:page,per_page:vm.perPage===0?100:vm.perPage};
+  const signature=JSON.stringify([vm.page,vm.perPage,parameters]);
+  let cached=fresh?null:api.peekList(vm.page,parameters),current=api.hasFreshList(vm.page,parameters);
+  if(cached&&vm.perPage===0){
+    if(cached.meta.total>10000)cached=null;
+    else{for(let next=2;next<=cached.meta.last_page;next++){const query={...vm.filters,page:next,per_page:100},more=api.peekList(vm.page,query);current=current&&api.hasFreshList(vm.page,query);if(!more){cached=null;break;}cached.data.push(...more.data);}if(cached)cached.meta={...cached.meta,current_page:1,last_page:1,per_page:cached.data.length||1};}
+  }
+  if(cached){vm.rows=cached.data.map(vm.page==='products'?productFromApi:providerFromApi);vm.meta=cached.meta;}
+  else if(displayedQuery!==signature){vm.rows=[];vm.meta={current_page:parameters.page,last_page:1,total:0,per_page:parameters.per_page};}
+  displayedQuery=signature;
+  vm.busy = fresh||!current;
   vm.error = "";
   try {
     const result = await api.list(
       vm.page,
-      {
-        ...vm.filters,
-        page: vm.perPage === 0 ? 1 : page,
-        per_page: vm.perPage === 0 ? 100 : vm.perPage,
-      },
+      parameters,
       read.signal,
+      {fresh},
     );
     if (vm.perPage === 0) {
       if (result.meta.total > 10000)
@@ -207,6 +215,7 @@ async function load(page = 1) {
           vm.page,
           { ...vm.filters, page: next, per_page: 100 },
           read.signal,
+          {fresh},
         );
         result.data.push(...more.data);
       }
@@ -231,19 +240,26 @@ async function load(page = 1) {
 async function initialize() {
   vm.page = route.meta.catalog;
   vm.filters = emptyFilters();
+  vm.rows=[];
+  vm.meta={current_page:1,last_page:1,total:0,per_page:vm.perPage||100};
   vm.modal = null;
   vm.success = "";
+  const cached=api.peekOptions(),pref=vm.page==='products'?api.peekPreferences():null;
+  if(cached)vm.options=cached.data;
+  if(pref)vm.hiddenColumns=pref.data.hidden_columns;
   try {
-    const result = await api.options(lifetime.signal);
+    const [result, pref] = await Promise.all([
+      api.options(lifetime.signal),
+      vm.page === "products" ? api.preferences(lifetime.signal) : Promise.resolve(null),
+      load(),
+    ]);
     vm.options = result.data;
-    if (vm.page === "products") {
-      const pref = await api.preferences(lifetime.signal);
+    if (pref) {
       vm.hiddenColumns = pref.data.hidden_columns;
     }
   } catch (error) {
     await fail(error);
   }
-  await load();
 }
 watch(() => route.meta.catalog, initialize, { immediate: true });
 onBeforeUnmount(() => {
@@ -331,7 +347,7 @@ async function exportCurrent() {
     </p>
     <p v-if="vm.error" class="notice notice-error" role="alert">
       {{ vm.error }}
-      <button class="text-button" @click="load(vm.meta.current_page)">
+      <button class="text-button" @click="load(vm.meta.current_page,true)">
         إعادة المحاولة
       </button>
     </p>

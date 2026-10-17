@@ -1,0 +1,52 @@
+/* POS report presentation inherits the approved touch theme; data stays server-scoped. */
+@media screen {
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace{--accent:var(--pos-accent);--accent-soft:inherit;--blue-bg:var(--raised);--blue-text:var(--pos-accent);--cyan:var(--pos-accent);--sky:var(--pos-accent);--panel:inherit;--raised:inherit;--surface:var(--panel);--subtle:var(--raised);--ink:inherit;--text:inherit;--muted:inherit;--line:inherit;--soft-line:inherit;max-width:1100px;margin-inline:auto;min-width:0;font-size:14px;line-height:1.7}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace .reports-modal{--accent:var(--pos-accent);--accent-soft:inherit;--blue-bg:var(--raised);--blue-text:var(--pos-accent);--cyan:var(--pos-accent);--sky:var(--pos-accent);--panel:inherit;--raised:inherit;--surface:var(--panel);--subtle:var(--raised);--ink:inherit;--text:inherit;--muted:inherit;--line:inherit;--soft-line:inherit;font-size:14px;line-height:1.7}
+ .pos-app .pos-reports-heading{margin:0 0 18px}
+ .pos-app .pos-reports-heading h2{margin:0;font-size:25px;color:var(--ink)}
+ .pos-app .pos-reports-heading p{margin:6px 0 0;font-size:12px;color:var(--muted);line-height:1.8}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace .report-unified-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px;border:1px solid var(--line);border-radius:16px;background:var(--panel);white-space:normal;overflow:visible}
+ .pos-app .reports-workspace .report-toolbar-title{min-width:0;white-space:normal}
+ .pos-app .reports-workspace .report-toolbar-title h2{font-size:18px;margin:0}
+ .pos-app .reports-workspace .report-unified-toolbar .actions{display:flex;flex-wrap:wrap;gap:8px;min-width:0;white-space:normal}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace :is(.report-group-grid,.report-related-grid){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace :is(.report-group-card,.report-related .report-related-card.report-tile){--report-accent:var(--pos-accent);--report-surface:var(--panel);--report-edge:var(--line);--report-button:var(--raised);padding:20px;border-radius:18px;border:1px solid var(--line)!important;background:var(--panel)!important;color:var(--ink);box-shadow:none;min-width:0;transform:none}
+ .pos-app .reports-workspace .report-group-card{display:flex;flex-direction:column;align-items:flex-start;text-align:start;gap:10px}
+ .pos-app .reports-workspace .report-group-card>svg{width:28px;height:28px;color:var(--pos-accent)}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace :is(.report-group-card,.report-tile) :is(h3,strong){color:var(--ink);font-size:17px}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace :is(.report-group-card,.report-tile) :is(small,span){color:var(--muted)}
+ .pos-app .reports-workspace .report-group-card>span{font-size:12px}
+ .pos-app .reports-workspace .report-group-sections{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 4px}
+ .pos-app .reports-workspace .report-group-sections>span{display:block;padding:4px 8px;border:1px solid var(--soft-line);border-radius:8px;background:var(--raised);font-size:10px;line-height:1.7}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace :is(.report-group-action,.report-related .report-tile .report-tile-open){display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;border-radius:11px;border:1px solid var(--line)!important;background:var(--raised)!important;color:var(--pos-accent)!important;font-size:12px;box-shadow:none}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace .report-group-action>span{color:inherit}
+ .pos-app .reports-workspace .report-group-action{width:100%;margin-top:auto}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace .report-tile-icon{background:var(--raised);color:var(--pos-accent)!important;border-radius:12px;width:42px;height:42px}
+ .pos-app .reports-workspace .report-tile-heading{gap:12px;margin-bottom:18px}
+ .pos-app .reports-workspace .report-tile-heading h3{font-size:15px!important;line-height:1.8}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace .report-tile-footer{border-color:var(--line);gap:12px;flex-wrap:wrap}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace .report-tile-count strong{font-size:28px}
+ .pos-app .reports-workspace :is(button,input,select){min-height:44px}
+ .pos-app .reports-workspace .reports-modal :is(button,input,select){min-height:44px}
+ .pos-app .reports-workspace .reports-modal .table-sort{width:100%;white-space:normal;text-align:start;color:var(--ink)}
+ .pos-app .reports-workspace .reports-modal .report-filter-grid{gap:14px}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace .badge:not(:is(.good,.success,.ok,.warn,.warning,.danger,.bad,.error,[data-tone])){background:var(--raised);color:var(--text);border:1px solid var(--line);font-size:11px;line-height:1.7;box-shadow:none}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace :is(.help,.caption,.empty){color:var(--muted);font-family:inherit;font-size:12px;line-height:1.8}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace .reports-modal :is(.formfoot,.report-linked){background:var(--panel);border-color:var(--line);color:var(--ink)}
+ .pos-app .reports-workspace .reports-modal .formfoot{gap:10px;padding-top:16px;flex-wrap:wrap}
+ .pos-app .reports-workspace .reports-modal .formfoot .btn{font-family:inherit;font-size:13px;min-height:44px}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace .reports-modal :is(.report-record-panel,.column-picker>div){background:var(--panel);border-color:var(--line);color:var(--text)}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace .reports-modal .report-record-fields>div{background:var(--raised);border-color:var(--line)}
+ .pos-app .reports-workspace .reports-modal .inline-check{display:flex;align-items:center;gap:9px;min-height:44px;font-size:12px;color:var(--text)}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace .reports-modal input:is([type=checkbox],[type=radio]){width:18px;height:18px;min-height:0;accent-color:var(--pos-accent)}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace .reports-modal :is(input,select,textarea):focus{border-color:var(--pos-accent)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--pos-accent) 16%,transparent)!important}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace .reports-modal :is(button,input,select,textarea,summary):focus-visible{outline:2px solid var(--pos-accent);outline-offset:3px}
+ @media(max-width:759px){
+  html[data-portal=pos][data-theme] .pos-app .reports-workspace :is(.report-group-grid,.report-related-grid){grid-template-columns:minmax(0,1fr);gap:12px}
+  html[data-portal=pos][data-theme] .pos-app .reports-workspace .report-unified-toolbar{display:grid;grid-template-columns:minmax(0,1fr);padding:14px;gap:12px}
+  .pos-app .reports-workspace .report-unified-toolbar .actions{width:100%;display:grid;grid-template-columns:minmax(0,1fr)}
+  .pos-app .reports-workspace .report-unified-toolbar .actions>.btn{width:100%;margin:0}
+  html[data-portal=pos][data-theme] .pos-app .reports-workspace :is(.report-group-card,.report-related .report-related-card.report-tile){padding:18px}
+  .pos-app .reports-workspace .reports-modal .report-filter-grid{grid-template-columns:minmax(0,1fr)}
+ }
+}

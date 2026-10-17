@@ -55,6 +55,32 @@ class ImportFileReaderTest extends TestCase
         $this->assertSame('1904-01-02', app(ImportFileReader::class)->read($file)[0]['rows'][0][0]);
     }
 
+    public function test_shared_string_stream_preserves_empty_entries_rich_text_and_escaped_characters(): void
+    {
+        $file = $this->excel('<row><c r="A1" t="s"><v>0</v></c><c r="B1" t="s"><v>1</v></c></row>', ['xl/sharedStrings.xml' => '<sst><si/><si><r><t>0000</t></r><r><t xml:space="preserve"> 123&amp;</t></r></si></sst>']);
+        $this->assertSame(['', '0000 123&'], app(ImportFileReader::class)->read($file)[0]['rows'][0]);
+    }
+
+    public function test_shared_string_count_is_bounded_even_when_worksheet_has_one_cell(): void
+    {
+        $file = $this->excel('<row><c r="A1" t="s"><v>0</v></c></row>', ['xl/sharedStrings.xml' => '<sst>'.str_repeat('<si><t>x</t></si>', 250001).'</sst>']);
+        $this->expectException(ValidationException::class);
+        app(ImportFileReader::class)->read($file);
+    }
+
+    public function test_shared_string_length_and_aggregate_bytes_are_bounded_before_building_a_dom(): void
+    {
+        foreach (['<si><t>'.str_repeat('x', 20001).'</t></si>', str_repeat('<si><t>'.str_repeat('x', 20000).'</t></si>', 801)] as $strings) {
+            $file = $this->excel('<row><c r="A1" t="s"><v>0</v></c></row>', ['xl/sharedStrings.xml' => '<sst>'.$strings.'</sst>']);
+            try {
+                app(ImportFileReader::class)->read($file);
+                $this->fail('Oversized shared strings accepted.');
+            } catch (ValidationException $error) {
+                $this->assertArrayHasKey('file', $error->errors());
+            }
+        }
+    }
+
     public function test_xlsx_formula_even_with_cached_value_is_rejected(): void
     {
         $file = $this->excel('<row r="1"><c r="A1"><f>1+1</f><v>2</v></c></row>');

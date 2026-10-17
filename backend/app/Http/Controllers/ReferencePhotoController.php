@@ -6,6 +6,7 @@ use App\Http\Requests\ReferencePhotoRequest;
 use App\Http\Resources\ReferenceResource;
 use App\Models\RepresentativePhoto;
 use App\Services\AuditLogger;
+use App\Services\Backups\BackupCoordination;
 use App\Services\ManagementAuthority;
 use App\Services\Operations\MutationGuard;
 use App\Services\ReferenceAccess;
@@ -87,7 +88,7 @@ class ReferencePhotoController extends Controller
     private function remove(string $path, int $id): void
     {
         try {
-            if (! Storage::disk('local')->delete($path)) {
+            if (! app(BackupCoordination::class)->deleteAsset($path)) {
                 Log::warning('Representative photo cleanup requires retry.', ['representative_id' => $id]);
             }
         } catch (Throwable) {

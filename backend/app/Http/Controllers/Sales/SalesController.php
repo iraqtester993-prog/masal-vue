@@ -12,6 +12,7 @@ use App\Models\Finance\Wallet;
 use App\Models\Sales\PrintRule;
 use App\Models\Sales\ReceiptLayout;
 use App\Models\Sales\ReprintRequest;
+use App\Models\Sales\Sale;
 use App\Models\Sales\SaleLimit;
 use App\Models\Stock\StockCard;
 use App\Services\AuditLogger;
@@ -33,6 +34,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SalesController extends Controller
 {
+    public function copy(SalesRequest $request, int $id): JsonResponse
+    {
+        return response()->json(['data' => $this->printing->copy($request->user(), $id, $request->validated(), $request)]);
+    }
+
     public function __construct(private SalesAccess $access, private SalesOperations $operations, private PrintOperations $printing, private SalesPolicies $policies, private CatalogAccess $catalog, private FinanceOperations $finance, private AuditLogger $audit, private ReceiptDesign $design) {}
 
     public function options(SalesRequest $request): JsonResponse
@@ -44,28 +50,29 @@ class SalesController extends Controller
         $canSell = $salesView && in_array($own->type, [AccountType::SubAgent, AccountType::SubBranch, AccountType::Pos], true) && $this->access->accounts($actor)->whereKey($own->id)->exists();
         $parent = $own->parent;
 
-        return response()->json(['data' => ['accounts' => $this->access->accounts($actor)->orderBy('id')->get(['id', 'name', 'type', 'parent_id', 'city', 'phone', 'status']), 'own_account_id' => $own->id, 'seller_account_id' => $canSell ? $own->id : null, 'parent' => $parent ? ['id' => $parent->id, 'name' => $parent->name, 'type' => $parent->type->value] : null, 'products' => $canSell ? $this->productData($request) : [], 'policy' => $canSell ? $this->policies->context($own)['policy'] : null]]);
+        return response()->json(['data' => ['accounts' => $this->access->accounts($actor)->when($request->boolean('compact'), fn ($query) => $query->whereKey($actor->membership->account_id))->orderBy('id')->get(['id', 'name', 'type', 'parent_id', 'city', 'phone', 'status']), 'own_account_id' => $own->id, 'seller_account_id' => $canSell ? $own->id : null, 'parent' => $parent ? ['id' => $parent->id, 'name' => $parent->name, 'type' => $parent->type->value] : null, 'products' => $canSell ? $this->productData($request) : [], 'pending_print' => $canSell ? $this->pendingPrint($own->id) : null, 'policy' => $canSell ? $this->policies->context($own)['policy'] : null]]);
     }
 
     private function productData(SalesRequest $request): array
     {
         $own = $this->access->own($request->user(), 'sales.view');
         $main = $this->access->main($own);
-        $query = $this->catalog->forAccount($own->id)->whereIn('id', $this->catalog->products($request->user())->select('catalog_products.id'))->where('status', 'active')->whereHas('provider', fn ($q) => $q->where('status', 'active')->where('connection', 'ملفات'))->with('provider')->orderBy('display_order')->orderBy('id');
+        $query = $this->catalog->forAccount($own->id)->whereIn('id', $this->catalog->products($request->user())->select('catalog_products.id'))->where('status', 'active')->whereHas('provider', fn ($provider) => $provider->where('status', 'active')->whereIn('connection', ['ملفات', 'API']))->with('provider')->orderBy('display_order')->orderBy('id');
         if (Schema::hasTable('digital_offers')) {
-            $query->whereNotExists(fn ($q) => $q->selectRaw('1')->from('digital_offers')->join('digital_connections', 'digital_connections.id', '=', 'digital_offers.connection_id')->whereColumn('digital_offers.product_id', 'catalog_products.id')->where('digital_offers.listed', true)->where('digital_connections.account_id', $main->id));
+            $query->whereNotExists(fn ($q) => $q->selectRaw('1')->from('digital_offers')->join('digital_connections', 'digital_connections.id', '=', 'digital_offers.connection_id')->whereColumn('digital_offers.product_id', 'catalog_products.id')->where('digital_offers.listed', true)->whereIn('digital_connections.account_id', DB::table('account_closure')->where('descendant_id', $own->id)->select('ancestor_id')));
         }
         $products = $query->get();
         $prices = DB::table('finance_prices')->where('account_id', $main->id)->whereIn('product_id', $products->pluck('id'))->get()->keyBy('product_id');
-        $stocks = StockCard::join('stock_batches', 'stock_batches.id', '=', 'stock_cards.batch_id')->where('stock_cards.account_id', $main->id)->whereIn('stock_cards.product_id', $products->pluck('id'))->where('stock_cards.status', 'Available')->where('credit_held', false)->whereNull('sale_id')->where('expiry', '>', now('Asia/Baghdad')->toDateString())->whereIn('stock_batches.status', ['Loaded', 'Partially Used'])->groupBy('stock_cards.product_id', 'stock_batches.currency')->selectRaw('stock_cards.product_id, stock_batches.currency, COUNT(*) AS quantity')->get()->keyBy(fn ($s) => $s->product_id.':'.$s->currency);
+        $stocks = StockCard::join('stock_batches', 'stock_batches.id', '=', 'stock_cards.batch_id')->where('stock_cards.account_id', $main->id)->where('stock_batches.account_id', $main->id)->whereIn('stock_cards.product_id', $products->pluck('id'))->where('stock_cards.status', 'Available')->where('credit_held', false)->whereNull('sale_id')->where('expiry', '>', now('Asia/Baghdad')->toDateString())->whereIn('stock_batches.status', ['Loaded', 'Partially Used'])->groupBy('stock_cards.product_id', 'stock_batches.currency')->selectRaw('stock_cards.product_id, stock_batches.currency, COUNT(*) AS quantity')->get()->keyBy(fn ($s) => $s->product_id.':'.$s->currency);
         $wallets = Wallet::where('account_id', $own->id)->where('kind', 'account')->where('service', 'voucher')->get()->keyBy('currency');
 
         return $products->filter(fn ($p) => ! $p->allowed_cities || in_array($own->city, $p->allowed_cities, true))->map(function ($p) use ($prices, $stocks, $wallets, $own): array {
             $price = $prices->get($p->id);
             $configured = $price && $price->currency === $p->currency && (int) $price->price_minor > 0 && ($p->minimum_price === null || (int) $price->price_minor >= Money::minor($p->minimum_price));
+            $availabilityReason = ! $price || (int) $price->price_minor <= 0 ? 'price_unset' : ($price->currency !== $p->currency ? 'price_currency_mismatch' : (! $configured ? 'price_below_minimum' : null));
             $context = $this->policies->context($own, $p->id);
 
-            return ['id' => $p->id, 'name' => $p->name, 'kind' => $p->kind, 'provider_id' => $p->provider_id, 'provider_name' => $p->provider->name, 'currency' => $p->currency, 'face_value' => $p->face_value, 'price' => $configured ? Money::decimal((int) $price->price_minor) : null, 'price_version' => $configured ? (int) $price->version : null, 'stock_available' => (int) ($stocks->get($p->id.':'.$p->currency)?->quantity ?? 0), 'wallet_available' => isset($wallets[$p->currency]) ? Money::decimal($wallets[$p->currency]->balance_minor - $wallets[$p->currency]->held_minor) : '0.00', 'daily_quantity' => $p->daily_quantity, 'daily_amount' => $p->daily_amount, 'image_url' => $p->image_path ? '/api/v1/sales/products/'.$p->id.'/images/product' : null, 'provider_image_url' => $p->provider->image_path ? '/api/v1/sales/products/'.$p->id.'/images/provider' : null, 'print_policy' => $context['policy'], 'daily_print' => $this->policies->usage($own, $context), 'print_wait_seconds' => $this->policies->wait($own, $context)];
+            return ['id' => $p->id, 'name' => $p->name, 'kind' => $p->kind, 'provider_id' => $p->provider_id, 'provider_name' => $p->provider->name, 'currency' => $p->currency, 'face_value' => $p->face_value, 'price' => $configured ? Money::decimal((int) $price->price_minor) : null, 'price_version' => $configured ? (int) $price->version : null, 'availability_reason' => $availabilityReason, 'stock_available' => (int) ($stocks->get($p->id.':'.$p->currency)?->quantity ?? 0), 'wallet_available' => isset($wallets[$p->currency]) ? Money::decimal($wallets[$p->currency]->balance_minor - $wallets[$p->currency]->held_minor) : '0.00', 'daily_quantity' => $p->daily_quantity, 'daily_amount' => $p->daily_amount, 'image_url' => $p->image_path ? '/api/v1/sales/products/'.$p->id.'/images/product' : null, 'provider_image_url' => $p->provider->image_path ? '/api/v1/sales/products/'.$p->id.'/images/provider' : null, 'print_policy' => $context['policy'], 'daily_print' => $this->policies->usage($own, $context), 'print_wait_seconds' => $this->policies->wait($own, $context)];
         })->values()->all();
     }
 
@@ -76,7 +83,7 @@ class SalesController extends Controller
         $permission = collect(['branding.view', 'security.policies', 'sales.limits'])->first(fn ($key) => in_array($key, $permissions, true));
         abort_unless($permission, 403);
         $this->access->require($actor, $permission, $permission === 'security.policies');
-        $accounts = $this->access->accounts($actor)->orderBy('id')->get(['id', 'name', 'type', 'parent_id', 'city', 'phone', 'status']);
+        $accounts = $this->access->accounts($actor)->when($request->boolean('compact'), fn ($query) => $query->whereKey($actor->membership->account_id))->orderBy('id')->get(['id', 'name', 'type', 'parent_id', 'city', 'phone', 'status']);
         $products = $this->catalog->products($actor)->with('provider:id,name')->orderBy('display_order')->orderBy('id')->get(['id', 'provider_id', 'name', 'kind', 'currency', 'receipt_width', 'extra_fields']);
 
         return response()->json(['data' => ['own_account_id' => $actor->membership->account_id, 'accounts' => $accounts, 'products' => $products->map(fn ($product): array => ['id' => $product->id, 'name' => $product->name, 'provider_id' => $product->provider_id, 'provider_name' => $product->provider->name, 'currency' => $product->currency, 'kind' => $product->kind, 'receipt_width' => $product->receipt_width, 'extra_fields' => $product->extra_fields])->all()]]);
@@ -84,7 +91,14 @@ class SalesController extends Controller
 
     public function products(SalesRequest $request): JsonResponse
     {
-        return response()->json(['data' => $this->productData($request)]);
+        return response()->json(['data' => $this->productData($request), 'pending_print' => $this->pendingPrint($request->user()->membership->account_id)]);
+    }
+
+    private function pendingPrint(int $accountId): ?array
+    {
+        $sale = Sale::where('account_id', $accountId)->where('print_pending', true)->orderBy('id')->with('product:id,name')->first(['id', 'product_id', 'quantity', 'print_started_at']);
+
+        return $sale ? ['id' => $sale->id, 'product_name' => $sale->product->name, 'quantity' => $sale->quantity, 'started_at' => $sale->print_started_at?->toISOString()] : null;
     }
 
     public function image(SalesRequest $request, int $id, string $kind): BinaryFileResponse
@@ -245,7 +259,11 @@ class SalesController extends Controller
 
     public function receipt(SalesRequest $request, int $id): JsonResponse
     {
-        return response()->json(['data' => $this->operations->receipt($request->user(), $id, $request)])->header('Cache-Control', 'private, no-store, max-age=0')->header('Pragma', 'no-cache')->header('X-Content-Type-Options', 'nosniff');
+        $data = $this->operations->receipt($request->user(), $id, $request);
+        $data['pending_print'] = $this->pendingPrint($request->user()->membership->account_id);
+        $data['reprint_approved'] = $data['sale']['status'] === 'Reprint Requested' && ReprintRequest::whereKey($data['sale']['reprint_request_id'])->where('sale_id', $id)->where('status', 'approved')->exists();
+
+        return response()->json(['data' => $data])->header('Cache-Control', 'private, no-store, max-age=0')->header('Pragma', 'no-cache')->header('X-Content-Type-Options', 'nosniff');
     }
 
     public function start(SalesRequest $request, int $id): JsonResponse

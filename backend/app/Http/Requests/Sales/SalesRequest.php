@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Sales;
 
+use App\Services\Sales\ReceiptDesign;
+use App\Services\Sales\RegisteredDevices;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -23,6 +25,13 @@ class SalesRequest extends FormRequest
         return $this->user() !== null;
     }
 
+    public function messages(): array
+    {
+        return ['layout.recharge_template.regex' => 'صيغة الشحن يجب أن تبدأ بـ * وتنتهي بـ # وتتضمن {pin} مرة واحدة بدل الرقم السري.',
+            'layout.recharge_template.max' => 'صيغة الشحن يجب ألا تتجاوز 80 حرفًا.',
+            'layout.qr_enabled.boolean' => 'حدد إظهار رمز الشحن أو إخفاءه.'];
+    }
+
     public function rules(): array
     {
         $amount = ['string', 'regex:/\A(?:0|[1-9][0-9]{0,12})(?:\.[0-9]{1,2})?\z/D'];
@@ -37,8 +46,9 @@ class SalesRequest extends FormRequest
 
         return match ($this->route()->getActionMethod()) {
             'create','reserve' => ['product_id' => ['required', 'integer', 'min:1'], 'quantity' => ['required', 'integer', 'between:1,100000'], 'price_version' => ['required', 'integer', 'min:1'], 'expected_price' => ['required', ...$amount], 'retail_price' => ['sometimes', 'nullable', ...$amount], 'idempotency_key' => $key],
-            'heartbeat' => ['serial' => ['sometimes', 'nullable', 'string', 'max:190'], 'app_version' => ['required', 'string', 'max:30', 'regex:/\A[0-9]+(?:\.[0-9]+){0,3}\z/D'], 'os_version' => ['sometimes', 'nullable', 'string', 'max:30', 'regex:/\A[0-9]+(?:\.[0-9]+){0,3}\z/D']],
+            'heartbeat' => RegisteredDevices::rules(),
             'issue','cancel','start','retry' => $cas,
+            'copy' => ['idempotency_key' => $key],
             'result' => $cas + ['attempt_id' => ['required', 'integer', 'min:1'], 'success' => ['required', 'boolean'], 'reason' => ['required_if:success,false', 'nullable', 'string', 'max:1000']],
             'requestReprint','escalate' => $cas + ['reason' => ['required', 'string', 'max:1000']],
             'review' => $cas + ['decision' => ['required', Rule::in(['approve', 'reject'])], 'reason' => ['required_if:decision,reject', 'nullable', 'string', 'max:1000']],
@@ -46,8 +56,9 @@ class SalesRequest extends FormRequest
             'savePolicy' => $cas + $policy + $settings,
             'saveRule' => ['version' => ['required', 'integer', 'min:0'], 'idempotency_key' => $key, 'name' => ['required', 'string', 'max:160'], 'active' => ['required', 'boolean'], 'targets' => ['required', 'array', 'min:1', 'max:10000'], 'targets.*' => ['required', 'array:kind,id'], 'targets.*.kind' => ['required', Rule::in(['pos', 'agent', 'tree'])], 'targets.*.id' => ['required', 'integer', 'min:1']] + $policy,
             'saveLimit' => ['account_id' => ['required', 'integer', 'min:1'], 'product_id' => ['required', 'integer', 'min:1'], 'version' => ['required', 'integer', 'min:0'], 'idempotency_key' => $key, 'max_cards' => ['present', 'nullable', 'integer', 'between:1,100000'], 'daily_quantity' => ['present', 'nullable', 'integer', 'between:1,1000000'], 'daily_amount' => ['present', 'nullable', ...$amount]],
-            'saveLayout' => ['account_id' => ['sometimes', 'nullable', 'integer', 'min:1'], 'version' => ['required', 'integer', 'min:0'], 'idempotency_key' => $key, 'image' => ['sometimes', 'file', 'image', 'mimes:png,jpg,jpeg', 'max:700', 'dimensions:max_width=4096,max_height=4096'], 'layout' => ['required', 'array:header,footer,color,display_order,agent_text,agent_color,agent_image_removed'], 'layout.header' => ['sometimes', 'nullable', 'string', 'max:1000'], 'layout.footer' => ['sometimes', 'nullable', 'string', 'max:1000'], 'layout.color' => ['sometimes', 'string', 'regex:/\A#[0-9a-fA-F]{6}\z/D'], 'layout.display_order' => ['sometimes', 'array', 'size:8'], 'layout.display_order.*' => ['string', 'distinct'], 'layout.agent_text' => ['sometimes', 'nullable', 'string', 'max:1000'], 'layout.agent_color' => ['sometimes', 'string', 'regex:/\A#[0-9a-fA-F]{6}\z/D'], 'layout.agent_image_removed' => ['sometimes', 'boolean']],
-            'options','policy','receipt','show' => [],
+            'saveLayout' => ['account_id' => ['sometimes', 'nullable', 'integer', 'min:1'], 'version' => ['required', 'integer', 'min:0'], 'idempotency_key' => $key, 'image' => ['sometimes', 'file', 'image', 'mimes:png,jpg,jpeg', 'max:700', 'dimensions:max_width=4096,max_height=4096'], 'layout' => ['required', 'array:header,footer,color,display_order,agent_text,agent_color,agent_image_removed,qr_enabled,recharge_template'], 'layout.header' => ['sometimes', 'nullable', 'string', 'max:1000'], 'layout.footer' => ['sometimes', 'nullable', 'string', 'max:1000'], 'layout.color' => ['sometimes', 'string', 'regex:/\A#[0-9a-fA-F]{6}\z/D'], 'layout.display_order' => ['sometimes', 'array', 'size:8'], 'layout.display_order.*' => ['string', 'distinct'], 'layout.agent_text' => ['sometimes', 'nullable', 'string', 'max:1000'], 'layout.agent_color' => ['sometimes', 'string', 'regex:/\A#[0-9a-fA-F]{6}\z/D'], 'layout.agent_image_removed' => ['sometimes', 'boolean'], 'layout.qr_enabled' => ['sometimes', 'nullable', 'boolean'], 'layout.recharge_template' => ['sometimes', 'nullable', 'string', 'max:80', 'regex:'.ReceiptDesign::RECHARGE_TEMPLATE_PATTERN]],
+            'options','configurationOptions' => ['compact' => ['sometimes', 'boolean']],
+            'policy','receipt','show' => [],
             default => $read,
         };
     }

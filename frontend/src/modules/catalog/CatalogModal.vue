@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, onBeforeUnmount, ref, useId } from "vue";
-defineProps({ title: String, section: String, busy: Boolean, contentClass: String });
+defineProps({ title: String, section: String, busy: Boolean, contentClass: String, bodyClass: String });
 const emit = defineEmits(["close"]);
 const dialog = ref(),
   titleId = useId();
@@ -42,6 +42,7 @@ onBeforeUnmount(() => dialog.value?.close());
           ×
         </button>
       </div>
-      <slot /></dialog
+      <div v-if="bodyClass" :class="bodyClass"><slot /></div>
+      <slot v-else /></dialog
   ></Teleport>
 </template>

@@ -30,10 +30,22 @@ if (in_array($host, ['dananir-iq.com', 'www.dananir-iq.com'], true)) {
 
 // Never infer identity or permissions from headers injected by a browser.
 unset($_SERVER['HTTP_X_MASAL_PORTAL']);
-$backendEntry = '/home/dananiriq/masal-backend/current/public/index.php';
-if (!is_file($backendEntry)) {
+$backendCurrent = '/home/dananiriq/masal-backend/current';
+clearstatcache(true);
+$backendRelease = is_link($backendCurrent) ? readlink($backendCurrent) : false;
+$backendEntry = is_string($backendRelease) ? $backendRelease.'/public/index.php' : '';
+$backendValid = is_string($backendRelease)
+    && preg_match('~\A/home/dananiriq/masal-backend/releases/[A-Za-z0-9][A-Za-z0-9._-]{0,95}\z~D', $backendRelease)
+    && !is_link($backendRelease)
+    && realpath($backendRelease) === $backendRelease
+    && !is_link($backendEntry)
+    && is_file($backendEntry)
+    && realpath($backendEntry) === $backendEntry;
+
+if (!$backendValid) {
     http_response_code(503);
     header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store, private');
     echo json_encode(['message' => 'الخدمة غير متاحة مؤقتًا.'], JSON_UNESCAPED_UNICODE);
     exit;
 }

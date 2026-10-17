@@ -65,7 +65,7 @@ class NotificationController extends Controller
 
     public function readPage(SupportRequest $request): JsonResponse
     {
-        return response()->json(['data' => ['count' => $this->notices->readPage($request->user(), $request->input('page'))]]);
+        return response()->json(['data' => ['count' => $this->notices->readPage($request->user(), $request->input('page'), $request->input('ids', []))]]);
     }
 
     public function summary(Request $request): JsonResponse

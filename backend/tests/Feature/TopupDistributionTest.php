@@ -16,6 +16,17 @@ class TopupDistributionTest extends TestCase
 {
     use CreatesSupport, RefreshDatabase;
 
+    public function test_compact_targets_preserve_the_selected_point_and_do_not_ship_all_children(): void
+    {
+        $f = $this->supportFixture();
+        $this->asPortalUser($f['agent']);
+        $full = $this->getJson('/api/v1/topup/distribution')->assertOk()->json('data');
+        $selected = end($full['targets']);
+        $this->getJson('/api/v1/topup/distribution?compact_targets=1&target_account_id='.$selected['id'])->assertOk()
+            ->assertJsonCount(1, 'data.targets')->assertJsonPath('data.targets.0.id', $selected['id'])
+            ->assertJsonPath('data.target_count', count($full['targets']))->assertJsonPath('data.target_id', $selected['id']);
+    }
+
     private function category(array $f, string $name = 'تعبئة 5000'): TopupCategory
     {
         $connection = DigitalConnection::factory()->create(['account_id' => $f['main']->id, 'provider' => 'topup', 'provider_id' => null, 'credential' => 'private-main-token']);

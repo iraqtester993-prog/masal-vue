@@ -33,7 +33,7 @@ test('support and notifications render in all three portals with current grants,
         const html = await renderToString(app);
         assert.ok(html.includes(label)); assert.ok(!html.includes('undefined')); assert.ok(!html.includes('localStorage')); assert.ok(!html.includes('بطاقات تجريبية'));
         if (name === 'support') {assert.ok(html.includes('رسالة جديدة')); assert.equal(html.includes('مستخدمو رسالة الدعم'),permissions.includes('support.broadcast'));}
-        if (name === 'notifications') {assert.equal(html.includes('عنوان الإشعار العربي'),permissions.includes('notifications.send')); assert.equal(html.includes('>تصدير<'),permissions.includes('notifications.export'));}
+        if (name === 'notifications') {assert.equal(html.includes('عنوان الإشعار العربي'),permissions.includes('notifications.send')); assert.equal(html.includes('>تصدير<'),type!=='pos'&&permissions.includes('notifications.export'));}
       }
       assert.deepEqual(requests,[]);
     }

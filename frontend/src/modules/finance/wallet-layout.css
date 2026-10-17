@@ -1,0 +1,98 @@
+/* Shared wallet layout. Financial actions and their permission checks stay in the components. */
+.finance-workspace.wallet-layout { --wallet-gap: 12px; }
+.finance-workspace.wallet-layout .wallet-advanced { display: grid; gap: 16px; min-width: 0; }
+.finance-workspace.wallet-layout .wallet-advanced > .card,
+.finance-workspace.wallet-layout .wallet-advanced > .simple-wallets > .card { margin: 0; }
+.finance-workspace.wallet-layout .wallet-filter-toolbar { display: grid; gap: 14px; margin: 0; min-width: 0; }
+.finance-workspace.wallet-layout .tabs,
+.finance-workspace.wallet-layout .wallet-funding-body > .tabs {
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
+  width: 100%; max-width: 100%; min-width: 0; overflow-x: auto;
+  overscroll-behavior-inline: contain; margin: 0 0 16px; padding: 5px;
+  box-sizing: border-box; scrollbar-width: thin; background: var(--raised);
+}
+.finance-workspace.wallet-layout .wallet-navigation-tabs { margin-bottom: 0; }
+.finance-workspace.wallet-layout .tabs > button { flex: 0 0 auto; white-space: nowrap; min-height: 40px; margin: 0; }
+.finance-workspace.wallet-layout .tabs > button.active { background: var(--panel); color: var(--ink); box-shadow: 0 1px 4px #00000012; }
+.finance-workspace.wallet-layout .wallet-control-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--wallet-gap); }
+.finance-workspace.wallet-layout .wallet-filter-toolbar .wallet-service-cards {
+  display: flex; flex: 1 1 360px; flex-wrap: nowrap; align-items: center; gap: 6px;
+  min-width: 0; max-width: 100%; overflow-x: auto; margin: 0; padding: 0;
+  background: transparent; border: 0; scrollbar-width: thin;
+}
+.finance-workspace.wallet-layout .wallet-service-cards > button { flex: 0 0 auto; min-height: 40px; white-space: nowrap; margin: 0; }
+.finance-workspace.wallet-layout .wallet-page-actions { flex: 0 1 auto; margin: 0; gap: 8px; }
+.finance-workspace.wallet-layout :is(.btn, .tabs button) { border-radius: 9px; }
+.finance-workspace.wallet-layout :is(.wallet-summary-cards, .topup-wallet-metrics) {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 175px), 1fr));
+  gap: var(--wallet-gap); margin: 18px 0 0;
+}
+.finance-workspace.wallet-layout :is(.wallet-summary-cards, .topup-wallet-metrics) > div {
+  min-width: 0; padding: 14px; border: 1px solid var(--soft-line); border-radius: 10px;
+  background: var(--raised); box-shadow: none;
+}
+.finance-workspace.wallet-layout .wallet-summary-cards strong { display: block; margin-top: 8px; font-size: 21px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.finance-workspace.wallet-layout :is(.wallet-funding-body > form .formgrid, .recovery-form .formgrid) {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 12px; align-items: start;
+}
+.finance-workspace.wallet-layout :is(.wallet-history-filter, .wallet-invoices > .cardhead, .bulk-funding-toolbar) {
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: flex-start; gap: 12px; margin: 0 0 16px;
+}
+.finance-workspace.wallet-layout :is(.wallet-history-filter, .wallet-invoices > .cardhead, .bulk-funding-toolbar) > label {
+  flex: 0 1 280px; min-width: min(100%, 180px); margin: 0;
+}
+.finance-workspace.wallet-layout label { min-width: 0; }
+.finance-workspace.wallet-layout label > :is(input:not([type=checkbox]), select, .finance-account-picker) { margin-top: 6px; width: 100%; box-sizing: border-box; }
+.finance-workspace.wallet-layout :is(input:not([type=checkbox]):not([type=radio]), select, .account-picker-trigger) {
+  min-height: 42px; box-sizing: border-box; border-radius: 9px;
+}
+.finance-workspace.wallet-layout .account-picker-trigger { width: 100%; display: flex; justify-content: space-between; text-align: start; white-space: normal; }
+.finance-workspace.wallet-layout .wallet-page-actions > .btn { min-height: 40px; }
+.finance-workspace.wallet-layout .wallet-funding-body > form > .actions { margin-top: 16px; }
+.finance-workspace.wallet-layout .wallet-request { padding: 16px; margin-top: 12px; background: var(--panel); }
+.finance-workspace.wallet-layout .wallet-request > .rowline { padding: 0 0 12px; gap: 12px; }
+.finance-workspace.wallet-layout .wallet-request-review { gap: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.finance-workspace.wallet-layout .wallet-request-review .actions { margin: 0; }
+.finance-workspace.wallet-layout .tablewrap { max-height: 560px; overflow: auto; scrollbar-width: thin; }
+.finance-workspace.wallet-layout table { min-width: 680px; width: 100%; }
+.finance-workspace.wallet-layout table th { position: sticky; top: 0; z-index: 2; background: var(--raised); color: var(--ink); font-size: 12px; font-weight: 700; }
+.finance-workspace.wallet-layout table :is(th, td) { padding: 12px 14px; vertical-align: middle; }
+.finance-workspace.wallet-layout table td { font-variant-numeric: tabular-nums; }
+.finance-workspace.wallet-layout table td .actions { flex-wrap: nowrap; }
+.finance-workspace.wallet-layout .wallet-movements > label { display: block; max-width: 340px; margin-bottom: 16px; }
+.finance-workspace.wallet-layout .funding-record-detail .account-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 12px; }
+.finance-workspace.wallet-layout .funding-record-detail .account-fields > div { min-width: 0; padding: 10px; background: var(--panel); border-radius: 8px; }
+.finance-workspace.wallet-layout .funding-record-detail :is(dt, dd) { margin: 0; overflow-wrap: anywhere; }
+.finance-workspace.wallet-layout .funding-record-detail dt { color: var(--muted); font-size: 12px; }
+.finance-workspace.wallet-layout .topup-wallet-account-header { margin-bottom: 0; }
+.finance-workspace.wallet-layout .topup-wallet-log .digital-filters { grid-template-columns: repeat(auto-fit, minmax(min(100%, 160px), 1fr)); }
+@media (max-width: 700px) {
+  .finance-workspace.wallet-layout .card { padding: 14px; border-radius: 12px; }
+  .finance-workspace.wallet-layout .wallet-control-row { align-items: stretch; }
+  .finance-workspace.wallet-layout .wallet-filter-toolbar .wallet-service-cards { flex-basis: 100%; }
+  .finance-workspace.wallet-layout .wallet-page-actions { width: 100%; }
+  .finance-workspace.wallet-layout .wallet-page-actions > .btn { flex: 1 1 auto; }
+  .finance-workspace.wallet-layout :is(.wallet-summary-cards, .topup-wallet-metrics) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .finance-workspace.wallet-layout .wallet-summary-cards strong { font-size: 18px; }
+  .finance-workspace.wallet-layout :is(.wallet-history-filter, .wallet-invoices > .cardhead, .bulk-funding-toolbar) > label { flex: 1 1 180px; }
+  .finance-workspace.wallet-layout .wallet-request-review { grid-template-columns: minmax(0, 1fr); }
+  .finance-workspace.wallet-layout .wallet-request-review > label:nth-of-type(3) { grid-column: auto; }
+}
+@media print {
+  .finance-workspace.wallet-layout .tablewrap { max-height: none; overflow: visible; }
+  .finance-workspace.wallet-layout table th { position: static; }
+}
+
+.finance-workspace.wallet-layout .wallet-filter-toolbar .wallet-control-row .wallet-service-cards { display:flex; flex-direction:row; flex-wrap:nowrap; overflow-x:auto; justify-content:flex-start; }
+.finance-workspace.wallet-layout .wallet-filter-toolbar .wallet-service-cards > button { flex:0 0 auto; width:auto; min-width:max-content; min-height:40px; }
+.finance-workspace.wallet-layout .wallet-filter-toolbar .wallet-page-actions { display:flex; flex-direction:row; flex-wrap:wrap; }
+.finance-workspace.wallet-layout .wallet-filter-toolbar .wallet-page-actions > .btn { width:auto; flex:0 0 auto; }
+.finance-workspace.wallet-layout .wallet-account-tools { display:flex; align-items:flex-end; justify-content:flex-end; gap:12px; margin:0 0 12px; }
+.finance-workspace.wallet-layout .wallet-account-tools > label { display:flex; align-items:center; gap:8px; margin:0; flex:0 0 auto; }
+.finance-workspace.wallet-layout .wallet-account-tools > label > select { width:84px; margin:0; }
+.finance-workspace.wallet-layout .wallet-funding-body > .tabs { scroll-padding-inline:8px; }
+.finance-workspace.wallet-layout .wallet-invoices > .cardhead { background:transparent; padding:0; border:0; }
+.finance-workspace.wallet-layout .wallet-funding-body form > .btn { margin-top:12px; }
+.finance-workspace.wallet-layout .recovery-policy { align-items:flex-end; }
+.finance-workspace.wallet-layout .topup-wallet-log .digital-filters { grid-template-columns:repeat(2,minmax(0,280px)); justify-content:start; }
+.finance-workspace.wallet-layout .funding-settings .formgrid { align-items:start; }

@@ -7,6 +7,7 @@ use App\Models\Digital\DigitalOrder;
 use App\Models\Sales\PrintPolicy;
 use App\Services\Finance\Money;
 use App\Services\Operations\MutationGuard;
+use App\Services\Sales\SalesAccess;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 
@@ -104,11 +105,13 @@ class NojoomRabiaaAdapter
             DB::transaction(function () use ($order, $connection, $payload): void {
                 $actor = $order->creator;
                 $actor->session_version = $payload['_actor_session_version'];
-                app(MutationGuard::class)->lock($actor, [$order->account_id], 'digital.create');
+                app(MutationGuard::class)->lock($actor, [$order->account_id], 'digital.create', shareAncestors: true);
                 $own = $this->access->own($actor, 'digital.create', true);
-                abort_unless(PrintPolicy::findOrFail(1)->settings['sales_enabled'], 409);
-                $currentConnection = $this->access->connection($actor, $connection->id, 'digital.create', true);
-                abort_unless($this->access->offers($currentConnection, $own)->contains('id', $order->offer_id), 403);
+                $settings = PrintPolicy::findOrFail(1)->settings;
+                abort_unless($settings['sales_enabled'], 409);
+                app(SalesAccess::class)->device($actor, $own, request(), $settings);
+                [$currentConnection, $offer] = $this->access->saleOffer($actor, $own, $connection->id, $order->offer_id);
+                abort_unless($offer, 403);
                 $current = DigitalOrder::whereKey($order->id)->lockForUpdate()->firstOrFail();
                 abort_if($current->provider_purchase_started_at !== null, 409);
                 $current->update(['provider_purchase_started_at' => now(), 'version' => $current->version + 1]);

@@ -33,7 +33,7 @@ class OperationRequest extends FormRequest
         }
 
         return match ($this->route('operation_action')) {
-            'security','archive-index' => ['page' => ['sometimes', 'integer', 'min:1', 'max:100000'], 'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'], 'query' => ['nullable', 'string', 'max:200']],
+            'security','archive-index' => ['compact_accounts' => ['sometimes', 'boolean'], 'page' => ['sometimes', 'integer', 'min:1', 'max:100000'], 'per_page' => ['sometimes', 'integer', 'min:1', 'max:100'], 'query' => ['nullable', 'string', 'max:200']],
             'stop-create' => ['scope' => ['required', Rule::in(['all', 'main', 'branch', 'subbranch', 'pos', 'custom'])], 'actions' => ['required', 'array', 'list', 'min:1', 'max:5'], 'actions.*' => ['required', Rule::in(OperationGuard::KEYS), 'distinct:strict'], 'account_ids' => ['sometimes', 'array', 'list', 'max:10000'], 'reason' => ['required', 'string', 'max:300'], 'idempotency_key' => $key],
             'resume','restore-global' => ['version' => $version, 'idempotency_key' => $key],
             'direct' => ['stops' => ['required', 'array:login,sales,printing,import'], 'stops.*' => ['boolean'], 'version' => $version, 'idempotency_key' => $key],

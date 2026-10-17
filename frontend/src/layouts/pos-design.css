@@ -1,0 +1,120 @@
+/* The mobile POS skin inherits its agent's identity without changing receipt styles. */
+.pos-home-shortcuts{display:none}
+@media screen and (min-width:801px){
+ .pos-app .pos-company-controls{display:flex;gap:10px;margin:12px 0}
+ .pos-app .pos-company-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+ .pos-app .pos-company-card{position:relative;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+ .pos-app .pos-company-select{display:flex;align-items:center;gap:12px;width:100%;min-height:70px;background:transparent;border:0;color:var(--ink);text-align:start;padding-bottom:22px}
+ .pos-app .pos-company-mark{display:grid;place-items:center;width:42px;height:42px;background:var(--raised);border-radius:10px;flex-shrink:0}
+ .pos-app .pos-company-mark img{width:100%;height:100%;object-fit:contain}
+ .pos-app .pos-company-copy{display:grid;gap:8px}.pos-app .pos-company-copy small{color:var(--muted)}
+ .pos-app .pos-favorite{position:absolute;inset-inline-end:12px;bottom:8px;background:transparent;border:0;color:var(--muted);font-size:24px}.pos-app .pos-favorite[aria-pressed=true]{color:#9c7224}
+ .pos-app .pos-company-back{display:flex;justify-content:space-between;align-items:center;gap:14px;margin:14px 0}
+ .pos-app .pos-load-more{display:block;margin:16px auto;padding:12px 22px;border:1px solid var(--line);border-radius:10px;color:var(--ink);background:var(--panel)}
+ .pos-app .pos-activity-list{display:grid;gap:10px;margin-top:14px}.pos-app .pos-activity-row{display:flex;justify-content:space-between;gap:20px;padding:14px;border-bottom:1px solid var(--line)}
+ .pos-app .pos-activity-row>div{display:grid;gap:6px}.pos-app .pos-activity-row small{color:var(--muted)}.pos-app .pos-activity-row>div:last-child{text-align:end}
+}
+@media screen and (max-width:800px){
+ html[data-portal=pos] :is(dialog,.sales-dialog,.finance-modal,.reports-modal,.modal) :is(button,input,select,textarea,label,h1,h2,h3,strong,b,small,p,a,span,td,th){font-family:Cairo,sans-serif!important;font-weight:700!important}
+ html[data-theme=light] .portal-shell.pos-app{--panel:#fff;--raised:#eff2f2;--canvas:#f6f7f7;--line:#e3e7e7;--ink:#111617;--text:#111617;--muted:#6a7476;--soft-line:#e3e7e7}
+ html[data-theme=dark] .portal-shell.pos-app{--panel:#151a1b;--raised:#1c2223;--canvas:#0c0f10;--line:#303839;--ink:#ecefef;--text:#ecefef;--muted:#a5afb0;--soft-line:#303839}
+ html[data-theme] .portal-shell.pos-app{--accent:var(--pos-brand,#0d5c63);--accent-soft:color-mix(in srgb,var(--pos-brand) 12%,var(--panel));--blue-text:var(--ink);font-family:Cairo,sans-serif!important;font-weight:700}
+ html[data-theme] .portal-shell.pos-app :is(button,input,select,textarea,label,h1,h2,h3,h4,strong,b,small,p,a,span,td,th,dt,dd){font-family:Cairo,sans-serif!important;font-weight:700!important}
+ html[data-theme] .portal-shell.pos-app .pos-mobile-header{grid-template-columns:38px minmax(0,1fr) auto;gap:10px;min-height:82px;padding:calc(12px + env(safe-area-inset-top)) 16px 12px;background:var(--pos-header,#0f2b2e);border:0;color:#fff}
+ html[data-theme] .portal-shell.pos-app .pos-header-title{text-align:start;gap:4px}
+ html[data-theme] .portal-shell.pos-app .pos-header-title strong{font-size:17px;color:#fff}
+ html[data-theme] .portal-shell.pos-app .pos-header-title small{font-size:11px;color:#d4e3e3}
+ html[data-theme] .portal-shell.pos-app .pos-header-button{width:36px;height:38px;border:1px solid #ffffff24;background:#ffffff0d;color:#fff;border-radius:11px;position:relative}
+ .pos-header-tools{display:flex;align-items:center;gap:7px}
+ .pos-agent-brand{display:grid;justify-items:center;gap:3px;max-width:70px;min-width:28px;color:#fff}
+ .pos-agent-brand img{width:28px;height:28px;object-fit:contain;border-radius:7px;background:#fff}
+ .pos-agent-brand b{display:grid;place-items:center;width:28px;height:28px;background:#ffffff15;border:1px solid #ffffff35;border-radius:9px;color:#e4b861}
+ .pos-agent-brand small{font-size:9px;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ html[data-theme] .portal-shell.pos-app .pos-header-account{width:34px;height:34px;border-radius:50%;background:#fff;color:var(--pos-header);border:0}
+ html[data-theme] .portal-shell.pos-app .portal-main{padding:18px 16px;max-width:680px}
+ html[data-theme] .portal-shell.pos-app .pos-app-nav{box-shadow:none;padding-top:10px;background:var(--panel);border-color:var(--line)}
+ html[data-theme] .portal-shell.pos-app .pos-app-nav .pos-tab{grid-template-rows:28px 18px;gap:5px;min-height:54px;color:var(--muted)}
+ html[data-theme] .portal-shell.pos-app .pos-app-nav .pos-tab-label{font-size:10px;line-height:18px;height:18px}
+ html[data-theme] .portal-shell.pos-app .pos-app-nav :is([aria-current=page],.is-more-active){color:var(--ink)}
+ html[data-theme] .portal-shell.pos-app .pos-app-nav :is([aria-current=page],.is-more-active) .pos-tab-icon{background:var(--accent-soft);border-radius:9px}
+ html[data-theme] .portal-shell.pos-app :is(.btn.primary,.pos-phone-sale .btn.primary){background:var(--pos-brand);color:var(--pos-brand-ink);border-color:transparent;min-height:48px;border-radius:14px}
+ html[data-theme] .portal-shell.pos-app :is(input:not([type=checkbox]):not([type=radio]),select,textarea){background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;min-height:46px;font-size:14px;max-width:100%}
+ html[data-theme] .portal-shell.pos-app :is(.card,.digital-config,.digital-confirm,.digital-sale-summary){border-radius:18px;background:var(--panel);border-color:var(--line);box-shadow:none;color:var(--ink)}
+ html[data-theme] .portal-shell.pos-app .card{padding:16px}
+ html[data-theme] .portal-shell.pos-app :is(.toolbar,.formgrid,.filter-bar-fields){gap:10px}
+ html[data-theme] .portal-shell.pos-app :is(.digital-services,.finance-workspace,.sales-workspace,.dashboard-workspace,.account-workspace){color:var(--ink);min-width:0}
+ html[data-theme] .portal-shell.pos-app .notice{border-radius:12px;line-height:1.7;font-size:12px}
+ html[data-theme] .portal-shell.pos-app .notice.warn{background:color-mix(in srgb,#9c7224 12%,var(--panel));color:var(--ink);border:1px solid color-mix(in srgb,#9c7224 35%,var(--line))}
+ html[data-theme] .portal-shell.pos-app .pos-service-tabs{display:flex;gap:8px;overflow:auto;scrollbar-width:none;background:transparent;padding:0}
+ html[data-theme] .portal-shell.pos-app .pos-service-tabs button{flex:1;min-width:65px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--muted);min-height:42px;font-size:12px}
+ html[data-theme] .portal-shell.pos-app .pos-service-tabs button.active{background:var(--pos-brand);color:var(--pos-brand-ink);border-color:transparent;box-shadow:none}
+ .pos-company-controls{display:flex;gap:8px;align-items:center}
+ html[data-theme] .portal-shell.pos-app .pos-catalog-filters.pos-search-only{grid-template-columns:1fr}
+ .pos-company-controls .btn{flex:1;min-height:40px;background:var(--panel);border-color:var(--line);color:var(--ink)}
+ .pos-company-controls .btn.active{border-color:var(--pos-brand);background:var(--accent-soft)}
+ .pos-company-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ .pos-company-card{position:relative;border:1px solid var(--line);background:var(--panel);border-radius:16px;min-width:0;padding:12px}
+ .pos-company-select{display:grid;grid-template-columns:38px minmax(0,1fr);gap:9px;align-items:center;width:100%;border:0;background:transparent;color:var(--ink);text-align:start;padding:0 0 24px;min-height:72px}
+ .pos-company-mark{display:grid;place-items:center;width:38px;height:38px;background:var(--raised);border-radius:11px;color:var(--ink);font-size:17px;overflow:hidden}
+ .pos-company-mark img{width:100%;height:100%;object-fit:contain}
+ .pos-company-copy{display:grid;gap:5px;min-width:0}
+ .pos-company-copy strong{font-size:13px;line-height:1.5;overflow-wrap:anywhere}
+ .pos-company-copy small{font-size:11px;color:var(--muted)}
+ .pos-favorite{position:absolute;inset-inline-end:10px;bottom:7px;width:28px;height:28px;background:transparent;border:0;color:var(--muted);font-size:22px;line-height:1}
+ .pos-favorite[aria-pressed=true]{color:#9c7224}
+ .pos-company-back{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:12px}
+ .pos-company-back strong{font-size:15px;overflow-wrap:anywhere}
+ html[data-theme] .portal-shell.pos-app .pos-phone-products{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+ html[data-theme] .portal-shell.pos-app .pos-phone-products>.pos-product-card{display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;gap:10px;min-height:145px;padding:14px;border-radius:16px;box-shadow:none}
+ .portal-shell.pos-app .pos-product-card .pos-product-icon{width:30px;height:30px;border-radius:9px;background:var(--raised);color:var(--ink)}
+ .portal-shell.pos-app .pos-product-card .pos-product-icon svg{width:19px;height:19px}
+ .portal-shell.pos-app .pos-product-card .pos-product-info strong{font-size:15px;line-height:1.6}
+ .portal-shell.pos-app .pos-product-card .pos-product-info span{display:none}
+ .portal-shell.pos-app .pos-product-card .pos-product-price{display:flex;align-items:baseline;justify-content:flex-start;gap:5px;min-width:0}
+ .portal-shell.pos-app .pos-product-card .pos-product-price b{font-size:17px;color:var(--ink)}
+ .portal-shell.pos-app .pos-product-card .pos-product-chevron{display:none}
+ .pos-load-more{width:100%;min-height:44px;background:var(--panel);border:1px solid var(--line);color:var(--ink);border-radius:12px}
+ .pos-home-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:18px 0}
+ .pos-home-shortcuts a{display:grid;justify-items:center;align-content:center;gap:10px;min-height:85px;border:1px solid var(--line);border-radius:15px;background:var(--panel);color:var(--ink);text-align:center;text-decoration:none;font-size:12px}
+ .pos-home-shortcuts svg{width:24px;height:24px;color:var(--ink)}
+ html[data-theme] .portal-shell.pos-app .dashboard-kpis>.dashboard-kpi{min-height:125px;border-radius:17px;padding:14px}
+ html[data-theme] .portal-shell.pos-app .dashboard-kpis>.dashboard-kpi[data-kpi=sales]{grid-column:1/-1;min-height:180px;background:var(--pos-header);color:#fff;position:relative;overflow:hidden}
+ html[data-theme] .portal-shell.pos-app .dashboard-kpi[data-kpi=sales] :is(.dashboard-kpi-head,.dashboard-kpi-number strong,.dashboard-kpi-number small,.caption){color:#fff}
+ html[data-theme] .portal-shell.pos-app .dashboard-kpi[data-kpi=sales] .dashboard-kpi-number strong{font-size:36px}
+ html[data-theme] .portal-shell.pos-app .dashboard-kpi[data-kpi=sales] .dashboard-kpi-icon{background:#ffffff14;color:#fff}
+ html[data-theme] .portal-shell.pos-app .dashboard-kpi[data-kpi=sales] .dashboard-kpi-footer{border-color:#ffffff25}
+ html[data-theme] .portal-shell.pos-app .dashboard-kpi[data-kpi=sales] .btn{color:#fff;border-color:#ffffff40;background:#ffffff0c}
+ .pos-activity-list{display:grid;gap:10px;margin-top:14px}
+ .pos-activity-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--panel)}
+ .pos-activity-row>div{display:grid;gap:6px;min-width:0}
+ .pos-activity-row strong{font-size:13px;overflow-wrap:anywhere}
+ .pos-activity-row small{font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+ .pos-activity-row>div:last-child{justify-items:end;text-align:end}
+ html[data-theme] .portal-shell.pos-app .activity-card-heading{align-items:center;flex-wrap:wrap;gap:10px}
+ html[data-theme] .portal-shell.pos-app .activity-card-heading h2{font-size:17px}
+ html[data-theme] .portal-shell.pos-app .activity-display-tools{gap:6px}
+ html[data-theme] .portal-shell.pos-app .activity-display-tools select{min-height:36px}
+ html[data-theme] .portal-shell.pos-app .topup-mobile-categories{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0}
+ .topup-mobile-category{display:grid;gap:10px;padding:14px;border:1px solid var(--line);border-radius:15px;background:var(--panel);min-width:0}
+ .topup-mobile-category strong{font-size:14px;overflow-wrap:anywhere}
+ .topup-mobile-category small{font-size:11px;color:var(--muted)}
+ .topup-mobile-category .btn{width:100%;font-size:12px}
+ html[data-theme] .portal-shell.pos-app .topup-available-table{display:none}
+ html[data-theme] .portal-shell.pos-app .topup-target-toolbar{display:flex;justify-content:flex-end;margin:0;padding:0;min-height:0}
+ html[data-theme] .portal-shell.pos-app .topup-summary-row{display:grid;gap:10px}
+ html[data-theme] .portal-shell.pos-app .topup-summary-row .digital-status-summary{display:none}
+ html[data-theme] .portal-shell.pos-app .digital-services .digital-sale-summary{display:grid;gap:10px;padding:16px;margin:10px 0}
+ html[data-theme] .portal-shell.pos-app .digital-services .digital-sale-summary strong{font-size:24px;color:var(--ink)}
+ html[data-theme] .portal-shell.pos-app .digital-services .formgrid{grid-template-columns:1fr;gap:14px}
+ html[data-theme] .portal-shell.pos-app .digital-services .formgrid label{gap:7px;font-size:13px;min-width:0}
+ html[data-theme] .portal-shell.pos-app .digital-services .formfoot{display:flex;flex-wrap:wrap;gap:10px}
+ html[data-theme] .portal-shell.pos-app .digital-services .formfoot .btn.primary{width:100%;order:1}
+ html[data-theme] .portal-shell.pos-app .digital-services .digital-confirm .btn.primary{width:100%;margin-top:10px}
+ html[data-theme] .portal-shell.pos-app .sidebar{background:var(--panel);color:var(--ink);border-color:var(--line)}
+ html[data-theme] .portal-shell.pos-app .sidebar :is(.navitem,.navgroup,.nav-label,.profile-picker){color:var(--ink)}
+ html[data-theme] .portal-shell.pos-app .sidebar .navitem[aria-current=page]{background:var(--accent-soft);color:var(--ink)}
+ html[data-theme] .portal-shell.pos-app :is(.report-modal,.sales-dialog,.finance-modal,.preferences-dialog){font-family:Cairo,sans-serif;color:var(--ink);background:var(--panel);border-color:var(--line);max-width:calc(100vw - 24px)}
+}
+.topup-mobile-categories{display:none}
+@media screen and (max-width:360px){.pos-agent-brand small{display:none}.pos-header-tools .pos-header-account{display:none}.pos-agent-brand{max-width:30px}}
+@media(prefers-reduced-motion:reduce){.pos-app *{scroll-behavior:auto!important;transition:none!important;animation:none!important}}

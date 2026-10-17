@@ -142,8 +142,8 @@ class ManagementAuthority
     {
         $data = array_intersect_key($attributes, array_flip(AccountDataRequest::FIELDS));
         $merged = array_merge($old?->only(AccountDataRequest::FIELDS) ?? [], $data);
-        $required = $type === AccountType::Pos ? ['name', 'owner_name', 'city', 'address', 'phone', 'device_model', 'app_version'] : ['name', 'city', 'phone', 'color'];
-        if ($type === AccountType::Pos && ($merged['device_lock_enabled'] ?? true)) {
+        $required = $type === AccountType::Pos ? ['name', 'owner_name', 'city', 'address', 'phone'] : ['name', 'city', 'phone', 'color'];
+        if ($type === AccountType::Pos && $old && ! $old->device_binding_enabled && ($merged['device_lock_enabled'] ?? true)) {
             $required[] = 'serial';
         }
         Validator::make($merged, collect($required)->mapWithKeys(fn (string $field): array => [$field => ['required', 'string']])->all())->validate();

@@ -1,0 +1,33 @@
+/* Application controls are outside .receipt, which native and browser printing capture. */
+@media screen{
+ html[data-portal=pos] .sales-receipt-dialog .receipt-app-state{display:grid;justify-items:center;text-align:center;gap:6px;margin:4px auto 17px;max-width:560px;color:var(--ink)}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-app-state-icon{width:44px;height:44px;border-radius:15px;display:grid;place-items:center;background:var(--accent-soft,#e5f0ed);color:var(--pos-accent,var(--accent));margin-bottom:2px}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-app-state-icon svg{width:24px;height:24px}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-app-state[data-tone=success] .receipt-app-state-icon{background:#e5f3eb;color:#197250}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-app-state[data-tone=pending] .receipt-app-state-icon{background:#f6edd9;color:#8c6723}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-app-state[data-tone=failed] .receipt-app-state-icon{background:#f8e8e3;color:#a34c3c}
+ html[data-theme=dark][data-portal=pos] .sales-receipt-dialog .receipt-app-state[data-tone=success] .receipt-app-state-icon{background:#193b32;color:#8ad5b1}
+ html[data-theme=dark][data-portal=pos] .sales-receipt-dialog .receipt-app-state[data-tone=pending] .receipt-app-state-icon{background:#3b3422;color:#e1bc75}
+ html[data-theme=dark][data-portal=pos] .sales-receipt-dialog .receipt-app-state[data-tone=failed] .receipt-app-state-icon{background:#3e2926;color:#e6a295}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-app-state h3{font-size:19px;font-weight:800!important;line-height:1.65;margin:0}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-app-state p{font-size:12px;color:var(--muted);line-height:1.8;margin:0}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-app-meta{display:flex;align-items:center;justify-content:center;gap:12px;color:var(--muted);font-size:11px;line-height:1.7}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-app-meta span+span{border-inline-start:1px solid var(--line);padding-inline-start:12px}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-app-paper{width:100%;margin-inline:auto;padding-bottom:6px}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-app-paper>.receipt{margin-top:0;box-shadow:0 13px 24px -25px #0d333d80}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-pin-copy{display:grid;justify-items:center;gap:8px;margin:12px auto 16px;max-width:540px;color:var(--muted);font-size:11px}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-pin-copy>div{display:flex;justify-content:center;flex-wrap:wrap;gap:7px}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-pin-copy .btn{display:flex;align-items:center;justify-content:center;gap:7px;border-radius:11px;min-height:44px;background:var(--panel);color:var(--pos-accent,var(--accent));padding:8px 12px}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-pin-copy svg{width:16px;height:16px;flex:none}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-pin-copy p{margin:0;font-size:11px;color:var(--muted);line-height:1.8}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-primary-actions{position:sticky;bottom:-20px;z-index:2;display:flex;flex-wrap:wrap;gap:8px;background:var(--panel,#fff);border-top:1px solid var(--line);margin:18px -16px -20px;padding:12px 16px calc(15px + env(safe-area-inset-bottom,0px));box-shadow:0 -7px 18px -18px #0d2d38;isolation:isolate}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-primary-actions:empty{display:none}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-primary-actions>.btn{min-height:46px;flex:1 1 130px;border-radius:13px;font-size:13px;justify-content:center;text-align:center}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-primary-actions>.btn.primary{flex-basis:100%}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-result-panel{border-radius:17px;background:var(--panel);border:1px solid var(--line)}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-result-heading b{font-size:16px}
+ @media(min-width:801px){html[data-portal=pos] .sales-receipt-dialog .receipt-app-state{margin-top:9px}html[data-portal=pos] .sales-receipt-dialog .receipt-primary-actions{bottom:0;margin-inline:0;margin-bottom:0;border-radius:15px;padding:12px 16px}}
+}
+@media print{
+ .sales-receipt-dialog .receipt-app-paper{display:block!important;width:auto!important;height:auto!important;max-height:none!important;overflow:visible!important;padding:0!important;margin:0!important;background:#fff!important;border:0!important;box-shadow:none!important}
+}

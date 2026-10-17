@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Digital;
 
+use App\Services\Sales\RegisteredDevices;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Validator;
@@ -25,7 +26,7 @@ class DigitalRequest extends FormRequest
     {
         $action = $this->route()->getActionMethod();
         if ($this->isMethod('GET')) {
-            return ['page' => ['nullable', 'integer', 'min:1'], 'per_page' => ['nullable', 'integer', 'min:1', 'max:100'], 'q' => ['nullable', 'string', 'max:160'], 'provider' => ['nullable', 'in:rabiaa,topup'], 'account_id' => ['nullable', 'integer', 'min:1'], 'main_account_id' => ['nullable', 'integer', 'min:1'], 'product_id' => ['nullable', 'integer', 'min:1'], 'status' => ['nullable', 'in:pending,review,succeeded,failed,refunded'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d']];
+            return ['compact' => ['sometimes', 'boolean'], 'page' => ['nullable', 'integer', 'min:1'], 'per_page' => ['nullable', 'integer', 'min:1', 'max:100'], 'q' => ['nullable', 'string', 'max:160'], 'provider' => ['nullable', 'in:rabiaa,topup'], 'account_id' => ['nullable', 'integer', 'min:1'], 'main_account_id' => ['nullable', 'integer', 'min:1'], 'product_id' => ['nullable', 'integer', 'min:1'], 'status' => ['nullable', 'in:pending,review,succeeded,failed,refunded'], 'from' => ['nullable', 'date_format:Y-m-d'], 'to' => ['nullable', 'date_format:Y-m-d']];
         }
         $key = ['idempotency_key' => ['required', 'string', 'regex:/\A[a-zA-Z0-9._:-]{8,100}\z/']];
         $version = ['version' => ['required', 'integer', 'min:0']];
@@ -51,7 +52,10 @@ class DigitalRequest extends FormRequest
             return $key + ['version' => ['required', 'integer', 'min:1']];
         }
         if ($action === 'heartbeat') {
-            return ['app_version' => ['required', 'string', 'regex:/\A[0-9]+\.[0-9]+\.[0-9]+\z/', 'max:30'], 'serial' => ['sometimes', 'string', 'max:190'], 'os_version' => ['sometimes', 'string', 'regex:/\A[0-9]+(?:\.[0-9]+){0,3}\z/', 'max:30']];
+            return RegisteredDevices::rules();
+        }
+        if ($action === 'recordReview') {
+            return $key + ['version' => ['required', 'integer', 'min:1'], 'reference' => ['required', 'string', 'max:120'], 'note' => ['required', 'string', 'max:1000'], 'current_password' => ['required', 'string', 'max:200']];
         }
 
         return [];

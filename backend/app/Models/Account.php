@@ -27,7 +27,7 @@ class Account extends Model
 
     protected function casts(): array
     {
-        return ['type' => AccountType::class, 'device_lock_enabled' => 'boolean', 'version' => 'integer', 'archived_at' => 'datetime'];
+        return ['type' => AccountType::class, 'device_binding_enabled' => 'boolean', 'device_lock_enabled' => 'boolean', 'version' => 'integer', 'archived_at' => 'datetime'];
     }
 
     public function parent(): BelongsTo

@@ -45,7 +45,7 @@ class DigitalConnection extends Model
 
     public function offers(): HasMany
     {
-        return $this->hasMany(DigitalOffer::class, 'connection_id');
+        return $this->hasMany(DigitalOffer::class, 'connection_id')->chaperone('connection');
     }
 
     public function grants(): HasMany

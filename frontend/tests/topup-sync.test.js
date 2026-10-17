@@ -21,7 +21,7 @@ test('Topup settings distinguish an empty provider catalog from a known balance 
   try{
     const settings=(await server.ssrLoadModule('/src/modules/digital/DigitalSettings.vue')).default;
     const connection={id:12,account_id:2,account_name:'الوكيل الرئيسي',provider:'topup',credential_present:true,active:true,version:3,offers:[],grants:[],company_balance:'100000.00',catalog_count:0,gateway:{configured:true,balance_supported:true}};
-    const vm={ownId:ref(1),key:()=>({}),state:reactive({options:{accounts:[]},connections:[connection],connectionsMeta:{current_page:1,last_page:1,total:1},busy:false,loading:false})};
+    const vm={session:{api:{request:()=>{throw Error('Rendering must not query account lists');}},refresh:async()=>null},ownId:ref(1),key:()=>({}),state:reactive({options:{accounts:[]},connections:[connection],connectionsMeta:{current_page:1,last_page:1,total:1},busy:false,loading:false})};
     const owner=await renderToString(createSSRApp({render:()=>h(settings,{vm,canSetup:true,canAssign:false})}));
     assert.ok(owner.includes('100,000'));
     assert.ok(owner.includes('الشركة رجّعت قائمة فئات فارغة'));

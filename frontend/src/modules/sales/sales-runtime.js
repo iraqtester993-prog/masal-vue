@@ -6,7 +6,8 @@ export function useSalesRuntime() {
   const {session} = usePortal(),api = createSalesApi(session.api);
   const identity = computed(()=>session.state.identity),ownId = computed(()=>Number(identity.value?.account.id));
   const seller = computed(()=>sellerTypes.includes(identity.value?.account.type)),pos = computed(()=>identity.value?.account.type === 'pos');
-  const state = reactive({options:{accounts:[],products:[]},products:[],loading:false,busy:false,error:'',notice:'',uncertain:false});
+  const initialOptions=api.peekOptions()?.data ?? {accounts:[],products:[]},initialProducts=api.peekProducts();
+  const state = reactive({options:{...initialOptions,...(initialProducts?{pending_print:initialProducts.pending_print??null}:{})},products:initialProducts?.data??initialOptions.products??[],loading:false,busy:false,error:'',notice:'',uncertain:false});
   const receipt = ref(null), receiptLoading = ref(false); let reader,receiptReader,revision = 0,receiptRevision = 0;
   const writer = new AbortController();
   async function failure(error) {
@@ -15,14 +16,15 @@ export function useSalesRuntime() {
   }
   async function load(configuration = false) {
     reader?.abort(); reader = new AbortController(); const expected = ++revision;
-    state.loading = true; state.error = '';
+    const cached=api.peekOptions(configuration);if(cached){state.options=cached.data;state.products=cached.data.products||[];}
+    state.loading = !cached; state.error = '';
     try {const response = await (configuration ? api.configuration(reader.signal):api.options(reader.signal)); if(expected !== revision)return; state.options = response.data; state.products = response.data.products || [];}
     catch(error) {if(error.name !== 'AbortError' && expected === revision)state.error = await failure(error);}
     finally {if(expected === revision)state.loading = false;}
   }
   async function refreshProducts() {
     if (!seller.value) return;
-    try {state.products = (await api.products(writer.signal)).data;} catch(error) {if(error.name !== 'AbortError')state.error = await failure(error);}
+    try {const response = await api.products(writer.signal,{fresh:true});state.products = response.data;state.options.pending_print = response.pending_print || null;} catch(error) {if(error.name !== 'AbortError')state.error = await failure(error);}
   }
   async function execute(payload,key,action,notice = 'تم حفظ العملية.') {
     if (state.busy) return null;
@@ -38,7 +40,8 @@ export function useSalesRuntime() {
       const response = (await api.receipt(sale.id,receiptReader.signal)).data;
       if(expected !== receiptRevision)return;
       response.sale.attempts = detail.attempts || [];
-      if(response.sale.status === 'Reprint Requested') {
+      state.options.pending_print = response.pending_print || null;
+      if(response.sale.status === 'Reprint Requested' && typeof response.reprint_approved !== 'boolean') {
         const requests = await api.list('reprint-requests',{status:'approved',q:String(sale.id),per_page:100},receiptReader.signal);
         response.reprint_approved = requests.data.some(request=>Number(request.id)===Number(response.sale.reprint_request_id));
       }

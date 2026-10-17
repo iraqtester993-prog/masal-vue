@@ -31,6 +31,13 @@ class ArchiveBlockers
                 break;
             }
         }
+        foreach (['topup_grants', 'topup_wallet_bindings', 'topup_finance_events'] as $required) {
+            abort_unless(Schema::hasTable($required), 503, 'تعذر التحقق من سلامة أرصدة Topup قبل الأرشفة.');
+        }
+        if (DB::table('topup_grants')->where('target_account_id', $id)->whereNotNull('connection_id')->where(fn ($query) => $query->where('balance_minor', '<>', 0)->orWhere('held_minor', '<>', 0))->exists()
+            || DB::table('finance_wallets')->where('account_id', $id)->where('service', 'topup')->where('kind', 'external')->where(fn ($query) => $query->where('balance_minor', '<>', 0)->orWhere('held_minor', '<>', 0))->exists()) {
+            $reasons[] = 'يجب تسوية حصة Topup وأرصدة النقاط والربح المحاسبي والحجوزات قبل الأرشفة.';
+        }
         $checks = [
             ['finance_funding_requests', ['from_account_id', 'to_account_id'], ['approved', 'rejected', 'cancelled'], 'يوجد طلب تمويل غير مغلق.'],
             ['finance_invoices', ['account_id'], ['paid', 'cancelled'], 'يوجد رصيد فاتورة غير مسدد.'],

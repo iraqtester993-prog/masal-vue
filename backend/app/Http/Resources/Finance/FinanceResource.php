@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Finance;
 
+use App\Enums\AccountType;
 use App\Models\Finance\FundingRecovery;
 use App\Models\Finance\FundingRequest;
 use App\Models\Finance\Invoice;
@@ -42,6 +43,16 @@ class FinanceResource extends JsonResource
         }
         if ($r instanceof Invoice) {
             $base['creditor_account_id'] = $r->creditor_account_id;
+            if ($r->source_type === 'digital_topup' && $r->digitalOrder) {
+                $base['quantity'] = 1;
+                if ($request->user()->membership->account->type !== AccountType::Pos && in_array('data.cost', $request->user()->membership->permissions(), true)) {
+                    $base['load_price'] = Money::decimal($r->digitalOrder->admin_price_minor);
+                }
+                if ($request->user()->membership->account->type !== AccountType::Pos && in_array('data.profit', $request->user()->membership->permissions(), true)) {
+                    $base['profit'] = Money::decimal($r->digitalOrder->quoted_retail_minor - $r->digitalOrder->admin_price_minor);
+                }
+            }
+
             return $base + ['kind' => $r->kind, 'supplier' => $r->supplier, 'service' => $r->service, 'currency' => $r->currency, 'amount' => Money::decimal($r->amount_minor), 'paid' => Money::decimal($r->paid_minor), 'remaining' => Money::decimal($r->amount_minor - $r->paid_minor), 'reference' => $r->reference, 'source_type' => $r->source_type, 'source_id' => $r->source_id];
         }
         if ($r instanceof FundingRequest) {

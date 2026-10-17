@@ -9,11 +9,13 @@ use App\Models\Digital\DigitalConnection;
 use App\Models\Digital\DigitalGrant;
 use App\Models\Digital\DigitalOffer;
 use App\Models\Digital\DigitalOrder;
+use App\Models\Finance\Wallet;
 use App\Models\Operations\DirectStop;
 use App\Models\Sales\PrintPolicy;
 use App\Models\Sales\Sale;
 use App\Services\Digital\DigitalAccess;
 use App\Services\Digital\DigitalOperations;
+use App\Services\Digital\ProviderGateway;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Factory;
@@ -54,7 +56,7 @@ class DigitalServicesTest extends TestCase
         });
     }
 
-    private function fixture(string $provider = 'rabiaa', bool $companyMetadata = true, bool $crossCompanyProduct = false): array
+    private function fixture(string $provider = 'rabiaa', bool $companyMetadata = true, bool $crossCompanyProduct = false, bool $fundedTopup = true): array
     {
         $system = $this->account(AccountType::System);
         $main = $this->account(AccountType::MainAgent, $system);
@@ -72,7 +74,7 @@ class DigitalServicesTest extends TestCase
         $rule = DB::table('catalog_account_rules')->insertGetId(['target_account_id' => $main->id, 'authority_account_id' => $system->id]);
         DB::table('catalog_rule_products')->insert(['rule_id' => $rule, 'product_id' => $product->id]);
         $this->asPortalUser($admin);
-        $configuration = ['version' => 0, 'provider' => $provider, 'account_id' => $main->id, ...($companyMetadata ? ['provider_id' => $company->id] : []), 'active' => true, 'credential' => 'fixture-gateway-secret-123', 'offers' => [], 'idempotency_key' => 'fixture-config-001'];
+        $configuration = ['version' => 0, 'provider' => $provider, 'account_id' => $provider === 'topup' ? $system->id : $main->id, ...($companyMetadata ? ['provider_id' => $company->id] : []), 'active' => true, 'credential' => 'fixture-gateway-secret-123', 'offers' => [], 'idempotency_key' => 'fixture-config-001'];
         $connection = $this->postJson('/api/v1/digital/connections', $configuration)->assertCreated()->assertJsonMissingPath('data.credential')->json('data');
         $catalog = $this->postJson('/api/v1/digital/connections/'.$connection['id'].'/catalog', ['version' => 1])->assertOk()->json('data');
         $offer = ['product_id' => $product->id, 'remote_id' => $provider === 'topup' ? 'PRODUCT-51' : '71', 'province_id' => $provider === 'topup' ? '' : '2', 'retail' => '5000.25', 'active' => true];
@@ -80,6 +82,15 @@ class DigitalServicesTest extends TestCase
         unset($configuration['credential']);
         $connection = $this->putJson('/api/v1/digital/connections/'.$connection['id'], $configuration)->assertOk()->json('data');
         $offer = $connection['offers'][0];
+        if ($provider === 'topup') {
+            DigitalGrant::factory()->create(['connection_id' => $connection['id'], 'from_account_id' => $system->id, 'target_account_id' => $main->id, 'offer_ids' => [$offer['id']], 'active' => true, 'version' => 1]);
+            if ($fundedTopup) {
+                $this->postJson('/api/v1/digital/connections/'.$connection['id'].'/balance')->assertOk();
+                $this->putJson('/api/v1/topup/distribution/'.$main->id, ['connection_id' => $connection['id'], 'allocation_balance' => '100000.00', 'category_ids' => [], 'active' => true, 'version' => 0, 'idempotency_key' => 'fixture-topup-allocation'])->assertOk();
+                $this->asPortalUser($owner);
+                $this->postJson('/api/v1/finance/transfers', ['from_account_id' => $main->id, 'to_account_id' => $pos->id, 'service' => 'topup', 'currency' => 'IQD', 'amount' => '20000.00', 'reference' => 'Digital fixture point funding', 'idempotency_key' => 'fixture-topup-funding'])->assertCreated();
+            }
+        }
         foreach ([[$owner, $sub], [$subOwner, $branch], [$branchOwner, $pos]] as [$actor, $target]) {
             $this->asPortalUser($actor);
             $this->putJson('/api/v1/digital/connections/'.$connection['id'].'/grants/'.$target->id, ['version' => 0, 'offer_ids' => [$offer['id']], 'active' => true, 'idempotency_key' => 'fixture-grant-'.$target->id])->assertOk();
@@ -88,7 +99,24 @@ class DigitalServicesTest extends TestCase
         $this->postJson('/api/v1/digital/device-session', ['app_version' => '1.0.0'])->assertOk();
         $this->withCredentials()->withCookie(config('session.cookie'), app('session')->getId());
 
-        return compact('system', 'main', 'sub', 'branch', 'pos', 'admin', 'owner', 'subOwner', 'branchOwner', 'seller', 'company', 'product', 'connection', 'offer', 'configuration');
+        if ($provider === 'topup' && $fundedTopup) {
+            $this->assertDatabaseCount('finance_entries', 4);
+            $this->assertDatabaseCount('finance_wallets', 4);
+            $this->assertDatabaseHas('finance_wallets', ['account_id' => $main->id, 'service' => 'topup', 'kind' => 'account', 'balance_minor' => 8000000, 'held_minor' => 0]);
+            $this->assertDatabaseHas('finance_wallets', ['account_id' => $pos->id, 'service' => 'topup', 'kind' => 'account', 'balance_minor' => 2000000, 'held_minor' => 0]);
+        }
+        $financeBaseline = ['entries' => DB::table('finance_entries')->count(), 'wallets' => Wallet::count(), 'main' => (int) Wallet::where('account_id', $main->id)->where('service', 'topup')->where('kind', 'account')->value('balance_minor'), 'point' => (int) Wallet::where('account_id', $pos->id)->where('service', 'topup')->where('kind', 'account')->value('balance_minor')];
+
+        return compact('system', 'main', 'sub', 'branch', 'pos', 'admin', 'owner', 'subOwner', 'branchOwner', 'seller', 'company', 'product', 'connection', 'offer', 'configuration', 'financeBaseline');
+    }
+
+    private function assertFundedTopupLedger(array $f, int $sales = 0, int $refunds = 0): void
+    {
+        $this->assertDatabaseCount('finance_entries', $f['financeBaseline']['entries'] + 2 * ($sales + $refunds));
+        $this->assertDatabaseCount('finance_wallets', $f['financeBaseline']['wallets']);
+        $this->assertSame($f['financeBaseline']['main'], Wallet::where('account_id', $f['main']->id)->where('service', 'topup')->where('kind', 'account')->value('balance_minor'));
+        $this->assertSame($f['financeBaseline']['point'] - 500025 * ($sales - $refunds), Wallet::where('account_id', $f['pos']->id)->where('service', 'topup')->where('kind', 'account')->value('balance_minor'));
+        $this->assertDatabaseHas('topup_grants', ['target_account_id' => $f['main']->id, 'balance_minor' => 10000000 - 500025 * ($sales - $refunds), 'spent_minor' => 500025 * ($sales - $refunds)]);
     }
 
     private function input(array $fixture, string $id = 'digital-order-001'): array
@@ -101,6 +129,64 @@ class DigitalServicesTest extends TestCase
         Http::swap(new Factory);
         Http::preventStrayRequests();
         Http::fake($responses);
+    }
+
+    public function test_point_offer_list_does_not_load_other_points_grants_and_observes_revocation(): void
+    {
+        $f = $this->fixture();
+        for ($i = 0; $i < 30; $i++) {
+            $other = $this->account(AccountType::Pos, $f['main']);
+            DigitalGrant::factory()->create(['connection_id' => $f['connection']['id'], 'from_account_id' => $f['main']->id, 'target_account_id' => $other->id, 'offer_ids' => [$f['offer']['id']]]);
+        }
+        $loaded = [];
+        DigitalGrant::retrieved(function (DigitalGrant $grant) use (&$loaded): void {
+            $loaded[] = $grant->target_account_id;
+        });
+        $this->getJson('/api/v1/digital/offers')->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $f['offer']['id']);
+        sort($loaded);
+        $this->assertSame([$f['sub']->id, $f['branch']->id, $f['pos']->id], $loaded);
+        DigitalGrant::where('connection_id', $f['connection']['id'])->where('target_account_id', $f['pos']->id)->update(['active' => false]);
+        $this->getJson('/api/v1/digital/offers')->assertOk()->assertJsonCount(0, 'data');
+        $this->assertDatabaseCount('digital_orders', 0);
+        $this->assertDatabaseCount('finance_transactions', 0);
+    }
+
+    public function test_new_request_locks_connection_before_the_request_gap_and_replay_ignores_later_connection_pause(): void
+    {
+        $f = $this->fixture();
+        $events = [];
+        DB::listen(function ($query) use (&$events): void {
+            $sql = strtolower(str_replace(['`', '"'], '', $query->sql));
+            if (str_starts_with($sql, 'select * from digital_connections')) {
+                $events[] = 'connection';
+            } elseif (str_starts_with($sql, 'select * from digital_orders where request_id')) {
+                $events[] = 'request';
+            }
+        });
+        $input = $this->input($f, 'connection-before-gap');
+        $first = $this->postJson('/api/v1/digital/orders', $input)->assertCreated()->assertJsonPath('data.status', 'succeeded')->json('data.id');
+        $this->assertContains('connection', $events);
+        $this->assertContains('request', $events);
+        $this->assertLessThan(array_search('request', $events, true), array_search('connection', $events, true));
+        $providerCalls = count(Http::recorded());
+        DigitalConnection::whereKey($f['connection']['id'])->update(['active' => false]);
+        $this->postJson('/api/v1/digital/orders', $input)->assertCreated()->assertJsonPath('data.id', $first)->assertJsonPath('data.status', 'succeeded');
+        $this->assertSame($providerCalls, count(Http::recorded()));
+        $this->assertDatabaseCount('digital_orders', 1);
+        $this->assertDatabaseCount('digital_provider_attempts', 1);
+    }
+
+    public function test_new_main_owned_topup_purchase_requires_central_allocation_and_never_reaches_provider(): void
+    {
+        $f = $this->fixture('topup', true, false, false);
+        DigitalConnection::whereKey($f['connection']['id'])->update(['account_id' => $f['main']->id]);
+        $before = count(Http::recorded());
+        $this->postJson('/api/v1/digital/orders', $this->input($f))->assertConflict();
+        $this->assertSame($before, count(Http::recorded()));
+        $this->assertDatabaseCount('digital_orders', 0);
+        $this->assertDatabaseCount('finance_entries', 0);
+        $this->assertDatabaseCount('finance_wallets', 0);
     }
 
     public function test_unauthenticated_digital_api_is_denied(): void
@@ -126,13 +212,17 @@ class DigitalServicesTest extends TestCase
         $this->getJson('/api/v1/digital/orders/'.$order['id'].'/receipt')->assertOk()->assertJsonPath('data.code', 'actual-incoming-token-card');
         $this->asPortalUser($f['admin']);
         $this->getJson('/api/v1/digital/connections')->assertOk()->assertJsonPath('data.0.provider_name', $name)->assertJsonPath('data.0.provider_id', null)->assertJsonMissingPath('data.0.credential');
-        $this->assertDatabaseHas('digital_connections', ['id' => $f['connection']['id'], 'account_id' => $f['main']->id, 'provider_id' => null, 'company_balance_minor' => null]);
+        $this->assertDatabaseHas('digital_connections', ['id' => $f['connection']['id'], 'account_id' => $provider === 'topup' ? $f['system']->id : $f['main']->id, 'provider_id' => null, 'company_balance_minor' => $provider === 'topup' ? 11569935 : null]);
         $this->assertDatabaseHas('digital_orders', ['id' => $order['id'], 'main_account_id' => $f['main']->id, 'product_id' => $f['product']->id, 'actual_retail_minor' => 500025]);
         $this->assertDatabaseCount('catalog_providers', 1);
         $this->assertDatabaseCount('catalog_products', 1);
         $this->assertDatabaseCount('digital_provider_attempts', 1);
-        $this->assertDatabaseCount('finance_entries', 0);
-        $this->assertDatabaseCount('finance_wallets', 0);
+        if ($provider === 'topup') {
+            $this->assertFundedTopupLedger($f, 1);
+        } else {
+            $this->assertDatabaseCount('finance_entries', 0);
+            $this->assertDatabaseCount('finance_wallets', 0);
+        }
         Http::assertSentCount(2);
     }
 
@@ -230,9 +320,10 @@ class DigitalServicesTest extends TestCase
         $this->assertSame($calls, count(Http::recorded()));
     }
 
-    public function test_real_provider_result_is_idempotent_private_and_does_not_create_internal_money(): void
+    public function test_real_provider_result_is_idempotent_private_and_consumes_funded_money_once(): void
     {
         $f = $this->fixture('topup');
+        $companyBefore = DigitalConnection::findOrFail($f['connection']['id'])->company_balance_minor;
         $data = $this->input($f);
         $response = $this->postJson('/api/v1/digital/orders', $data);
         $this->assertSame(201, $response->status(), $response->getContent());
@@ -242,9 +333,8 @@ class DigitalServicesTest extends TestCase
         $this->assertCount(1, Http::recorded(fn ($request): bool => str_ends_with($request->url(), '/submit')));
         $this->assertDatabaseCount('digital_orders', 1);
         $this->assertDatabaseCount('digital_provider_attempts', 1);
-        $this->assertDatabaseCount('finance_entries', 0);
-        $this->assertDatabaseCount('finance_wallets', 0);
-        $this->assertDatabaseHas('digital_connections', ['id' => $f['connection']['id'], 'company_balance_minor' => 12000010]);
+        $this->assertFundedTopupLedger($f, 1, 0);
+        $this->assertDatabaseHas('digital_connections', ['id' => $f['connection']['id'], 'company_balance_minor' => $companyBefore - 430075]);
         $this->assertStringNotContainsString('fixture-gateway-secret-123', DB::table('digital_connections')->value('credential'));
         $this->assertSame(0, DB::table('audit_logs')->where('details', 'like', '%fixture-gateway-secret-123%')->count());
         $this->getJson('/api/v1/digital/orders/'.$order['id'].'/receipt')->assertOk()->assertJsonPath('data.code', 'actual-test-pin');
@@ -314,6 +404,8 @@ class DigitalServicesTest extends TestCase
         $this->asPortalUser($f['branchOwner']);
         $this->putJson($url.$f['pos']->id, ['version' => 1, 'offer_ids' => [$f['offer']['id']], 'active' => true, 'idempotency_key' => 'cannot-override-paused'])->assertOk();
         $this->asPortalUser($f['seller']);
+        $this->postJson('/api/v1/digital/device-session', ['app_version' => '1.0.0'])->assertOk();
+        $this->withCookie('masal_pos_session', session()->getId());
         $this->getJson('/api/v1/digital/offers')->assertOk()->assertJsonCount(0, 'data');
         $this->postJson('/api/v1/digital/orders', $this->input($f))->assertForbidden();
         $this->assertDatabaseCount('digital_orders', 0);
@@ -353,6 +445,8 @@ class DigitalServicesTest extends TestCase
         $payload['offers'][0]['province_id'] = '';
         $this->putJson('/api/v1/digital/connections/'.$f['connection']['id'], $payload)->assertOk()->assertJsonPath('data.offers.0.cost', null);
         $this->asPortalUser($f['seller']);
+        $this->postJson('/api/v1/digital/device-session', ['app_version' => '1.0.0'])->assertOk();
+        $this->withCookie('masal_pos_session', session()->getId());
         $this->getJson('/api/v1/digital/offers')->assertOk()->assertJsonCount(0, 'data');
         $this->postJson('/api/v1/digital/orders', $this->input($f))->assertNotFound();
         $this->assertDatabaseCount('finance_entries', 0);
@@ -386,9 +480,49 @@ class DigitalServicesTest extends TestCase
         $this->assertDatabaseCount('finance_entries', 0);
     }
 
-    public function test_refund_only_records_company_confirmation_and_never_sends_a_new_purchase_or_internal_credit(): void
+    #[TestWith(['succeeded'])]
+    #[TestWith(['failed'])]
+    #[TestWith(['review'])]
+    public function test_provider_reply_is_recorded_when_system_and_point_are_paused_after_dispatch_and_replay_never_buys_twice(string $status): void
     {
         $f = $this->fixture('topup');
+        Http::swap(new Factory);
+        Http::preventStrayRequests();
+        Http::fake(function ($request) use ($f, $status) {
+            if (str_ends_with($request->url(), '/submit')) {
+                DB::table('accounts')->whereIn('id', [$f['system']->id, $f['pos']->id])->update(['status' => 'disabled']);
+
+                return Http::response(['status' => $status, ...($status === 'succeeded' ? ['transactionId' => 'paused-provider-confirmed', 'receiptRef' => 'paused-provider-receipt', 'cost' => '4300.75', 'retail' => '5000.25'] : [])]);
+            }
+
+            return Http::response(['code' => 'private-paused-receipt', 'serial' => '000000701']);
+        });
+        $payload = $this->input($f, 'paused-provider-'.$status);
+        $order = $this->postJson('/api/v1/digital/orders', $payload)->assertCreated()->assertJsonPath('data.status', $status)->json('data');
+        $this->assertSame($status === 'review', (bool) DigitalOrder::findOrFail($order['id'])->reservation_active);
+        $this->assertCount(1, Http::recorded(fn ($request): bool => str_ends_with($request->url(), '/submit')));
+        $this->assertDatabaseCount('digital_provider_attempts', 1);
+        $this->assertFundedTopupLedger($f, $status === 'succeeded' ? 1 : 0);
+        DB::table('accounts')->whereIn('id', [$f['system']->id, $f['pos']->id])->update(['status' => 'active']);
+        $this->asPortalUser($f['seller']);
+        $this->postJson('/api/v1/digital/orders', $payload)->assertCreated()->assertJsonPath('data.id', $order['id']);
+        $this->assertCount(1, Http::recorded(fn ($request): bool => str_ends_with($request->url(), '/submit')));
+        if ($status === 'review') {
+            $this->providerResponse(['*/verify' => Http::response(['status' => 'succeeded', 'transactionId' => 'paused-verified-once', 'receiptRef' => 'paused-verified-receipt', 'cost' => '4300.75', 'retail' => '5000.25'])]);
+            $verify = ['version' => DigitalOrder::findOrFail($order['id'])->version, 'idempotency_key' => 'paused-verify-once'];
+            $this->postJson('/api/v1/digital/orders/'.$order['id'].'/verify', $verify)->assertOk()->assertJsonPath('data.status', 'succeeded');
+            $this->postJson('/api/v1/digital/orders/'.$order['id'].'/verify', $verify)->assertOk()->assertJsonPath('data.status', 'succeeded');
+            $this->assertCount(1, Http::recorded());
+            $this->assertDatabaseCount('digital_provider_attempts', 2);
+        }
+        $this->assertDatabaseCount('digital_orders', 1);
+        $this->assertFundedTopupLedger($f, $status === 'failed' ? 0 : 1);
+    }
+
+    public function test_confirmed_topup_refund_restores_original_budget_once_without_another_purchase(): void
+    {
+        $f = $this->fixture('topup');
+        $companyBefore = DigitalConnection::findOrFail($f['connection']['id'])->company_balance_minor;
         $order = $this->postJson('/api/v1/digital/orders', $this->input($f))->assertCreated()->json('data');
         $this->providerResponse(['*/verify' => Http::response(['status' => 'refunded', 'transactionId' => $order['company_transaction_id'], 'remaining_balance' => '125000.35'])]);
         $url = '/api/v1/digital/orders/'.$order['id'].'/refund-status';
@@ -399,9 +533,8 @@ class DigitalServicesTest extends TestCase
         $this->postJson($url, $payload)->assertOk()->assertJsonPath('data.status', 'refunded');
         $this->assertCount(1, Http::recorded());
         $this->assertTrue(str_ends_with(Http::recorded()[0][0]->url(), '/verify'));
-        $this->assertDatabaseCount('finance_entries', 0);
-        $this->assertDatabaseCount('finance_wallets', 0);
-        $this->assertDatabaseHas('digital_connections', ['id' => $f['connection']['id'], 'company_balance_minor' => 12500035]);
+        $this->assertFundedTopupLedger($f, 1, 1);
+        $this->assertDatabaseHas('digital_connections', ['id' => $f['connection']['id'], 'company_balance_minor' => $companyBefore]);
     }
 
     public function test_database_rejects_rewriting_confirmed_financial_identity_and_terminal_attempts(): void
@@ -469,19 +602,21 @@ class DigitalServicesTest extends TestCase
     public function test_documented_topup_adapter_uses_actual_methods_header_eligibility_and_one_financial_post(): void
     {
         $f = $this->fixture('topup');
+        $companyBefore = DigitalConnection::findOrFail($f['connection']['id'])->company_balance_minor;
         $this->directTopupResponses(Http::response(['id' => 'provider-v21-000001', 'href' => 'Req_ETopUp_Amount', 'status' => 'Succeed']));
         $data = $this->input($f);
         $order = $this->postJson('/api/v1/digital/orders', $data)->assertCreated()->assertJsonPath('data.status', 'succeeded')->assertJsonPath('data.company_transaction_id', 'provider-v21-000001')->assertJsonPath('data.verification_supported', false)->assertJsonMissingPath('data.cost')->json('data');
         $this->postJson('/api/v1/digital/orders', $data)->assertCreated()->assertJsonPath('data.id', $order['id']);
-        $this->assertCount(4, Http::recorded());
+        $this->assertCount(3, Http::recorded());
+        Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/inventory'));
         $this->assertCount(1, Http::recorded(fn ($request): bool => str_ends_with($request->url(), '/transactions')));
         Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/products') && $request->method() === 'GET' && $request->hasHeader('x-api-key', 'fixture-gateway-secret-123') && ! isset($request['credential']));
         Http::assertSent(fn ($request): bool => str_ends_with($request->url(), '/checkEligibility') && $request->method() === 'POST' && $request['category'] === 'PRODUCT-51' && $request['mobile'] === '9647701234567' && $request['type'] === 'topup');
         $this->assertDatabaseHas('digital_orders', ['id' => $order['id'], 'cost_basis' => 'catalog_snapshot', 'actual_cost_minor' => 430075]);
-        $this->assertDatabaseHas('digital_connections', ['id' => $f['connection']['id'], 'account_id' => $f['main']->id, 'company_balance_minor' => 100000000]);
+        $this->assertDatabaseHas('digital_connections', ['id' => $f['connection']['id'], 'account_id' => $f['system']->id, 'company_balance_minor' => $companyBefore - 430075]);
         $this->getJson('/api/v1/digital/orders/'.$order['id'].'/receipt')->assertOk()->assertJsonPath('data.code', '')->assertJsonPath('data.order.company_transaction_id', 'provider-v21-000001');
-        $this->assertCount(4, Http::recorded());
-        $this->assertDatabaseCount('finance_entries', 0);
+        $this->assertCount(3, Http::recorded());
+        $this->assertFundedTopupLedger($f, 1, 0);
     }
 
     public function test_direct_topup_rejects_changed_catalog_price_or_ineligible_number_before_transaction(): void
@@ -494,7 +629,19 @@ class DigitalServicesTest extends TestCase
         $this->directTopupResponses(Http::response(['id' => 'must-not-be-bought', 'status' => 'Succeed']), false);
         $this->postJson('/api/v1/digital/orders', $this->input($f, 'number-is-ineligible'))->assertCreated()->assertJsonPath('data.status', 'failed');
         Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/transactions'));
-        $this->assertDatabaseCount('finance_entries', 0);
+        $this->assertFundedTopupLedger($f, 0, 0);
+    }
+
+    public function test_parallel_provider_preflight_cannot_include_a_financial_transaction(): void
+    {
+        Http::fake();
+        try {
+            app(ProviderGateway::class)->preflight('https://1.1.1.1', [], ['purchase' => ['path' => 'api/v1/transactions', 'method' => 'POST', 'payload' => []]]);
+            $this->fail('A financial POST cannot be submitted to the concurrent preflight pool.');
+        } catch (HttpException $failure) {
+            $this->assertSame(500, $failure->getStatusCode());
+        }
+        Http::assertNothingSent();
     }
 
     public function test_direct_topup_timeout_never_uses_an_invented_verify_endpoint_or_repeats_purchase(): void
@@ -508,7 +655,7 @@ class DigitalServicesTest extends TestCase
         $this->postJson('/api/v1/digital/orders/'.$order['id'].'/verify', ['version' => $order['version'], 'idempotency_key' => 'v21-has-no-status-path'])->assertConflict();
         $this->assertSame($count, count(Http::recorded()));
         $this->assertDatabaseCount('digital_provider_attempts', 1);
-        $this->assertDatabaseCount('finance_entries', 0);
+        $this->assertFundedTopupLedger($f, 0, 0);
     }
 
     public function test_unknown_or_floating_company_prices_cannot_create_a_zero_cost_sale_and_private_gateway_is_blocked(): void
@@ -550,7 +697,7 @@ class DigitalServicesTest extends TestCase
         $this->getJson($url)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $f['product']->id);
         $this->assertFalse(app(DigitalAccess::class)->isAssignedProduct($f['pos'], $f['product']->id));
         $this->assertDatabaseCount('sales', 0);
-        $this->assertDatabaseCount('finance_entries', 0);
+        $this->assertFundedTopupLedger($f, 0, 0);
     }
 
     public function test_premium_subscriber_is_validated_encrypted_and_never_in_metadata_or_audit(): void
@@ -602,7 +749,7 @@ class DigitalServicesTest extends TestCase
         $this->assertSame($count, count(Http::recorded()));
         $this->assertDatabaseHas('digital_orders', ['id' => $order['id'], 'status' => 'succeeded', 'version' => $order['version']]);
         $this->assertDatabaseCount('digital_provider_attempts', 1);
-        $this->assertDatabaseCount('finance_entries', 0);
+        $this->assertFundedTopupLedger($f, 1, 0);
     }
 
     public function test_operation_sales_stop_denies_new_purchase_but_preserves_verification_and_printing_as_separate_actions(): void
@@ -619,7 +766,7 @@ class DigitalServicesTest extends TestCase
         $stop->update(['stops' => ['printing' => true, 'sales' => false]]);
         $this->getJson('/api/v1/digital/orders/'.$order['id'].'/print-authorization')->assertStatus(423);
         $this->assertDatabaseCount('digital_orders', 1);
-        $this->assertDatabaseCount('finance_entries', 0);
+        $this->assertFundedTopupLedger($f, 1, 0);
     }
 
     public function test_sales_revocation_between_intent_and_dispatch_blocks_outgoing_purchase_before_durable_attempt(): void
@@ -642,7 +789,7 @@ class DigitalServicesTest extends TestCase
         $this->assertSame($count, count(Http::recorded()));
         $this->assertDatabaseCount('digital_provider_attempts', 0);
         $this->assertDatabaseHas('digital_orders', ['id' => $order->id, 'status' => 'pending', 'reservation_active' => true]);
-        $this->assertDatabaseCount('finance_entries', 0);
+        $this->assertFundedTopupLedger($f, 0, 0);
     }
 
     private function rabiaaPurchase(string $beinStatus = 'success', string $cost = '4300.80'): string
@@ -849,6 +996,19 @@ class DigitalServicesTest extends TestCase
         $this->assertDatabaseCount('finance_entries', 0);
     }
 
+    public function test_fourth_session_expiry_after_hold_prevents_the_financial_purchase(): void
+    {
+        $f = $this->fixture();
+        $this->directRabiaaResponses(Http::response($this->rabiaaPurchase()), function () use ($f) {
+            DB::table('sales_device_sessions')->where('account_id', $f['pos']->id)->update(['expires_at' => now()->subSecond()]);
+
+            return Http::response($this->rabiaaHold());
+        });
+        $this->postJson('/api/v1/digital/orders', $this->input($f))->assertCreated()->assertJsonPath('data.status', 'failed')->assertJsonPath('data.reservation_active', false);
+        Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/vendor/purchase'));
+        $this->assertDatabaseCount('finance_entries', 0);
+    }
+
     public function test_fourth_known_out_of_stock_hold_failure_releases_request_without_purchase(): void
     {
         $f = $this->fixture();
@@ -879,9 +1039,8 @@ class DigitalServicesTest extends TestCase
         $this->asPortalUser($f['admin']);
         $this->providerResponse(['*/inventory' => Http::response(['remaining_balance' => '200000000.25'])]);
         $this->postJson('/api/v1/digital/connections/'.$f['connection']['id'].'/balance')->assertOk()->assertJsonPath('data.company_balance', '200000000.25');
-        $this->assertDatabaseHas('digital_connections', ['id' => $f['connection']['id'], 'account_id' => $f['main']->id, 'company_balance_minor' => 20000000025]);
-        $this->assertDatabaseCount('finance_wallets', 0);
-        $this->assertDatabaseCount('finance_entries', 0);
+        $this->assertDatabaseHas('digital_connections', ['id' => $f['connection']['id'], 'account_id' => $f['system']->id, 'company_balance_minor' => 20000000025]);
+        $this->assertFundedTopupLedger($f, 0, 0);
     }
 
     public function test_safety_pos_cannot_send_even_with_conflicting_notification_permission(): void
@@ -904,7 +1063,8 @@ class DigitalServicesTest extends TestCase
             '*/api/v1/inventory' => Http::failedConnection(),
         ]);
         $this->postJson('/api/v1/digital/orders', $this->input($f))->assertCreated()->assertJsonPath('data.status', 'succeeded');
-        $this->assertNull(DigitalConnection::findOrFail($f['connection']['id'])->company_balance_minor);
+        $this->assertSame(11569935, DigitalConnection::findOrFail($f['connection']['id'])->company_balance_minor);
+        $this->assertFundedTopupLedger($f, 1);
     }
 
     public function test_safety_pin_is_preserved_when_non_secret_response_field_has_invalid_shape(): void
@@ -938,12 +1098,12 @@ class DigitalServicesTest extends TestCase
 
     public function test_safety_rotated_key_invalidates_previous_company_balance(): void
     {
-        $f = $this->fixture('topup');
+        $f = $this->fixture('topup', true, false, false);
         $this->asPortalUser($f['admin']);
         $this->postJson('/api/v1/digital/connections/'.$f['connection']['id'].'/balance')->assertOk();
         $payload = $f['configuration'];
         unset($payload['catalog_snapshot_id']);
-        $payload['version'] = 2;
+        $payload['version'] = DigitalConnection::findOrFail($f['connection']['id'])->version;
         $payload['offers'] = [];
         $payload['credential'] = 'audit-new-fake-key-only';
         $payload['idempotency_key'] = 'audit-key-rotation';
@@ -958,7 +1118,9 @@ class DigitalServicesTest extends TestCase
         $this->asPortalUser($f['admin']);
         $this->getJson('/api/v1/digital/orders/summary?provider=topup')->assertOk()->assertJsonPath('data.cost', null)->assertJsonPath('data.estimated_cost', '4300.75')->assertJsonPath('data.catalog_cost_count', 1);
         $cards = collect($this->getJson('/api/v1/dashboard/summary')->assertOk()->json('data.cards'));
-        $this->assertNull($cards->firstWhere('key', 'digital:topup')['value']);
+        // The central dashboard shows the confirmed administrator debit, not an invented provider-response cost.
+        $this->assertSame('5000.25', $cards->firstWhere('key', 'digital:topup')['value']);
+        $this->assertSame('المبلغ المصروف', $cards->firstWhere('key', 'digital:topup')['note']);
     }
 
     public function test_safety_recovery_survives_lost_response_and_requires_explicit_new_sale(): void
@@ -1078,6 +1240,8 @@ class DigitalServicesTest extends TestCase
         $f = $this->fixture('topup');
         $this->directTopupResponses(Http::response('250000'));
         $this->postJson('/api/v1/digital/orders', $this->input($f))->assertCreated()->assertJsonPath('data.status', 'review');
-        $this->assertNull(DigitalConnection::findOrFail($f['connection']['id'])->company_balance_minor);
+        $this->assertSame(12000010, DigitalConnection::findOrFail($f['connection']['id'])->company_balance_minor);
+        $this->assertFundedTopupLedger($f);
+        $this->assertDatabaseHas('finance_wallets', ['account_id' => $f['pos']->id, 'service' => 'topup', 'held_minor' => 500025]);
     }
 }

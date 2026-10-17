@@ -8,6 +8,7 @@ use App\Models\Account;
 use App\Models\AccountAttachment;
 use App\Services\AccountScope;
 use App\Services\AuditLogger;
+use App\Services\Backups\BackupCoordination;
 use App\Services\Operations\MutationGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -137,7 +138,7 @@ class AccountAttachmentController extends Controller
             return;
         }
         try {
-            if (! Storage::disk('local')->delete($paths)) {
+            if (! collect($paths)->every(fn (string $path): bool => app(BackupCoordination::class)->deleteAsset($path))) {
                 Log::warning('Account attachment file cleanup requires retry.', ['account_id' => $accountId]);
             }
         } catch (Throwable) {

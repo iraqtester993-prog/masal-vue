@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Models\AccountMembership;
 use App\Services\AccountScope;
 use App\Services\ManagementAuthority;
+use App\Services\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\DB;
@@ -32,10 +33,12 @@ class AccountResource extends JsonResource
             'status' => $this->status,
             'version' => $this->version,
             'device_lock_enabled' => $this->device_lock_enabled,
+            'device_binding_enabled' => $this->device_binding_enabled,
             'parent' => $parent ? ['id' => $parent->id, 'name' => $parent->name, 'type' => $parent->type->value] : null,
             'children_count' => $childrenCount,
             'network_pos_count' => $networkPosCount,
             'created_at' => $this->created_at?->toISOString(),
+            'can_reset_password' => app(PasswordReset::class)->canReset($request->user(), $this->resource, true),
         ];
         foreach (['city', 'phone', 'support', 'color', 'owner_name', 'address', 'serial', 'device_model', 'app_version', 'notes'] as $field) {
             $data[$field] = $this->{$field};
@@ -45,6 +48,7 @@ class AccountResource extends JsonResource
         }
         $method = $request->route()?->getActionMethod();
         if ($method !== 'index') {
+            $data['password_reset_requests'] = app(PasswordReset::class)->pendingRequests($request->user(), $this->resource);
             $owner = AccountMembership::where('account_id', $this->id)->where('kind', 'owner')->first();
             if ($owner) {
                 $data['owner_user'] = ['id' => $owner->user->id, 'name' => $owner->user->name, 'login' => $owner->user->login, 'email' => $owner->user->email];

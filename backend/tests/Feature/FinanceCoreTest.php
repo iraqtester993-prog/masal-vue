@@ -48,6 +48,48 @@ class FinanceCoreTest extends TestCase
         return $p;
     }
 
+    public function test_wallet_summary_covers_all_filtered_pages_without_expanding_page_rows(): void
+    {
+        [$system, $main, $sub, $pos] = $this->tree();
+        $this->asPortalUser($this->userFor($system));
+        foreach ([$main, $sub, $pos] as $index => $account) {
+            $this->postJson('/api/v1/finance/deposits', $this->depositInput($account, '100.01', 'summary-deposit-'.$index))->assertCreated();
+        }
+        $this->getJson('/api/v1/finance/wallets?service=cash&currency=IQD&per_page=1&summary=1&metrics=0')->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('meta.total', 3)
+            ->assertJsonPath('summary.balance', '300.03')->assertJsonPath('summary.available', '300.03')->assertJsonPath('stock_metrics', null);
+        $this->asPortalUser($this->userFor($main), 'agents');
+        $this->getJson('/api/v1/finance/wallets?service=cash&per_page=1&summary=1&metrics=0')->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('summary.own_balance', '100.01')->assertJsonPath('summary.children', '200.02');
+        $this->getJson('/api/v1/finance/wallets?account_id='.$pos->id.'&summary=1&metrics=0')->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('summary.balance', '100.01')->assertJsonPath('summary.own_balance', '0.00');
+        $this->asPortalUser($this->userFor($pos), 'pos');
+        $this->getJson('/api/v1/finance/wallets?summary=1&metrics=0')->assertOk()->assertJsonPath('summary.balance', '100.01');
+        $this->getJson('/api/v1/finance/wallets?account_id='.$main->id.'&summary=1')->assertNotFound();
+    }
+
+    public function test_compact_options_and_paged_account_search_keep_filters_and_financial_totals_scoped(): void
+    {
+        [$system, $main, $sub, $pos] = $this->tree();
+        $foreign = $this->account(AccountType::MainAgent, $system);
+        $pos->update(['name' => 'Paged target 100%', 'city' => 'Basra']);
+        $this->asPortalUser($this->userFor($system));
+        $this->postJson('/api/v1/finance/deposits', $this->depositInput($pos, '12.34'))->assertCreated();
+        $this->getJson('/api/v1/finance/options?compact=1')->assertOk()->assertJsonCount(1, 'data.accounts')->assertJsonPath('data.accounts_paged', true)->assertJsonPath('data.accounts_total', 5);
+        $this->getJson('/api/v1/finance/accounts?account_type=pos&account_query=100%25&per_page=1')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $pos->id)->assertJsonPath('meta.total', 1);
+        $this->getJson('/api/v1/finance/wallets?account_city=Basra&summary=1&metrics=0')->assertOk()->assertJsonPath('summary.balance', '12.34');
+        $this->getJson('/api/v1/finance/wallets?account_city=Unknown&summary=1&metrics=0')->assertOk()->assertJsonPath('summary.balance', '0.00')->assertJsonCount(0, 'data');
+        $this->asPortalUser($this->userFor($main));
+        $this->getJson('/api/v1/finance/accounts?ancestor_id='.$main->id.'&exclude_account_id='.$main->id)->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('meta.total', 2);
+        $this->getJson('/api/v1/finance/accounts?lookup_ids[]='.$foreign->id)->assertOk()->assertJsonCount(0, 'data');
+        $this->asPortalUser($this->userFor($pos));
+        $this->getJson('/api/v1/finance/accounts?account_id='.$main->id)->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/v1/finance/accounts?per_page=10000')->assertUnprocessable();
+        $this->getJson('/api/v1/account-lookup?per_page=25')->assertOk()->assertJsonCount(1, 'data');
+        $this->postJson('/api/v1/account-lookup', ['lookup_ids' => [$pos->id, $main->id]])->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $pos->id);
+
+    }
+
     public function test_unauthenticated_finance_returns_401(): void
     {
         $this->withHeader('X-Masal-Portal', 'admin')->getJson('/api/v1/finance/wallets')->assertUnauthorized();
@@ -73,7 +115,7 @@ class FinanceCoreTest extends TestCase
         $this->assertSame([-123456, 123456], DB::table('finance_entries')->orderBy('id')->pluck('amount_minor')->map(fn ($v): int => (int) $v)->all());
         $this->assertSame(0, (int) DB::table('finance_entries')->sum('amount_minor'));
         $this->assertDatabaseHas('audit_logs', ['action' => 'wallets.deposit', 'subject_account_id' => $main->id]);
-        $this->getJson('/api/v1/finance/ledger?account_id='.$main->id)->assertJsonCount(1, 'data')->assertJsonPath('data.0.amount', '1234.56');
+        $this->getJson('/api/v1/finance/ledger?account_id='.$main->id)->assertJsonCount(1, 'data')->assertJsonPath('data.0.amount', '1234.56')->assertJsonPath('data.0.account_name', $main->name);
     }
 
     public function test_same_idempotency_key_returns_original_posting_without_double_credit_and_changed_payload_returns_409(): void
@@ -141,6 +183,9 @@ class FinanceCoreTest extends TestCase
         $this->assertDatabaseHas('finance_wallets', ['account_id' => $sub->id, 'kind' => 'account', 'balance_minor' => 23456]);
         $this->assertDatabaseCount('finance_transactions', 2);
         $this->assertSame(0, (int) DB::table('finance_entries')->sum('amount_minor'));
+        $this->getJson('/api/v1/finance/options?compact=1')->assertOk()->assertJsonPath('data.counts.transfer_count', 1);
+        $this->asPortalUser($this->userFor($system));
+        $this->getJson('/api/v1/finance/options?compact=1')->assertOk()->assertJsonPath('data.counts.transfer_count', 1);
     }
 
     public function test_insufficient_balance_rolls_back_entire_transfer_422(): void

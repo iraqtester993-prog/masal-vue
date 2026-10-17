@@ -7,6 +7,8 @@ import {computed,onBeforeUnmount,onMounted,reactive,ref,watch} from 'vue';
 import {usePortal} from '../auth/session.js';
 import {createOperationsApi} from './operations-api.js';
 import {operationFields,scopes,scopeLabel,actionLabel,previewCount} from './operations-model.js';
+import {useAccountLookup} from '../../shared/api/account-lookup.js';
+import FinancePagination from '../finance/FinancePagination.vue';
 import {accountTypes,createMutationKey,errorText,time} from '../finance/finance-model.js';
 import '../finance/finance-parity.css';
 import './security.css';
@@ -15,8 +17,12 @@ const {session} = usePortal(), api = createOperationsApi(session.api);
 const state = reactive({accounts:[],active_stops:[],restricted:[],restricted_total:0,legacy_global:null,can_manage:false,meta:{current_page:1,last_page:1},error:'',success:'',loading:false,saving:false});
 const scope = ref('all'),selected = ref([]),query = ref(''),filter = ref(''),actions = ref([]),reason = ref('');
 const allowed = computed(() => state.can_manage && session.can('security.policies'));
-const choices = computed(() => state.accounts.filter(row => row.name.toLocaleLowerCase('ar').includes(query.value.toLocaleLowerCase('ar'))));
-const preview = computed(() => previewCount(state.accounts,scope.value,selected.value));
+const lookup=useAccountLookup(),choicePage=ref(1),choiceRows=ref([]),choiceMeta=ref({current_page:1,last_page:1,total:0}),choiceLoading=ref(false),choiceError=ref('');let choiceReader,choiceRevision=0,choiceTimer;
+const choices=computed(()=>choiceRows.value);
+async function loadChoices(page=1){choiceReader?.abort();choiceReader=new AbortController();const expected=++choiceRevision;choiceLoading.value=true;choiceError.value='';try{const result=await lookup.api.list('accounts',{account_types:['main_agent','sub_agent','sub_branch','pos'],account_query:query.value,page,per_page:25},choiceReader.signal);if(alive&&expected===choiceRevision){choicePage.value=page;choiceRows.value=result.data;choiceMeta.value=result.meta;}}catch(failed){if(alive&&expected===choiceRevision&&failed.name!=='AbortError')choiceError.value=await lookup.failure(failed);}finally{if(alive&&expected===choiceRevision)choiceLoading.value=false;}}
+watch(query,()=>{clearTimeout(choiceTimer);choiceTimer=setTimeout(()=>loadChoices(),300);});onBeforeUnmount(()=>{choiceRevision++;choiceReader?.abort();clearTimeout(choiceTimer);});
+
+const preview=computed(()=>scope.value==='custom'?new Set(selected.value).size:scope.value==='all'?Object.values(state.account_totals||{}).reduce((sum,value)=>sum+Number(value),0):Number(state.account_totals?.[{main:'main_agent',branch:'sub_agent',subbranch:'sub_branch',pos:'pos'}[scope.value]]||0));
 const legacy = computed(() => state.legacy_global && Object.values(state.legacy_global.stops).some(Boolean));
 const write = new AbortController(),key = createMutationKey(); let reader,revision=0,alive=true,timer;
 async function failure(cause) {if(cause.name === 'AbortError'||!alive) return; state.error = errorText(cause); if([401,403].includes(cause.status)) await session.refresh();}
@@ -49,7 +55,7 @@ onMounted(() => load()); onBeforeUnmount(() => {alive=false;revision++;reader?.a
       <form v-if="allowed" @submit.prevent="apply"><fieldset :disabled="state.saving||state.loading">
         <label class="security-scope-select">نطاق التوقيف<select v-model="scope" aria-label="نطاق التوقيف"><option v-for="option in scopes" :key="option.id" :value="option.id">{{uiLabel(option.label)}}</option></select></label>
         <p class="caption">اختيار مستوى معيّن يخص هذا المستوى وحده، ضمن نطاقك المصرح به.</p>
-        <details v-if="scope==='custom'" class="security-account-picker"><summary>{{selected.length?`الحسابات المحددة: ${selected.length}`:'اختر الحسابات'}}<span aria-hidden="true">⌄</span></summary><div class="security-account-menu"><input v-model="query" placeholder="بحث باسم الحساب" aria-label="بحث الحسابات"><div class="security-account-options"><label v-for="account in choices" :key="account.id"><input type="checkbox" :value="account.id" v-model="selected">{{account.name}}<small>{{accountTypes[account.type]}}</small></label><p v-if="!choices.length" class="caption">لا توجد نتائج</p></div></div></details>
+        <details v-if="scope==='custom'" class="security-account-picker" @toggle="$event.target.open&&loadChoices()"><summary>{{selected.length?`الحسابات المحددة: ${selected.length}`:'اختر الحسابات'}}<span aria-hidden="true">⌄</span></summary><div class="security-account-menu"><input v-model="query" placeholder="بحث باسم الحساب" aria-label="بحث الحسابات"><div class="security-account-options"><label v-for="account in choices" :key="account.id"><input type="checkbox" :value="account.id" v-model="selected">{{account.name}}<small>{{accountTypes[account.type]}}</small></label><p v-if="!choices.length" class="caption">لا توجد نتائج</p></div><p v-if="choiceError" class="notice warn" role="alert">{{choiceError}}</p><FinancePagination :meta="choiceMeta" :busy="choiceLoading" @page="loadChoices"/></div></details>
         <h4>خيارات التوقيف</h4><div class="security-action-grid"><label v-for="field in operationFields" :key="field.key" :class="{selected:actions.includes(field.key)}"><input type="checkbox" v-model="actions" :value="field.key"><span>{{uiLabel(field.label)}}</span></label></div>
         <label class="security-reason">سبب التوقيف<input v-model="reason" maxlength="300" required></label><div class="security-apply"><span class="badge">{{preview}} حساب</span><button class="btn danger" :disabled="!actions.length||!reason.trim()||(scope==='custom'&&!selected.length)">تطبيق التوقيف</button></div>
       </fieldset></form><span v-else class="badge">عرض فقط</span>

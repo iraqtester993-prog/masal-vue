@@ -4,7 +4,7 @@ export function createOperationsApi(client) {
   const get = (path,signal) => client.request(`/operations/${path}`,{signal});
   const post = (path,body,signal) => client.mutate(`/operations/${path}`,'POST',body,signal);
   return {
-    security:(parameters={},signal) => get(`security?${queryString(parameters)}`,signal),
+    security:(parameters={},signal) => get(`security?${queryString({compact_accounts:1,...parameters})}`,signal),
     createStop:(body,signal) => post('security/stops',body,signal),
     resume:(id,body,signal) => post(`security/stops/${Number(id)}/resume`,body,signal),
     direct:(id,body,signal) => client.mutate(`/operations/security/accounts/${Number(id)}`,'PUT',body,signal),

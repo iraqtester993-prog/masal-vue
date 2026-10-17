@@ -10,7 +10,6 @@ use App\Models\Backups\ServerBackup;
 use App\Services\AuditLogger;
 use App\Services\Backups\BackupAccess;
 use App\Services\Backups\BackupWorkflow;
-use App\Services\Operations\MutationGuard;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -34,20 +33,8 @@ class BackupController extends Controller
     public function create(BackupRequest $request): BackupResource
     {
         try {
-            $backup = DB::transaction(function () use ($request): ServerBackup|\Throwable {
-                app(MutationGuard::class)->lock($request->user(), [], 'backup.create');
-                try {
-                    $backup = $this->workflow->create($request->user());
-                    $this->audit->record('backup.create', $request, $request->user(), $request->user()->membership->account_id, ['backup_id' => $backup->id, 'sha256' => $backup->sha256]);
-
-                    return $backup;
-                } catch (\Throwable $failure) {
-                    return $failure;
-                }
-            });
-            if ($backup instanceof \Throwable) {
-                throw $backup;
-            }
+            $backup = $this->workflow->create($request->user());
+            $this->audit->record('backup.create', $request, $request->user(), $request->user()->membership->account_id, ['backup_id' => $backup->id, 'sha256' => $backup->sha256]);
 
             return new BackupResource($backup);
         } catch (\Throwable $failure) {
@@ -70,11 +57,7 @@ class BackupController extends Controller
     public function preview(BackupRequest $request): BackupResource
     {
         try {
-            return new BackupResource(DB::transaction(function () use ($request) {
-                app(MutationGuard::class)->lock($request->user(), [], 'backup.restore');
-
-                return $this->workflow->preview($request->user(), $request->file('file'), $request->validated('backup_id'));
-            }));
+            return new BackupResource($this->workflow->preview($request->user(), $request->file('file'), $request->validated('backup_id')));
         } catch (\Throwable $failure) {
             if ($failure instanceof HttpExceptionInterface) {
                 throw $failure;

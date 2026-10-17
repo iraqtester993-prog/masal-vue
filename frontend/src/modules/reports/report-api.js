@@ -9,12 +9,16 @@ export function query(values = {}) {
 }
 export function createReportApi(api) {
   return {
-    options: (signal) => api.request('/reports/options', { signal }),
-    summary: (filters, signal) => api.request(`/reports/summary?${query(filters)}`, { signal }),
+    options: (signal,options={}) => api.request('/reports/options?compact=1', { signal,...options }),
+    peekOptions: () => api.peekRequest?.('/reports/options?compact=1',120000) ?? null,
+    hasFreshOptions: () => api.hasFreshRequest?.('/reports/options?compact=1') ?? false,
+    summary: (filters, signal,options={}) => api.request(`/reports/summary?${query(filters)}`, { signal,...options }),
+    peekSummary: filters => api.peekRequest?.(`/reports/summary?${query(filters)}`,120000) ?? null,
+    hasFreshSummary: filters => api.hasFreshRequest?.(`/reports/summary?${query(filters)}`) ?? false,
     rows: (id, filters, signal) => api.request(`/reports/sections/${encodeURIComponent(id)}/rows?${query(filters)}`, { signal }),
     row: (id, key, filters, signal) => api.request(`/reports/sections/${encodeURIComponent(id)}/rows/${encodeURIComponent(key)}?${query(filters)}`, { signal }),
     export: (filters, signal) => api.mutate('/reports/export', 'POST', Object.fromEntries(Object.entries(filters).filter(([,value])=>value!==''&&value!==null&&value!==undefined)), signal),
-    dashboard: (currency, signal, fresh = false) => api.request(`/dashboard/summary?${query({ currency })}`, { signal, fresh }),
-    activity: (limit, signal) => api.request(`/dashboard/activity?${query({limit})}`, {signal}),
+    dashboard: (currency, signal, fresh = false, view) => api.request(`/dashboard/summary?${query({ currency, view })}`, { signal, fresh }),
+    activity: (limit, signal, cursor) => api.request(`/dashboard/activity?${query({limit,cursor})}`, {signal}),
   };
 }

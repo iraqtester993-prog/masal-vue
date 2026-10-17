@@ -94,6 +94,26 @@
   .inventory-toolbar):has(details[open],.category-column-options,
   .pos-column-menu,.wallet-extra-options) {position:relative;z-index:5}
 .portal-main .filter-bar-fields[style*="display: none"] {display:none!important}
+/* Tab choices stay together; narrow screens scroll the bar rather than shrink its labels. */
+.portal-main :is(.tabs,.price-mode-tabs,.site-editor-tabs,.site-inquiry-tabs,.scope-kind-tabs) {
+  display:flex;
+  flex-direction:row;
+  flex-wrap:nowrap!important;
+  align-items:center;
+  min-width:0;
+  max-width:100%;
+  overflow-x:auto;
+  overflow-y:hidden;
+  overscroll-behavior-inline:contain;
+  scrollbar-width:thin;
+  padding-block:4px;
+}
+.portal-main :is(.tabs,.price-mode-tabs,.site-editor-tabs,.site-inquiry-tabs,.scope-kind-tabs) > :is(button,a) {
+  flex:0 0 auto!important;
+  width:auto;
+  min-width:max-content;
+  white-space:nowrap;
+}
 @media(min-width:1400px) {
   .portal-main :is(.filter-bar-fields:not(.topup-filter-tools):not(.wallet-filter-toolbar),
     .catalog-filter-head,.catalog-filter-fields,.inventory-controls,

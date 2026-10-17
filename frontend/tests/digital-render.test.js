@@ -24,7 +24,7 @@ test('Fourth incoming token has no descending balance controls while Topup retai
   try{
     const settings=(await server.ssrLoadModule('/src/modules/digital/DigitalSettings.vue')).default;
     const connection={account_id:2,account_name:'وكيل الفحص',active:true,version:1,offers:[],grants:[],company_balance:null};
-    const vm={ownId:ref(1),key:()=>({}),state:reactive({options:{accounts:[]},connections:[{...connection,id:1,provider:'rabiaa',gateway:{configured:true,balance_supported:false}},{...connection,id:2,provider:'topup',gateway:{configured:true,balance_supported:true}}],connectionsMeta:{current_page:1,last_page:1,total:2},busy:false,loading:false})};
+    const vm={session:{api:{request:()=>{throw Error('Rendering must not query account lists');}},refresh:async()=>null},ownId:ref(1),key:()=>({}),state:reactive({options:{accounts:[]},connections:[{...connection,id:1,provider:'rabiaa',gateway:{configured:true,balance_supported:false}},{...connection,id:2,provider:'topup',gateway:{configured:true,balance_supported:true}}],connectionsMeta:{current_page:1,last_page:1,total:2},busy:false,loading:false})};
     const html=await renderToString(createSSRApp({render:()=>h(settings,{vm,canSetup:true,canAssign:false})}));
     assert.ok(html.includes('الرابعة'));assert.ok(html.includes('Topup'));
     assert.equal((html.match(/تحديث رصيد الشركة/g)||[]).length,1);
@@ -45,19 +45,41 @@ test('actual dashboard link opens filtered digital history instead of the defaul
   }finally{await server.close();}
 });
 test('actual digital screens compile for owner, employee, agents and POS without fictitious company results or writes',async()=>{const server=await createServer({root:fileURLToPath(new URL('../',import.meta.url)),mode:'admin',logLevel:'error',server:{middlewareMode:true,hmr:false},appType:'custom'});try{const {portalContextKey}=await server.ssrLoadModule('/src/modules/auth/session.js'),page=(await server.ssrLoadModule('/src/modules/digital/DigitalPage.vue')).default;for(const [type,kind] of [['system','owner'],['system','employee'],['main_agent','owner'],['sub_agent','owner'],['sub_branch','owner'],['pos','owner']]){const permissions=['account.view','digital.view','digital.create','digital.assign','digital.receipt','digital.export','integrations.view','integrations.edit','data.pin'],session={state:reactive({identity:{account:{id:12,type,name:'حساب الفحص'},user:{id:10},membership:{kind},permissions}}),can:key=>permissions.includes(key),api:{request:()=>{throw Error('SSR cannot fabricate provider results');},mutate:()=>{throw Error('SSR cannot execute provider writes');}},refresh:async()=>null};for(const mode of ['digital','integrations']){const app=createSSRApp({render:()=>h(page,{mode})});app.provide(portalContextKey,{session,portal:{id:type==='system'?'admin':type==='pos'?'pos':'agents'},config:{}});const html=await renderToString(app);assert.ok(html.length>150);assert.ok(!html.includes('undefined'));assert.equal(html.includes('إعداد الربط'),type==='system'&&kind==='owner');assert.equal(html.includes('البيع من الفئات'),type==='pos');assert.ok(!html.includes('actual-test-pin'));}}}finally{await server.close();}});
-test('digital receipt escapes actual provider code and never marks physical printing successful',async()=>{const server=await createServer({root:fileURLToPath(new URL('../',import.meta.url)),mode:'admin',logLevel:'error',server:{middlewareMode:true,hmr:false},appType:'custom'});try{const receipt=(await server.ssrLoadModule('/src/modules/digital/DigitalReceipt.vue')).default,html=await renderToString(createSSRApp({render:()=>h(receipt,{vm:{api:{},state:{},failure:async()=>''},receipt:{order:{provider:'rabiaa',product_name:'بطاقة',account_name:'نقطة',creator_name:'أحمد',retail:'5000.25',company_transaction_id:'provider-003',created_at:'2026-10-06T12:00:00Z'},code:'<img src=x onerror=alert(1)>',serial:'00000001'}})}));assert.ok(html.includes('&lt;img src=x'));assert.ok(!html.includes('<img src=x'));assert.ok(html.includes('طباعة الإيصال'));assert.ok(!html.includes('نجاح الطباعة'));assert.ok(html.includes('5,000.25'));}finally{await server.close();}});
+test('digital receipt opens outside history in a named modal, escapes provider code and never marks physical printing successful',async()=>{
+ const server=await createServer({root:fileURLToPath(new URL('../',import.meta.url)),mode:'admin',logLevel:'error',server:{middlewareMode:true,hmr:false},appType:'custom'});
+ try{
+  const receipt=(await server.ssrLoadModule('/src/modules/digital/DigitalReceipt.vue')).default,context={};
+  const inline=await renderToString(createSSRApp({render:()=>h(receipt,{vm:{api:{},state:{},failure:async()=>''},receipt:{order:{provider:'rabiaa',product_name:'بطاقة',account_name:'نقطة',creator_name:'أحمد',retail:'5000.25',company_transaction_id:'provider-003',created_at:'2026-10-06T12:00:00Z'},code:'<img src=x onerror=alert(1)>',serial:'00000001'}})}),context),html=context.teleports.body;
+  assert.ok(!inline.includes('digital-receipt-content'),'Receipt content must not be appended below history or inline details');
+  assert.match(html,/<dialog[^>]*digital-receipt-dialog[^>]*aria-labelledby=/);
+  assert.ok(html.includes('receipt-dialog-body'));assert.ok(html.includes('aria-label="إغلاق"'));
+  assert.ok(html.includes('&lt;img src=x'));assert.ok(!html.includes('<img src=x'));assert.ok(html.includes('طباعة المتصفح'));assert.ok(!html.includes('نجاح الطباعة'));assert.ok(html.includes('5,000.25'));
+ }finally{await server.close();}
+});
 
-test('POS session hides serial when restriction is off and retains it when on',async()=>{
-  const server=await createServer({root:fileURLToPath(new URL('../',import.meta.url)),mode:'pos',logLevel:'error',server:{middlewareMode:true,hmr:false},appType:'custom'});
-  try {
-    const component=(await server.ssrLoadModule('/src/modules/sales/DeviceSession.vue')).default;
-    for(const enabled of [true,false]) {
-      const vm={pos:ref(true),identity:ref({account:{device_lock_enabled:enabled}}),api:{heartbeat:()=>{throw Error('SSR cannot start a device session');}}};
-      const html=await renderToString(createSSRApp({render:()=>h(component,{vm})}));
-      assert.equal(html.includes('الرقم التسلسلي المعتمد للجهاز'),enabled);
-      assert.equal(html.includes('إعدادات جهاز البيع'),enabled);
-      assert.ok(!html.includes('جلسة هذا المتصفح'));
-      if(!enabled)assert.ok(!html.includes('إصدار النظام'));
-    }
-  } finally {await server.close();}
+test('provider followup form escapes saved notes and cannot offer a fabricated financial outcome',async()=>{
+ const server=await createServer({root:fileURLToPath(new URL('../',import.meta.url)),mode:'admin',logLevel:'error',server:{middlewareMode:true,hmr:false},appType:'custom'});
+ try{
+  const component=(await server.ssrLoadModule('/src/modules/digital/DigitalReviewNote.vue')).default,context={};
+  await renderToString(createSSRApp({render:()=>h(component,{vm:{state:{busy:false},key:()=>({}),execute:()=>{throw Error('Rendering cannot update orders');}},order:{id:1,version:4,manual_review:{reference:'<img src=x>',note:'<script>bad</script>'}}})}),context);
+  const html=context.teleports.body;
+  assert.ok(html.includes('متابعة عملية Topup'));assert.ok(html.includes('&lt;img src=x&gt;'));assert.ok(html.includes('&lt;script&gt;bad&lt;/script&gt;'));
+  assert.ok(html.includes('تبقى العملية ورصيدها المحجوز دون تغيير'));assert.ok(html.includes('type="password"'));assert.ok(!html.includes('<script>bad'));
+ }finally{await server.close();}
+});
+
+test('automatic device status has no manual serial fields and shows approval only when required',async()=>{
+ const server=await createServer({root:fileURLToPath(new URL('../',import.meta.url)),mode:'pos',logLevel:'error',server:{middlewareMode:true,hmr:false},appType:'custom'});
+ try{
+  const component=(await server.ssrLoadModule('/src/modules/sales/DeviceSession.vue')).default;
+  const {portalContextKey}=await server.ssrLoadModule('/src/modules/auth/session.js');
+  const {posDeviceState}=await server.ssrLoadModule('/src/shared/pos-device-session.js');
+  for(const enabled of [true,false]){
+   posDeviceState.data={allowed:false,device_lock_enabled:enabled};posDeviceState.error='';
+   const vm={pos:ref(true)},session={state:{identity:{account:{id:12,type:'pos'}}},api:{mutate(){throw Error('SSR must not register devices');}}};
+   const app=createSSRApp({render:()=>h(component,{vm})});app.provide(portalContextKey,{session});
+   const html=await renderToString(app);assert.equal(html.includes('بانتظار اعتماد الوكيل'),enabled);assert.ok(!html.includes('<input'));assert.ok(!html.includes('إعدادات جهاز البيع'));
+  }
+  posDeviceState.data=null;
+ }finally{await server.close();}
 });

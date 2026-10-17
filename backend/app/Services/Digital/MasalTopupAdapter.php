@@ -7,6 +7,7 @@ use App\Models\Digital\DigitalOrder;
 use App\Models\Sales\PrintPolicy;
 use App\Services\Finance\Money;
 use App\Services\Operations\MutationGuard;
+use App\Services\Sales\SalesAccess;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -19,17 +20,20 @@ class MasalTopupAdapter
         return $this->gateway->transport(rtrim((string) config('digital.topup.url'), '/'), 'api/v1/'.$path, $method, ['x-api-key' => $connection->credential], $payload, true, $path === 'inventory' && $method === 'GET');
     }
 
+    private function normalizeCatalog(array $result): array
+    {
+        if (($result['status'] ?? null) !== 'ok' || ! is_array($result['products'] ?? null)) {
+            throw ValidationException::withMessages(['gateway' => 'لم يرجع المزود قائمة الفئات المعتمدة.']);
+        }
+        $result['products'] = array_values(array_filter($result['products'], fn ($row): bool => is_array($row) && (! array_key_exists('show2site', $row) || (int) $row['show2site'] === 1) && in_array($row['type'] ?? null, ['topup', 'bundle', 'bill'], true)));
+
+        return array_merge($result, app(MasalCatalog::class)->normalize($result['products']));
+    }
+
     public function call(DigitalConnection $connection, string $operation, array $payload): array
     {
         if ($operation === 'catalog') {
-            $result = $this->request($connection, 'products');
-            if (($result['status'] ?? null) !== 'ok' || ! is_array($result['products'] ?? null)) {
-                throw ValidationException::withMessages(['gateway' => 'لم يرجع المزود قائمة الفئات المعتمدة.']);
-            }
-            $result['products'] = array_values(array_filter($result['products'], fn ($row): bool => is_array($row) && (! array_key_exists('show2site', $row) || (int) $row['show2site'] === 1) && in_array($row['type'] ?? null, ['topup', 'bundle', 'bill'], true)));
-            $result = array_merge($result, app(MasalCatalog::class)->normalize($result['products']));
-
-            return $result;
+            return $this->normalizeCatalog($this->request($connection, 'products'));
         }
         if ($operation === 'inventory') {
             return $this->request($connection, 'inventory');
@@ -53,12 +57,16 @@ class MasalTopupAdapter
         $input = ['mobile' => $order->mobile, 'type' => $order->type, 'category' => $order->remote_id];
         // These checks occur before the only financial POST; their failure cannot represent a purchase.
         try {
-            $catalog = $this->call($connection, 'catalog', []);
+            $preflight = $this->gateway->preflight(rtrim((string) config('digital.topup.url'), '/'), ['x-api-key' => $connection->credential], [
+                'catalog' => ['path' => 'api/v1/products', 'method' => 'GET', 'payload' => []],
+                'eligibility' => ['path' => 'api/v1/checkEligibility', 'method' => 'POST', 'payload' => $input],
+            ]);
+            $catalog = $this->normalizeCatalog($preflight['catalog']);
             $category = collect($catalog['catalog'])->first(fn ($row): bool => $row['remote_id'] === $order->remote_id && $row['type'] === $order->type);
             if (! $category || DigitalMoney::minor($category['cost'], 'cost') !== $order->quoted_cost_minor) {
                 return ['status' => 'failed'];
             }
-            $eligibility = $this->request($connection, 'checkEligibility', 'POST', $input);
+            $eligibility = $preflight['eligibility'];
             if (($eligibility['status'] ?? null) !== true) {
                 return ['status' => 'failed'];
             }
@@ -69,14 +77,15 @@ class MasalTopupAdapter
             DB::transaction(function () use ($connection, $order, $payload): void {
                 $actor = $order->creator;
                 $actor->session_version = $payload['_actor_session_version'];
-                app(MutationGuard::class)->lock($actor, [$order->account_id], 'digital.create');
+                app(MutationGuard::class)->lock($actor, [$order->account_id], 'digital.create', shareAncestors: true);
                 $access = app(DigitalAccess::class);
                 $own = $access->own($actor, 'digital.create', true);
-                abort_unless(PrintPolicy::findOrFail(1)->settings['sales_enabled'], 409);
-                $currentConnection = $access->connection($actor, $connection->id, 'digital.create', true);
+                $settings = PrintPolicy::findOrFail(1)->settings;
+                abort_unless($settings['sales_enabled'], 409);
+                app(SalesAccess::class)->device($actor, $own, request(), $settings);
+                [$currentConnection, $offer] = $access->saleOffer($actor, $own, $connection->id, $order->offer_id);
                 $this->gateway->requireReady($currentConnection, true);
                 abort_unless(hash_equals(DigitalConfiguration::credentialHash($connection->credential), DigitalConfiguration::credentialHash($currentConnection->credential)), 409);
-                $offer = $access->offers($currentConnection, $own)->firstWhere('id', $order->offer_id);
                 abort_unless($offer && $offer->version === $order->offer_version && $offer->cost_minor === $order->quoted_cost_minor && ($order->topup_grant_id ? $offer->retail_minor === $order->admin_price_minor : $offer->retail_minor === $order->quoted_retail_minor) && ($offer->topup_category_id !== null || $access->catalog->products($actor)->whereKey($offer->product_id)->exists()), 403);
                 $current = DigitalOrder::whereKey($order->id)->lockForUpdate()->firstOrFail();
                 abort_if($current->provider_purchase_started_at !== null, 409);
@@ -128,15 +137,8 @@ class MasalTopupAdapter
         });
         $cost = Money::decimal($order->quoted_cost_minor);
         $basis = 'catalog_snapshot';
-        // V2.1 totalAmount describes the customer payment, not documented agent settlement.
-        $normalized = ['status' => 'succeeded', 'transactionId' => $reference, 'receiptRef' => $reference, 'cost' => $cost, 'retail' => Money::decimal($order->quoted_retail_minor), 'cost_basis' => $basis, 'currency' => 'IQD'];
-        try {
-            $balance = $this->request($connection, 'inventory');
-            $normalized['remaining_balance'] = Money::decimal(DigitalMoney::minor($balance['remaining_balance'] ?? null, 'remaining_balance', true));
-        } catch (\Throwable) {
-            // Missing balance must not downgrade an already confirmed provider transaction.
-        }
 
-        return $normalized;
+        // V2.1 totalAmount describes the customer payment, not documented agent settlement.
+        return ['status' => 'succeeded', 'transactionId' => $reference, 'receiptRef' => $reference, 'cost' => $cost, 'retail' => Money::decimal($order->quoted_retail_minor), 'cost_basis' => $basis, 'currency' => 'IQD'];
     }
 }

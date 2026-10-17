@@ -6,6 +6,7 @@ use App\Enums\AccountType;
 use App\Models\Account;
 use App\Models\CatalogProduct;
 use App\Models\User;
+use App\Support\RequestReadCache;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -57,10 +58,14 @@ class CatalogAccess
 
     public function forAccount(int $accountId, array $excludedRules = [], bool $ignoreMainDefault = false): Builder
     {
-        $ancestors = DB::table('account_closure')->where('descendant_id', $accountId)->pluck('ancestor_id');
-        $mainId = Account::whereIn('id', $ancestors)->where('type', AccountType::MainAgent)->value('id');
+        [$ancestors, $mainId, $initialized] = RequestReadCache::remember('CatalogAccess.context:'.$accountId, function () use ($accountId): array {
+            $ancestors = DB::table('account_closure')->where('descendant_id', $accountId)->pluck('ancestor_id');
+            $mainId = Account::whereIn('id', $ancestors)->where('type', AccountType::MainAgent)->value('id');
+
+            return [$ancestors, $mainId, $mainId ? DB::table('catalog_account_rules')->where('target_account_id', $mainId)->exists() : false];
+        });
         $query = CatalogProduct::query();
-        if ($mainId && ! $ignoreMainDefault && ! DB::table('catalog_account_rules')->where('target_account_id', $mainId)->exists()) {
+        if ($mainId && ! $ignoreMainDefault && ! $initialized) {
             return $query->whereRaw('1 = 0');
         }
 

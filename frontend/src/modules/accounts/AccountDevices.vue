@@ -1,0 +1,31 @@
+<script setup>
+import {onMounted,onBeforeUnmount,ref} from 'vue';
+import {usePortal} from '../auth/session.js';
+const props=defineProps({account:Object});const {session}=usePortal(),rows=ref([]),meta=ref({current_page:1,last_page:1}),busy=ref(false),error=ref(''),transfer=ref(null),success=ref('');let alive=true;const reader=new AbortController();
+const labels={pending:'بانتظار الاعتماد',approved:'معتمد',revoked:'ملغي الاعتماد',archived:'مؤرشف'};
+async function load(page=1){busy.value=true;error.value='';transfer.value=null;try{const result=await session.api.request(`/accounts/${props.account.id}/devices?page=${page}`,{signal:reader.signal});if(alive){rows.value=result.data;meta.value=result.meta;}}catch(e){if(alive&&e.name!=='AbortError')error.value=e.message;}finally{if(alive)busy.value=false;}}
+async function review(row,status){if(busy.value)return;busy.value=true;error.value='';try{await session.api.mutate(`/accounts/${props.account.id}/devices/${row.id}`,'PATCH',{version:row.version,status});await load(meta.value.current_page);}catch(e){if(alive)error.value=e.message;}finally{if(alive)busy.value=false;}}
+function askTransfer(row){if(busy.value)return;success.value='';error.value='';transfer.value={id:row.id,version:row.version,binding_version:meta.value.login_binding.version};}
+async function transferLogin(){if(busy.value||!transfer.value)return;const selected=transfer.value;busy.value=true;error.value='';try{await session.api.mutate(`/accounts/${props.account.id}/devices/${selected.id}/login-access`,'POST',{version:selected.version,binding_version:selected.binding_version});await load(meta.value.current_page);if(alive)success.value='تم نقل دخول النقطة إلى الجهاز المحدد. يحتاج المستخدم إلى تسجيل الدخول مجددًا.';}catch(e){if(alive)error.value=e.message;}finally{if(alive)busy.value=false;}}
+function date(value){return value?new Date(value).toLocaleString('ar-IQ'):'—';}
+onMounted(()=>load());onBeforeUnmount(()=>{alive=false;reader.abort();});
+</script>
+<template>
+ <section class="account-device-list">
+  <header><h3>أجهزة نقطة البيع</h3><small>دخول النقطة متاح من جهاز واحد فقط. يمكن نقل الدخول إلى جهاز آخر من هنا.</small><small>{{account.device_lock_enabled?'البيع من الأجهزة المعتمدة فقط':'تقييد جهاز البيع مطفأ'}}</small></header>
+  <p v-if="error" class="notice warn" role="alert">{{error}}</p>
+  <p v-if="success" class="notice positive" role="status">{{success}}</p>
+  <p v-if="busy" class="help" role="status">جارٍ تحديث الأجهزة…</p>
+  <p v-else-if="!rows.length" class="help">تظهر الأجهزة هنا تلقائيًا بعد دخول النقطة إلى التطبيق.</p>
+  <article v-for="row in rows" :key="row.id" class="account-device-row">
+   <div class="account-device-head"><strong>{{row.model||'جهاز بدون اسم'}} <small>{{row.manufacturer}}</small></strong><div class="account-device-badges"><span v-if="row.login_device" class="badge positive">جهاز الدخول الحالي</span><span class="badge" :class="{positive:row.status==='approved'}">{{labels[row.status]}}</span></div></div>
+   <dl><div><dt>معرّف الجهاز</dt><dd dir="ltr">{{row.device_id}}</dd></div><div><dt>النوع</dt><dd>{{row.kind==='pos'?'جهاز POS':row.kind==='mobile'?'موبايل':'متصفح'}}</dd></div><div v-if="row.serial"><dt>الرقم التسلسلي</dt><dd dir="ltr">{{row.serial}}</dd></div><div><dt>إصدار النظام / التطبيق</dt><dd>{{row.os_version||'غير متاح'}} / {{row.app_version}}</dd></div><div><dt>إثبات الجهاز</dt><dd>{{row.proof_enrolled?'مفتاح الجهاز مسجل':'يحتاج تحديث التطبيق وتسجيل المفتاح'}}</dd></div><div><dt>آخر اتصال</dt><dd>{{date(row.last_seen_at)}}</dd></div></dl>
+   <template v-if="session.can('pos.device')&&session.state.identity?.account.type!=='pos'">
+    <div class="actions"><button v-if="!row.login_device&&row.proof_enrolled&&meta.login_binding" type="button" class="btn small" :disabled="busy" @click="askTransfer(row)">نقل دخول النقطة إلى هذا الجهاز</button><button v-if="row.status!=='approved'&&row.proof_enrolled" type="button" class="btn small primary" :disabled="busy" @click="review(row,'approved')">اعتماد الجهاز</button><button v-if="row.status!=='revoked'" type="button" class="btn small" :disabled="busy" @click="review(row,'revoked')">إلغاء الاعتماد</button><button v-if="row.status!=='approved'" type="button" class="btn small" :disabled="busy" @click="review(row,'archived')">أرشفة الجهاز</button></div>
+    <div v-if="transfer?.id===row.id" class="account-device-confirm notice warn" role="group" :aria-labelledby="`device-transfer-${row.id}`"><strong :id="`device-transfer-${row.id}`">تأكيد نقل دخول النقطة</strong><p>سيُسجَّل خروج الجهاز السابق، ولن يتمكن من فتح النقطة. سيصبح {{row.model||'هذا الجهاز'}} هو جهاز الدخول الوحيد.</p><div class="actions"><button type="button" class="btn small primary" :disabled="busy" @click="transferLogin">تأكيد النقل</button><button type="button" class="btn small" :disabled="busy" @click="transfer=null">إلغاء</button></div></div>
+   </template>
+  </article>
+  <div v-if="meta.last_page>1" class="actions"><button class="btn small" type="button" :disabled="busy||meta.current_page<=1" @click="load(meta.current_page-1)">السابق</button><span>{{meta.current_page}} / {{meta.last_page}}</span><button class="btn small" type="button" :disabled="busy||meta.current_page>=meta.last_page" @click="load(meta.current_page+1)">التالي</button></div>
+ </section>
+</template>
+<style scoped>.account-device-list{margin-top:20px;padding-top:16px;border-top:1px solid var(--line)}.account-device-list header{display:grid;gap:7px;margin-bottom:14px}.account-device-list header small{color:var(--muted)}.account-device-row{padding:15px;background:var(--raised);border:1px solid var(--line);border-radius:14px;margin-block:10px}.account-device-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.account-device-head strong small{font-size:11px;color:var(--muted)}.account-device-row dl{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-block:15px}.account-device-row dl>div{display:grid;gap:4px}.account-device-row dt{color:var(--muted);font-size:11px}.account-device-row dd{margin:0;overflow-wrap:anywhere;font-size:13px}.account-device-row .actions,.account-device-badges{display:flex;gap:8px;flex-wrap:wrap}.account-device-confirm{display:grid;gap:10px;margin-top:14px}.account-device-confirm p{margin:0;line-height:1.7}</style>

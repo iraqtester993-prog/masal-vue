@@ -8,7 +8,8 @@ Route::prefix('reports')->group(function (): void {
     Route::get('summary', [ReportController::class, 'summary']);
     Route::get('sections/{section}/rows', [ReportController::class, 'rows']);
     Route::get('sections/{section}/rows/{rowKey}', [ReportController::class, 'row']);
-    Route::post('export', [ReportController::class, 'export']);
+    Route::post('export', [ReportController::class, 'export'])->middleware('throttle:report-export');
+    Route::get('exports/{id}', [ReportController::class, 'download'])->whereUuid('id')->middleware('throttle:report-export');
 });
 Route::get('dashboard/summary', [ReportController::class, 'dashboard']);
 Route::get('dashboard/activity', [ReportController::class, 'activity'])->name('dashboard.activity');

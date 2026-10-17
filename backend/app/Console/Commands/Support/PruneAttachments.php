@@ -3,9 +3,10 @@
 namespace App\Console\Commands\Support;
 
 use App\Models\Support\SupportAttachment;
+use App\Services\Backups\BackupCoordination;
+use App\Services\Operations\MutationGuard;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Throwable;
 
 class PruneAttachments extends Command
@@ -21,22 +22,24 @@ class PruneAttachments extends Command
         SupportAttachment::where('assigned', false)->where('expires_at', '<=', now())->select('id')->chunkById(100, function ($rows) use (&$removed, &$failed): void {
             foreach ($rows as $row) {
                 try {
-                    $deleted = DB::transaction(function () use ($row): bool {
+                    $path = DB::transaction(function () use ($row): ?string {
+                        app(MutationGuard::class)->lockRuntime();
                         $image = SupportAttachment::where('assigned', false)->where('expires_at', '<=', now())->lockForUpdate()->find($row->id);
                         if (! $image) {
-                            return false;
+                            return null;
                         }
                         if (DB::table('support_tickets')->where('attachment_id', $image->id)->exists() || DB::table('notices')->where('attachment_id', $image->id)->exists()) {
-                            return false;
+                            return null;
                         }
-                        if (! str_starts_with($image->path, 'support/attachments/') || ! Storage::disk('local')->delete($image->path)) {
+                        if (! str_starts_with($image->path, 'support/attachments/')) {
                             throw new \RuntimeException('Unable to remove private attachment.');
                         }
                         $image->delete();
 
-                        return true;
+                        return $image->path;
                     });
-                    if ($deleted) {
+                    if ($path !== null) {
+                        app(BackupCoordination::class)->deleteAsset($path);
                         $removed++;
                     }
                 } catch (Throwable) {
@@ -45,6 +48,7 @@ class PruneAttachments extends Command
                 }
             }
         });
+        app(BackupCoordination::class)->drainDeferredAssets();
         $this->info('Removed '.$removed.' expired unassigned attachments.');
 
         return $failed ? self::FAILURE : self::SUCCESS;

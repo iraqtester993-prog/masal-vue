@@ -14,8 +14,12 @@ use App\Models\Finance\LedgerTransaction;
 use App\Models\Finance\Policy;
 use App\Models\Finance\PriceRequest;
 use App\Models\Finance\Wallet;
+use App\Models\Stock\StockBatch;
+use App\Services\AccountLookup;
 use App\Services\AuditLogger;
 use App\Services\CatalogAccess;
+use App\Services\Digital\TopupDistribution;
+use App\Services\Digital\TopupWallets;
 use App\Services\Finance\FinanceAccess;
 use App\Services\Finance\FinanceOperations;
 use App\Services\Finance\Money;
@@ -23,6 +27,7 @@ use App\Services\ManagementAuthority;
 use App\Services\Operations\MutationGuard;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
@@ -40,21 +45,41 @@ class FinanceController extends Controller
         foreach (CatalogProvider::where('connection', 'API')->where('status', 'active')->get(['id', 'name']) as $provider) {
             $services[] = ['id' => 'api:'.$provider->id, 'name' => $provider->name];
         }
-        $accounts = $this->access->accounts($request->user())->orderBy('id')->get(['id', 'name', 'type', 'parent_id', 'phone', 'city', 'status']);
+        $accountScope = $this->access->accounts($request->user());
+        $accountKinds = (clone $accountScope)->selectRaw('type, COUNT(*) AS total')->groupBy('type')->pluck('total', 'type');
+        $cities = (clone $accountScope)->whereNotNull('city')->where('city', '<>', '')->distinct()->orderBy('city')->pluck('city');
+        $childCount = (clone $accountScope)->where('parent_id', $request->user()->membership->account_id)->where('status', 'active')->count();
+        $accounts = (clone $accountScope)->when($request->boolean('compact'), fn ($query) => $query->whereKey($request->user()->membership->account_id))->orderBy('id')->get(['id', 'name', 'type', 'parent_id', 'phone', 'city', 'status']);
 
         $own = (int) $request->user()->membership->account_id;
+        $systemScope = $request->user()->membership->account->type === AccountType::System;
         $start = now('Asia/Baghdad')->startOfDay()->utc();
-        $visible = $accounts->pluck('id');
-        $counts = ['today_requests' => FundingRequest::whereIn('to_account_id', $visible)->where('to_account_id', $own)->where('created_at', '>=', $start)->where('created_at', '<', $start->copy()->addDay())->count(), 'pending_incoming' => FundingRequest::whereIn('to_account_id', $visible)->where('from_account_id', $own)->where('status', 'pending')->count(), 'transfer_count' => DB::table('finance_transactions')->whereIn('kind', ['funding', 'transfer'])->whereExists(function ($q) use ($visible, $own): void {
-            $q->selectRaw('1')->from('finance_entries')->join('finance_wallets', 'finance_wallets.id', '=', 'wallet_id')->whereColumn('transaction_id', 'finance_transactions.id')->whereIn('account_id', $visible)->where('account_id', $own);
+        $visible = $this->access->accounts($request->user())->select('id');
+        $counts = ['today_requests' => FundingRequest::whereIn('to_account_id', $visible)->where('to_account_id', $own)->where('created_at', '>=', $start)->where('created_at', '<', $start->copy()->addDay())->count(), 'pending_incoming' => FundingRequest::whereIn('to_account_id', $visible)->where('from_account_id', $own)->where('status', 'pending')->count(), 'transfer_count' => DB::table('finance_transactions')->where('posted', true)->whereIn('kind', ['funding', 'transfer'])->whereExists(function ($q) use ($visible, $own, $systemScope): void {
+            $q->selectRaw('1')->from('finance_entries')->join('finance_wallets', 'finance_wallets.id', '=', 'wallet_id')->whereColumn('transaction_id', 'finance_transactions.id')->where('finance_wallets.kind', 'account')->whereIn('account_id', $visible)->when(! $systemScope, fn ($wallets) => $wallets->where('account_id', $own));
         })->count()];
         if (! in_array('wallets.view', $request->user()->membership->permissions(), true)) {
             $counts = ['today_requests' => 0, 'pending_incoming' => 0, 'transfer_count' => 0];
         }
 
         $parent = $request->user()->membership->account->parent;
+        $topupFunder = $request->user()->membership->account->type === AccountType::Pos ? app(TopupDistribution::class)->main($request->user()->membership->account) : null;
 
-        return response()->json(['data' => ['services' => $services, 'currencies' => ['IQD'], 'accounts' => $accounts, 'own_account_id' => $own, 'parent_account_id' => $parent?->id, 'parent_account_name' => $parent?->name, 'parent_account_type' => $parent?->type->value, 'counts' => $counts, 'funding_policy' => (new FinanceResource(Policy::findOrFail(1)))->resolve($request)]]);
+        return response()->json(['data' => ['services' => $services, 'currencies' => ['IQD'], 'accounts' => $accounts, 'account_kinds' => $accountKinds, 'account_cities' => $cities, 'child_count' => $childCount, 'accounts_total' => array_sum($accountKinds->all()), 'accounts_paged' => $request->boolean('compact'), 'own_account_id' => $own, 'parent_account_id' => $parent?->id, 'parent_account_name' => $parent?->name, 'parent_account_type' => $parent?->type->value, 'topup_funder_account_id' => $topupFunder?->id, 'topup_funder_account_name' => $topupFunder?->name, 'counts' => $counts, 'funding_policy' => (new FinanceResource(Policy::findOrFail(1)))->resolve($request)]]);
+    }
+
+    private function scopedAccounts(FinanceRequest $request): mixed
+    {
+        return app(AccountLookup::class)->query($request);
+    }
+
+    public function accounts(FinanceRequest $request): JsonResponse
+    {
+        $permissions = array_values(array_intersect(['wallets.view', 'prices.view', 'invoices.view', 'ledger.view'], $request->user()->membership->permissions()));
+        abort_unless($permissions, 403);
+        $this->access->require($request->user(), $permissions[0]);
+
+        return app(AccountLookup::class)->page($request);
     }
 
     private function filters(mixed $query, FinanceRequest $request, string $dateColumn, array $columns, array $relations = []): void
@@ -81,7 +106,7 @@ class FinanceController extends Controller
     private function ids(FinanceRequest $request, string $permission): mixed
     {
         $this->access->require($request->user(), $permission);
-        $ids = $this->access->accounts($request->user());
+        $ids = $this->scopedAccounts($request);
         if ($request->has('account_id')) {
             $this->access->account($request->user(), (int) $request->account_id, $permission);
             $ids->whereKey((int) $request->account_id);
@@ -104,7 +129,7 @@ class FinanceController extends Controller
         }
 
         $stockMetrics = null;
-        if (in_array($request->user()->membership->account->type, [AccountType::System, AccountType::MainAgent], true) && (! $request->filled('service') || $request->input('service') === 'voucher') && Schema::hasTable('stock_cards')) {
+        if ($request->boolean('metrics', true) && in_array($request->user()->membership->account->type, [AccountType::System, AccountType::MainAgent], true) && (! $request->filled('service') || $request->input('service') === 'voucher') && Schema::hasTable('stock_cards')) {
             $currency = $request->input('currency', 'IQD');
             $ancestors = DB::table('account_closure')->whereIn('descendant_id', $this->ids($request, 'wallets.view'))->select('ancestor_id');
             $mainIds = $this->access->accounts($request->user())->whereIn('id', $ancestors)->where('type', AccountType::MainAgent)->select('id');
@@ -112,12 +137,21 @@ class FinanceController extends Controller
             $stockMetrics = ['count' => (int) $stock->quantity, 'currency' => $currency, 'cost' => in_array('data.cost', $request->user()->membership->permissions(), true) ? Money::decimal((int) $stock->cost_minor) : null, 'value' => Money::decimal((int) $stock->value_minor)];
         }
 
-        return FinanceResource::collection($query->paginate((int) $request->input('per_page', 100)))->additional(['stock_metrics' => $stockMetrics]);
+        $summary = null;
+        if ($request->boolean('summary')) {
+            $own = (int) $request->user()->membership->account_id;
+            $totals = (clone $query)->reorder()->selectRaw('COALESCE(SUM(balance_minor),0) AS balance, COALESCE(SUM(held_minor),0) AS held, COALESCE(SUM(CASE WHEN account_id = ? THEN balance_minor ELSE 0 END),0) AS own_balance, COALESCE(SUM(CASE WHEN account_id = ? THEN held_minor ELSE 0 END),0) AS own_held', [$own, $own])->first();
+            $summary = ['balance' => Money::decimal((int) $totals->balance), 'available' => Money::decimal((int) $totals->balance - (int) $totals->held), 'held' => Money::decimal((int) $totals->held), 'own_balance' => Money::decimal((int) $totals->own_balance), 'own_available' => Money::decimal((int) $totals->own_balance - (int) $totals->own_held), 'own_held' => Money::decimal((int) $totals->own_held), 'children' => Money::decimal((int) $totals->balance - (int) $totals->own_balance)];
+        }
+
+        $topupSummary = $request->boolean('summary') && $request->input('service') === 'topup' ? app(TopupWallets::class)->summary($this->ids($request, 'wallets.view'), $request->user()->membership->permissions()) : null;
+
+        return FinanceResource::collection($query->paginate((int) $request->input('per_page', 100)))->additional(['stock_metrics' => $stockMetrics, 'summary' => $summary, 'topup_summary' => $topupSummary]);
     }
 
     public function ledger(FinanceRequest $request): JsonResponse
     {
-        $query = DB::table('finance_entries')->join('finance_wallets', 'finance_wallets.id', '=', 'finance_entries.wallet_id')->join('finance_transactions', 'finance_transactions.id', '=', 'finance_entries.transaction_id')
+        $query = DB::table('finance_entries')->join('finance_wallets', 'finance_wallets.id', '=', 'finance_entries.wallet_id')->join('finance_transactions', 'finance_transactions.id', '=', 'finance_entries.transaction_id')->join('accounts', 'accounts.id', '=', 'finance_wallets.account_id')
             ->where('finance_wallets.kind', 'account')->where('finance_transactions.posted', true)->whereIn('finance_wallets.account_id', $this->ids($request, 'ledger.view'))->orderByDesc('finance_entries.id');
         $this->filters($query, $request, 'finance_entries.created_at', ['finance_transactions.reference', 'finance_transactions.kind']);
         foreach (['service', 'currency'] as $field) {
@@ -125,8 +159,8 @@ class FinanceController extends Controller
                 $query->where('finance_wallets.'.$field, $request->input($field));
             }
         }
-        $page = $query->paginate((int) $request->input('per_page', 25), ['finance_entries.id', 'finance_entries.transaction_id', 'finance_wallets.account_id', 'finance_wallets.service', 'finance_wallets.currency', 'finance_entries.amount_minor', 'finance_entries.balance_after_minor', 'finance_transactions.kind', 'finance_transactions.reference', 'finance_entries.created_at']);
-        $data = $page->getCollection()->map(fn ($entry): array => ['id' => (int) $entry->id, 'transaction_id' => (int) $entry->transaction_id, 'account_id' => (int) $entry->account_id, 'service' => $entry->service, 'currency' => $entry->currency, 'amount' => Money::decimal((int) $entry->amount_minor), 'balance_after' => Money::decimal((int) $entry->balance_after_minor), 'kind' => $entry->kind, 'reference' => $entry->reference, 'created_at' => $entry->created_at]);
+        $page = $query->paginate((int) $request->input('per_page', 25), ['finance_entries.id', 'finance_entries.transaction_id', 'finance_wallets.account_id', 'accounts.name as account_name', 'finance_wallets.service', 'finance_wallets.currency', 'finance_entries.amount_minor', 'finance_entries.balance_after_minor', 'finance_transactions.kind', 'finance_transactions.reference', 'finance_entries.created_at']);
+        $data = $page->getCollection()->map(fn ($entry): array => ['id' => (int) $entry->id, 'transaction_id' => (int) $entry->transaction_id, 'account_id' => (int) $entry->account_id, 'account_name' => $entry->account_name, 'service' => $entry->service, 'currency' => $entry->currency, 'amount' => Money::decimal((int) $entry->amount_minor), 'balance_after' => Money::decimal((int) $entry->balance_after_minor), 'kind' => $entry->kind, 'reference' => $entry->reference, 'created_at' => $entry->created_at]);
 
         return response()->json(['data' => $data, 'meta' => ['current_page' => $page->currentPage(), 'per_page' => $page->perPage(), 'total' => $page->total(), 'last_page' => $page->lastPage()]]);
     }
@@ -219,6 +253,19 @@ class FinanceController extends Controller
         return response()->json(['data' => $this->operations->fundingRequest($request->user(), $request->validated(), $request)], 201);
     }
 
+    public function fundingBatches(Request $request, int $id): JsonResponse
+    {
+        $actor = $request->user();
+        $this->access->require($actor, 'wallets.approve');
+        abort_unless($actor->membership->account->type === AccountType::System, 403);
+        $funding = FundingRequest::where('from_account_id', $actor->membership->account_id)->where('status', 'pending')->findOrFail($id);
+        $this->access->account($actor, $funding->to_account_id, 'wallets.approve');
+        $input = $request->validate(['page' => 'sometimes|integer|min:1']);
+        $rows = StockBatch::where('account_id', $funding->to_account_id)->where('currency', $funding->currency)->where('amount_minor', $funding->amount_minor)->where('created_at', '>=', $funding->created_at)->whereIn('status', ['Loaded', 'Partially Used'])->whereNotNull('transaction_id')->whereExists(fn ($q) => $q->selectRaw('1')->from('finance_invoices')->whereColumn('finance_invoices.id', 'stock_batches.invoice_id')->whereColumn('finance_invoices.source_id', 'stock_batches.id')->where('kind', 'receivable')->where('source_type', 'stock_batch')->where('finance_invoices.amount_minor', $funding->amount_minor))->whereNotIn('id', FundingRequest::whereNotNull('stock_batch_id')->select('stock_batch_id'))->with('product:id,name')->orderByDesc('id')->paginate(25, ['*'], 'page', $input['page'] ?? 1);
+
+        return response()->json(['data' => $rows->map(fn ($batch) => ['id' => $batch->id, 'label' => '#'.$batch->id.' · '.$batch->product->name.' · '.Money::decimal($batch->amount_minor)]), 'meta' => ['current_page' => $rows->currentPage(), 'last_page' => $rows->lastPage()]]);
+    }
+
     public function reviewFundingRequest(FinanceRequest $request, int $id): JsonResponse
     {
         return response()->json(['data' => $this->operations->reviewFunding($request->user(), $id, $request->validated(), $request)]);
@@ -264,7 +311,7 @@ class FinanceController extends Controller
 
     public function invoices(FinanceRequest $request): mixed
     {
-        $query = Invoice::with(['account', 'creator'])->whereIn('account_id', $this->ids($request, 'invoices.view'))->orderByDesc('id');
+        $query = Invoice::with(['account', 'creator', 'digitalOrder'])->whereIn('account_id', $this->ids($request, 'invoices.view'))->orderByDesc('id');
         if ($request->filled('kind')) {
             $query->where('kind', $request->kind);
         }

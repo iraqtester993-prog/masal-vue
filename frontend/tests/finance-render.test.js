@@ -53,7 +53,7 @@ test('the actual wallet and price pages render using the portal context for syst
         state: reactive({ identity: { account: actor, membership: { kind: 'owner' }, permissions: permissionsForChildren } }),
         can: (permission) => permissionsForChildren.includes(permission), refresh: async () => null,
         api: { request: async (path) => {
-          if (path === '/finance/options') return { data: { accounts, own_account_id: actor.id, parent_account_id: actor.parent_id, services: [{ id: 'voucher', name: 'البطاقات' }], currencies: ['IQD', 'USD'], funding_policy: { version: 1, daily_limit: 3, amounts: ['25000.00'], recovery_hours: 24 }, counts: { today_requests: 0, pending_incoming: 0, transfer_count: 0 } } };
+          if (path === '/finance/options?compact=1') return { data: { accounts, own_account_id: actor.id, parent_account_id: actor.parent_id, services: [{ id: 'voucher', name: 'البطاقات' }], currencies: ['IQD', 'USD'], funding_policy: { version: 1, daily_limit: 3, amounts: ['25000.00'], recovery_hours: 24 }, counts: { today_requests: 0, pending_incoming: 0, transfer_count: 0 } } };
           if (path.startsWith('/finance/wallets?')) return { data: [], meta: { last_page: 1 } };
           throw new Error(`Unexpected render request: ${path}`);
         }, mutate: () => { throw new Error('A render must not write'); } },
@@ -73,9 +73,21 @@ test('the actual wallet and price pages render using the portal context for syst
         const html = await renderToString(app);
         assert.ok(html.includes(label), `${type}: ${file} must render after real runtime options loading`);
         assert.ok(!html.includes('undefined'));
-        if (file === 'WalletRecovery' && type === 'main_agent') assert.ok(html.includes('نقطة'), 'recovery must offer funded descendants beyond direct children');
+        if (file === 'WalletRecovery' && type === 'main_agent') assert.ok(html.includes('الحساب للاسترجاع'), 'recovery must offer a paged descendant account picker');
         if (file === 'WalletRecovery' && type === 'system') assert.ok(!html.includes('آخر موعد:'), 'system must not offer unsupported money recovery');
       }
     }
+    const requests=[];
+    const session={state:reactive({identity:{account:{id:1,type:'system'},membership:{kind:'owner'}}}),can:()=>true,refresh:async()=>null,api:{request:async path=>{
+      requests.push(path);
+      if(path==='/finance/options?compact=1')return{data:{accounts:Array.from({length:10000},(_,i)=>({id:i+1,name:String(i+1),type:i?'pos':'system',parent_id:1,status:'active'})),services:[],currencies:['IQD'],own_account_id:1}};
+      if(path.startsWith('/finance/wallets?'))return{data:[{account_id:9000,service:'cash',currency:'IQD',available:'25.00'}],meta:{last_page:1}};
+      throw Error(path);
+    }}};
+    let runtime;
+    const app=createSSRApp({setup(){runtime=useFinanceRuntime();onServerPrefetch(async()=>{await runtime.loadOptions();assert.equal(requests.length,1,'options must not download network wallet balances');assert.equal(runtime.walletAmount(9000,'cash','IQD'),null,'unloaded balance must not become zero');await runtime.loadWallets(undefined,[9000]);});return()=>h('span');}});
+    app.provide(portalContextKey,{session,portal:{},config:{}});await renderToString(app);
+    assert.equal(requests.length,2);assert.ok(requests[1].includes('account_ids%5B%5D=9000'));assert.ok(requests[1].includes('metrics=0'));
+    assert.equal(runtime.walletAmount(9000,'cash','IQD'),'25.00');assert.equal(runtime.walletAmount(9999,'cash','IQD'),null);
   } finally { await server.close(); }
 });

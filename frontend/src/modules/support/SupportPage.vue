@@ -33,11 +33,12 @@ const state = reactive({options:{identity:null,recipients:[],broadcast_users:[],
 
 const form = reactive({recipient:'',title:'',description:'',image:null}), audience = ref(session.can('support.broadcast') ? 'all' : 'direct'), search = ref(''), selectedUsers = ref([]), attachmentBusy = ref(false);
 
-const composeTitle=ref(null);
+const composeTitle=ref(null),composeOpen=ref(false);
+const isPos=computed(()=>session.state.identity?.account.type==='pos');
 const siteInboxAvailable=computed(()=>session.state.identity?.account.type==='system'&&session.can('support.view'));
 const inboxTab=ref(route.query.tab==='site'?'site':'tickets');
 
-function quickCompose(){if(route.query.quick==='support' && session.can('support.create')){selected.value=null;nextTick(()=>composeTitle.value?.focus());}}
+function quickCompose(){if(route.query.quick==='support' && session.can('support.create')){composeOpen.value=true;selected.value=null;nextTick(()=>composeTitle.value?.focus());}}
 
 watch(()=>route.query.quick,quickCompose);
 
@@ -103,7 +104,8 @@ async function openTicket(id,{read=true} = {}) {
 
   const previous = selected.value, pendingReply = previous?.id === id ? reply.value : '';
 
-  selected.value = null; state.counterpart = {name:'',phones:[]}; state.loadingDetail = true; state.error = ''; reply.value = pendingReply; if (previous?.id !== id) replyKey.clear();
+  if (previous?.id !== id) {selected.value = null; state.counterpart = {name:'',phones:[]}; replyKey.clear();}
+  state.loadingDetail = true; state.error = ''; reply.value = pendingReply;
 
   try {
 
@@ -134,11 +136,19 @@ async function openTicket(id,{read=true} = {}) {
 async function chooseTicket(row) {
 
   if (state.saving) return;
+  composeOpen.value = false;
 
   if (String(route.query.ticket || '') === String(row.id)) await openTicket(row.id);
 
   else await router.replace({query:{...route.query,ticket:String(row.id)}});
 
+}
+
+function backToThreads(){
+  if(state.saving)return;
+  detailRevision++;detailReader?.abort();selected.value=null;state.loadingDetail=false;composeOpen.value=false;reply.value='';replyKey.clear();
+  const {ticket,quick,...query}=route.query;
+  void router.replace({query});
 }
 
 async function saveTicket() {
@@ -249,11 +259,12 @@ onBeforeUnmount(() => {alive = false; detailRevision++; clearTimeout(filterTimer
 
 <template>
 
-  <div class="finance-workspace communication-workspace support-module">
+  <div class="finance-workspace communication-workspace support-module" :class="{'pos-support-chat':isPos&&(selected||state.loadingDetail),'pos-support-compose':isPos&&composeOpen}">
 
     <p v-if="state.error || list.error" class="notice warn" role="alert">{{state.error || list.error}}</p><p v-if="state.success" class="notice" role="status">{{state.success}}</p>
 
     <div class="card workspace-card support-workspace">
+      <button v-if="isPos&&(selected||state.loadingDetail||composeOpen)" type="button" class="btn pos-support-back" :disabled="state.saving" @click="backToThreads"><span aria-hidden="true">‹</span> المحادثات</button>
 
       <nav v-if="siteInboxAvailable" class="site-inquiry-tabs" aria-label="مصدر رسائل الدعم"><button type="button" class="btn" :class="{primary:inboxTab==='tickets'}" @click="inboxTab='tickets'">محادثات النظام</button><button type="button" class="btn" :class="{primary:inboxTab==='site'}" @click="inboxTab='site'">رسائل موقع الشركة <span class="badge">{{state.options.site_inquiries_count||0}}</span></button></nav>
       <SiteInquiryInbox v-if="siteInboxAvailable && inboxTab==='site'" @count="state.options.site_inquiries_count=$event"/>
@@ -286,7 +297,8 @@ onBeforeUnmount(() => {alive = false; detailRevision++; clearTimeout(filterTimer
 
       </section>
 
-      <form v-if="session.can('support.create')" class="support-composer" @submit.prevent="saveTicket"><fieldset class="communication-fieldset" :disabled="state.saving || state.loadingOptions"><div class="support-section-heading"><h2>رسالة جديدة</h2><span class="caption">تواصل مع المستلم وتابع الردود هنا</span></div><div class="support-compose-grid"><label v-if="session.can('support.broadcast')">المستخدمين<select v-model="audience" aria-label="مستخدمو رسالة الدعم"><option value="all">عام لكل المستخدمين ضمن نطاقي</option><option v-if="state.options.identity?.type === 'system'" value="agents">الوكلاء الرئيسيون</option><option value="branches">الفروع</option><option value="custom">مخصص</option><option value="direct">مستلم مباشر</option></select></label><div v-if="audience === 'custom'"><input v-model="search" placeholder="بحث المستخدمين" aria-label="بحث مستلمي الدعم"><div class="scope-options"><label v-for="user in choices" :key="user.id"><input v-model="selectedUsers" type="checkbox" :value="user.id">{{user.name}}</label><p v-if="!choices.length">لا توجد نتائج</p></div></div><label v-if="audience === 'direct'">المرسل إليه<select v-model="form.recipient" required><option value="" disabled>اختر المستلم</option><option v-for="account in state.options.recipients" :key="account.id" :value="account.id">{{account.name}}</option></select></label><label>العنوان<input ref="composeTitle" v-model="form.title" required maxlength="200"></label><label class="support-message-field">محتوى الرسالة<textarea v-model="form.description" required maxlength="10000"></textarea></label></div><PrivateAttachment v-if="session.can('support.attach')" v-model="form.image" kind="support" :disabled="state.saving" @busy="attachmentBusy = $event" @error="failure"/><div class="formfoot"><button class="btn primary" :disabled="state.saving || attachmentBusy || state.loadingOptions">{{state.saving ? 'جارٍ الإرسال…' : 'إرسال الرسالة'}}</button></div></fieldset></form>
+      <button v-if="isPos&&session.can('support.create')" type="button" class="btn primary pos-compose-toggle" :aria-expanded="composeOpen" @click="composeOpen=!composeOpen">{{composeOpen?'إغلاق الرسالة الجديدة':'رسالة جديدة'}}</button>
+      <form v-if="session.can('support.create')&&(!isPos||composeOpen)" class="support-composer" @submit.prevent="saveTicket"><fieldset class="communication-fieldset" :disabled="state.saving || state.loadingOptions"><div class="support-section-heading"><h2>رسالة جديدة</h2><span class="caption">تواصل مع المستلم وتابع الردود هنا</span></div><div class="support-compose-grid"><label v-if="session.can('support.broadcast')">المستخدمين<select v-model="audience" aria-label="مستخدمو رسالة الدعم"><option value="all">عام لكل المستخدمين ضمن نطاقي</option><option v-if="state.options.identity?.type === 'system'" value="agents">الوكلاء الرئيسيون</option><option value="branches">الفروع</option><option value="custom">مخصص</option><option value="direct">مستلم مباشر</option></select></label><div v-if="audience === 'custom'"><input v-model="search" placeholder="بحث المستخدمين" aria-label="بحث مستلمي الدعم"><div class="scope-options"><label v-for="user in choices" :key="user.id"><input v-model="selectedUsers" type="checkbox" :value="user.id">{{user.name}}</label><p v-if="!choices.length">لا توجد نتائج</p></div></div><label v-if="audience === 'direct'">المرسل إليه<select v-model="form.recipient" required><option value="" disabled>اختر المستلم</option><option v-for="account in state.options.recipients" :key="account.id" :value="account.id">{{account.name}}</option></select></label><label>العنوان<input ref="composeTitle" v-model="form.title" required maxlength="200"></label><label class="support-message-field">محتوى الرسالة<textarea v-model="form.description" required maxlength="10000"></textarea></label></div><PrivateAttachment v-if="session.can('support.attach')" v-model="form.image" kind="support" :disabled="state.saving" @busy="attachmentBusy = $event" @error="failure"/><div class="formfoot"><button class="btn primary" :disabled="state.saving || attachmentBusy || state.loadingOptions">{{state.saving ? 'جارٍ الإرسال…' : 'إرسال الرسالة'}}</button></div></fieldset></form>
 
       </div>
     </div>

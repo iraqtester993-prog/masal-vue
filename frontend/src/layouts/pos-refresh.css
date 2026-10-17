@@ -1,0 +1,116 @@
+/* POS presentation only. Financial and receipt content remain server controlled. */
+.pos-app .pos-home-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;background:var(--pos-brand);color:var(--pos-brand-ink);border-radius:20px;padding:25px 16px;margin-bottom:18px;box-shadow:0 8px 24px #102d4710}
+.pos-app .pos-home-summary>div{display:grid;gap:9px;align-content:center;text-align:center;min-width:0}
+.pos-app .pos-home-summary>div+div{border-inline-start:1px solid currentColor;padding-inline-start:12px}
+.pos-app .pos-home-summary strong{font-size:clamp(23px,6vw,34px);line-height:1.4;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.pos-app .pos-home-summary strong small{font-size:12px;white-space:nowrap}
+.pos-app .pos-home-summary>div>span{font-size:13px}.pos-app .pos-home-summary>div>small{font-size:10px;opacity:.85}
+.pos-app .pos-home-companies{margin:22px 0}
+.pos-app .pos-home-companies>header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+.pos-app .pos-home-companies h2,.pos-app .pos-more-page h1{font-size:20px;margin:0;color:var(--ink)}
+.pos-app .pos-text-action{background:none;border:0;padding:5px 0;font:inherit;color:var(--pos-brand);font-size:12px;text-decoration:none;cursor:pointer}
+.pos-app .pos-company-strip{display:flex;gap:13px;overflow-x:auto;scrollbar-width:none;padding:3px 2px 10px;scroll-snap-type:x proximity}
+.pos-app .pos-company-strip.is-expanded{display:grid;grid-template-columns:repeat(auto-fill,minmax(66px,1fr));overflow:visible;justify-items:center;gap:14px}
+.pos-app .pos-company-circle{display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);place-items:center;flex:0 0 68px;width:68px;height:68px;overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:12px;color:var(--ink);font-size:24px;text-decoration:none;scroll-snap-align:start}
+.pos-app .pos-company-circle img{display:block;min-width:0;min-height:0;max-width:100%;max-height:100%;width:100%;height:100%;object-fit:contain;padding:5px}
+.pos-app .pos-company-circle:focus-visible{outline:2px solid var(--pos-brand);outline-offset:2px}
+.pos-app .pos-home-shortcuts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0}
+.pos-app .pos-home-shortcuts a{display:grid;justify-items:center;align-content:center;gap:9px;min-height:90px;border:1px solid var(--line);border-radius:16px;background:var(--panel);color:var(--ink);text-align:center;text-decoration:none;font-size:12px}
+.pos-app .pos-home-shortcuts svg{width:25px;height:25px;color:var(--pos-brand)}
+.pos-app .pos-more-list{display:grid;gap:11px;margin:20px 0}
+.pos-app .pos-more-list>:is(a,button,.pos-more-language){display:flex;align-items:center;gap:14px;width:100%;min-height:64px;padding:14px 16px;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:16px;font:inherit;text-decoration:none;text-align:start}
+.pos-app .pos-more-list svg,.pos-app .pos-more-symbol{width:25px;height:25px;flex-shrink:0;color:var(--pos-brand);font-size:24px;text-align:center}
+.pos-app .pos-more-list>:is(a,button)>span:not(.pos-more-symbol){flex:1}.pos-app .pos-more-list b{font-size:24px;color:var(--muted);line-height:1}
+.pos-app .pos-more-language{justify-content:space-between}.pos-app .pos-more-language select{max-width:180px}
+.pos-app .pos-more-list .pos-more-logout{color:#cc233c}.pos-app .pos-more-logout .pos-more-symbol{color:inherit}
+.pos-app .pos-more-list button:disabled{opacity:.55}
+.pos-app .sales-workspace>.tabs{display:flex;gap:6px;overflow-x:auto;padding:5px;background:var(--raised);border:1px solid var(--line);border-radius:14px;scrollbar-width:none;margin:0 0 14px}
+.pos-app .sales-workspace>.tabs button{flex:1 0 auto;min-height:40px;padding:9px 12px;border:0;border-radius:10px;background:transparent;color:var(--muted);font:inherit;font-size:12px;cursor:pointer}
+.pos-app .sales-workspace>.tabs button.active{background:var(--panel);color:var(--ink);box-shadow:0 1px 5px #102d4712}
+html[data-portal=pos] :is(.sales-dialog,.modal) .btn.primary{background:var(--pos-brand,#079cb0);color:var(--pos-brand-ink,#fff);border-color:transparent}
+html[data-portal=pos] :is(.sales-dialog,.modal) :focus-visible{outline-color:var(--pos-brand,#079cb0)}
+@media screen and (max-width:800px){
+ html[data-theme=light] .portal-shell.pos-app{--panel:#fff;--raised:#edf4f7;--canvas:#f3f8fb;--line:#dce8ef;--ink:#112840;--text:#112840;--muted:#637a8e;--soft-line:#e7eef4}
+ html[data-theme=dark] .portal-shell.pos-app{--panel:#1b2b40;--raised:#22364e;--canvas:#101c2e;--line:#344961;--ink:#f1f7fc;--text:#f1f7fc;--muted:#a9b9ca;--soft-line:#30445d}
+ html[data-theme] .portal-shell.pos-app{--accent:var(--pos-brand,#079cb0);--accent-soft:color-mix(in srgb,var(--pos-brand,#079cb0) 12%,var(--panel));--blue-text:var(--ink)}
+ html[data-theme] .portal-shell.pos-app .pos-mobile-header{grid-template-columns:minmax(0,1fr) auto;min-height:68px;padding:calc(12px + env(safe-area-inset-top)) 18px 12px;gap:12px;background:var(--canvas);color:var(--ink);border:0}
+ html[data-theme] .portal-shell.pos-app .pos-header-title strong{color:var(--ink);font-size:17px;line-height:1.5;overflow-wrap:anywhere}
+ html[data-theme] .portal-shell.pos-app .pos-header-button{border:0;background:transparent;color:var(--ink);width:40px;height:40px;position:relative}
+ html[data-theme] .portal-shell.pos-app .portal-main{padding:14px 16px 20px;max-width:680px}
+ html[data-theme] .portal-shell.pos-app .pos-app-nav{padding-top:9px;box-shadow:0 -4px 24px #14243608}
+ html[data-theme] .portal-shell.pos-app .pos-app-nav .pos-tab{grid-template-rows:27px 20px;gap:4px;min-height:54px}
+ html[data-theme] .portal-shell.pos-app .pos-app-nav .pos-tab-label{height:20px;line-height:20px;font-size:11px}
+ html[data-theme] .portal-shell.pos-app .pos-app-nav :is([aria-current=page],.is-more-active){color:var(--pos-brand)}
+ html[data-theme] .portal-shell.pos-app .pos-app-nav :is([aria-current=page],.is-more-active) .pos-tab-icon{background:transparent}
+ html[data-theme] .portal-shell.pos-app .dashboard-activity-log{background:transparent;border:0;padding:0;margin:20px 0}
+ html[data-theme] .portal-shell.pos-app .activity-card-heading{display:flex;justify-content:space-between;flex-wrap:nowrap;gap:12px}
+ html[data-theme] .portal-shell.pos-app .pos-activity-list{gap:8px;margin-top:12px}
+ html[data-theme] .portal-shell.pos-app .pos-activity-row{grid-template-columns:minmax(0,1fr) auto auto;gap:8px;padding:12px;border-radius:14px}
+ .pos-app .pos-activity-row strong{font-size:12px;line-height:1.6}.pos-app .pos-activity-row b{font-size:12px}
+ .pos-app .pos-row-open{background:none;border:0;color:var(--muted);font-size:26px;min-width:24px;padding:0;height:40px}
+ .pos-app .pos-activity-row .activity-status{font-size:10px;padding:3px 8px}.pos-app .pos-more-page{padding:4px 0}
+ .pos-app .pos-more-page h1{font-size:22px}
+}
+@media screen and (max-width:350px){
+ html[data-theme] .portal-shell.pos-app .portal-main{padding-inline:12px}
+ .pos-app .pos-home-summary{padding:20px 10px}.pos-app .pos-home-summary>div>span{font-size:11px}
+ .pos-app .pos-home-shortcuts{gap:7px}.pos-app .pos-home-shortcuts a{font-size:10px;min-height:82px}
+ .pos-app .pos-company-circle{width:60px;height:60px;flex-basis:60px}
+ html[data-theme] .portal-shell.pos-app .pos-activity-row{gap:6px;padding:10px}.pos-app .pos-activity-row b{font-size:11px}
+}
+@media print{.pos-more-page,.pos-home-summary,.pos-home-companies,.pos-home-shortcuts{display:none!important}}
+html[data-theme=light] .pos-app{--pos-link:var(--pos-link-light,var(--pos-brand,#079cb0))}
+html[data-theme=dark] .pos-app{--pos-link:var(--pos-link-dark,#b4d9e5)}
+.pos-app :is(.pos-text-action,.pos-home-shortcuts svg,.pos-more-list svg,.pos-more-symbol){color:var(--pos-link,var(--pos-brand))}
+html[data-theme] .portal-shell.pos-app .pos-app-nav :is([aria-current=page],.is-more-active){color:var(--pos-link,var(--pos-brand))}
+.pos-app .pos-sale-workspace .pos-sale-category-art.is-placeholder{color:var(--pos-link,var(--pos-brand))}
+html[data-theme][data-portal=pos] .pos-app .btn.primary,
+html[data-theme][data-portal=pos] :is(.sales-dialog,.sales-modal) .btn.primary{background:var(--pos-brand,#079cb0)!important;color:var(--pos-brand-ink,#fff)!important;border-color:var(--pos-brand,#079cb0)!important}
+html[data-theme][data-portal=pos] .pos-app .btn.primary:hover,
+html[data-theme][data-portal=pos] :is(.sales-dialog,.sales-modal) .btn.primary:hover{background:var(--pos-brand,#079cb0)!important;border-color:var(--pos-brand,#079cb0)!important;filter:brightness(.94)}
+html[data-theme][data-portal=pos] .sales-receipt-dialog .receipt-result-options .btn.selected{box-shadow:0 0 0 2px currentColor}
+html[data-theme][data-portal=pos] .sales-receipt-dialog .receipt-result-options .btn.receipt-result-success.selected{background:color-mix(in srgb,#258768 12%,var(--panel))!important;border-color:#258768!important;color:#176b4c!important}
+html[data-theme][data-portal=pos] .sales-receipt-dialog .receipt-result-options .btn.receipt-result-failure.selected{background:color-mix(in srgb,#c75151 12%,var(--panel))!important;border-color:#c75151!important;color:#973131!important}
+html[data-theme=dark][data-portal=pos] .sales-receipt-dialog .receipt-result-options .btn.receipt-result-success.selected{color:#91ebc9!important}
+html[data-theme=dark][data-portal=pos] .sales-receipt-dialog .receipt-result-options .btn.receipt-result-failure.selected{color:#ffb6b6!important}
+@media screen and (max-width:800px){
+ html[data-theme] .portal-shell.pos-app .pos-home-summary{background:linear-gradient(125deg,#162b43,#203d58);color:#fff;border:1px solid #385875;padding:20px 12px;border-radius:22px;box-shadow:0 9px 24px #182c4812}
+ .pos-app .pos-home-summary>div{gap:6px}.pos-app .pos-home-summary>div+div{border-color:#80a6c14d}
+ .pos-app .pos-home-summary svg{width:27px;height:27px;justify-self:center;color:var(--pos-link-dark,#20c6dc);margin-bottom:4px}
+ .pos-app .pos-home-summary>div>small{color:#c3d7e5}
+ .pos-app .pos-home-shortcuts a{background:linear-gradient(135deg,var(--panel),var(--raised));border-radius:18px;box-shadow:0 3px 8px #132f4b08}
+ .pos-app .pos-home-shortcuts svg{width:29px;height:29px}
+ .pos-app .pos-home-companies{border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:16px 14px;margin:20px 0}
+ .pos-app .pos-home-companies h2{font-size:16px}.pos-app .pos-home-companies>header{margin-bottom:12px}
+ html[data-theme] .portal-shell.pos-app .dashboard-activity-log{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:16px 12px;margin:20px 0}
+ html[data-theme] .portal-shell.pos-app .pos-activity-row{padding:10px 8px;border-radius:12px;background:var(--raised)}
+ .pos-app .pos-activity-row strong{font-size:12px;line-height:1.55}
+ .pos-app .pos-app-nav .pos-tab-icon{border-radius:11px;padding:3px;min-width:39px}
+ html[data-theme] .portal-shell.pos-app .pos-app-nav [aria-current=page] .pos-tab-icon{background:var(--accent-soft)}
+ .pos-app .pos-sale-workspace .pos-sale-selected-category{flex-direction:column;text-align:center;gap:8px;margin:14px 0}
+ .pos-app .pos-sale-workspace .pos-sale-selected-art{width:100%;height:150px;background:var(--raised);border-radius:16px;padding:12px}
+ .pos-app .pos-sale-workspace .pos-sale-selected-category h3{font-size:19px}
+ .pos-app .pos-sale-workspace .pos-sale-summary-grid{grid-template-columns:1fr;gap:0;background:var(--raised);border:1px solid var(--line);border-radius:14px;padding:0 12px}
+ .pos-app .pos-sale-workspace .pos-sale-summary-grid>div{display:flex;justify-content:space-between;align-items:center;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:11px 0;background:transparent;gap:8px}
+ .pos-app .pos-sale-workspace .pos-sale-summary-grid>div:last-child{border:0}.pos-app .pos-sale-workspace .pos-sale-summary-grid .pos-sale-wallet{grid-column:auto;flex-direction:row;align-items:center}
+ .pos-app .pos-sale-workspace .pos-sale-order-fields{grid-template-columns:1fr}
+ .pos-app .pos-quantity-stepper{display:flex;direction:ltr;align-items:center;justify-content:center;gap:10px}
+ .pos-app .pos-quantity-stepper input{width:70px!important;text-align:center;font-size:20px;font-weight:800;background:var(--panel)!important;border:0!important;padding:6px!important}
+ .pos-app .pos-quantity-stepper button{width:44px;height:44px;flex:none;border:0;border-radius:11px;background:var(--pos-brand);color:var(--pos-brand-ink);font-size:25px;line-height:1}
+ .pos-app .pos-quantity-stepper input::-webkit-inner-spin-button{appearance:none}.pos-app .pos-quantity-stepper input{appearance:textfield}
+ .pos-app .pos-sale-workspace .pos-sale-total{background:var(--raised);border:1px solid var(--line);border-radius:12px;padding:12px}
+ .pos-pull-indicator{position:fixed;z-index:12;top:calc(env(safe-area-inset-top) + 12px + var(--pull-offset,0px));inset-inline-start:auto;inset-inline-end:auto;left:50%;right:auto;transform:translateX(-50%);display:flex;align-items:center;gap:8px;padding:8px 14px;border-radius:22px;box-shadow:0 4px 16px #102b4928;background:var(--panel);color:var(--ink);font-size:12px;pointer-events:none;border:1px solid var(--line);white-space:nowrap}
+ .pos-pull-indicator>span{font-size:22px;color:var(--pos-link,var(--pos-brand))}
+ html[data-theme] .portal-shell.pos-app .pos-activity-row.is-compact{grid-template-columns:30px minmax(0,1fr) auto auto;gap:7px}
+ .pos-operation-icon{width:30px;height:34px;display:grid;place-items:center;background:var(--panel);border-radius:9px;color:var(--pos-link,var(--pos-brand))}
+ .pos-operation-icon svg{width:19px;height:19px}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-operation-strip{margin-top:0}
+ html[data-portal=pos] .sales-receipt-dialog .receipt{border:0;background:#fff;box-shadow:0 4px 16px #162c4312;max-width:100%;width:min(100%,330px);border-radius:2px;padding:18px 14px}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-primary-actions{display:grid;grid-template-columns:1fr;gap:10px;border:0}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-primary-actions>.btn{width:100%;min-height:48px}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-result-options{grid-template-columns:1fr;gap:10px}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-result-options .btn{justify-content:space-between;text-align:start;padding:14px;min-height:58px}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-result-options .btn::after{content:'○';font-size:22px}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-result-options .btn.selected::after{content:'✓'}
+ html[data-portal=pos] .sales-receipt-dialog .receipt-result-confirm{width:100%;min-height:48px}
+}

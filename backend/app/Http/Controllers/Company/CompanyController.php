@@ -32,6 +32,53 @@ class CompanyController extends Controller
         return response()->json(['data' => $this->content->dto(CompanyProfile::findOrFail(1))]);
     }
 
+    public function appConfig(Request $request): JsonResponse
+    {
+        $record = CompanyProfile::findOrFail(1);
+
+        return response()->json(['data' => ['version' => $record->content['app_config_version'] ?? 1, 'config' => $record->content['app_config'] ?? ['name' => 'دنانير', 'about' => '', 'terms' => '', 'privacy' => '', 'printers' => [
+            ['id' => 'goojprt', 'name' => 'GOOJPRT / MTP-2', 'profile' => 'GOOJPRT', 'match' => 'GOOJPRT|JingPu|MTP-2|MTP-II'],
+            ['id' => 'yhd-8006', 'name' => 'YHD-8006', 'profile' => 'YHD-8006', 'match' => 'YHD-8006|YHD8006'],
+            ['id' => 'feasycom', 'name' => 'Feasycom', 'profile' => 'Feasycom', 'match' => 'Feasycom'],
+            ['id' => 'z51', 'name' => 'Z51', 'profile' => 'Z51', 'match' => 'Z51'],
+            ['id' => 'sunmi', 'name' => 'SUNMI', 'profile' => 'sunmi', 'match' => 'SUNMI'],
+            ['id' => 'rovoo', 'name' => 'ROVOO', 'profile' => 'rovoo', 'match' => 'ROVOO|MTHD-M1'],
+            ['id' => 'z91', 'name' => 'Z91', 'profile' => 'zcs', 'match' => 'Z91'],
+        ]]]]);
+    }
+
+    public function saveAppConfig(Request $request): JsonResponse
+    {
+        $this->access->require($request->user());
+        $data = $request->validate([
+            'version' => ['required', 'integer', 'min:1'],
+            'config' => ['required', 'array:name,about,terms,privacy,printers'],
+            'config.name' => ['required', 'string', 'max:120'],
+            'config.about' => ['present', 'nullable', 'string', 'max:10000'],
+            'config.terms' => ['present', 'nullable', 'string', 'max:20000'],
+            'config.privacy' => ['present', 'nullable', 'string', 'max:20000'],
+            'config.printers' => ['present', 'array', 'max:40'],
+            'config.printers.*' => ['array:id,name,profile,match,enabled'],
+            'config.printers.*.enabled' => ['sometimes', 'boolean'],
+            'config.printers.*.id' => ['required', 'string', 'regex:/^[a-zA-Z0-9_-]{1,60}$/', 'distinct'],
+            'config.printers.*.name' => ['required', 'string', 'max:100'],
+            'config.printers.*.profile' => ['required', 'in:GOOJPRT,YHD-8006,Feasycom,Z51,sunmi,rovoo,zcs'],
+            'config.printers.*.match' => ['required', 'string', 'min:3', 'max:100'],
+        ]);
+        DB::transaction(function () use ($request, $data): void {
+            app(MutationGuard::class)->lock($request->user(), [], 'company.edit');
+            $record = CompanyProfile::lockForUpdate()->findOrFail(1);
+            abort_unless((int) ($record->content['app_config_version'] ?? 1) === (int) $data['version'], 409, 'تغيرت البيانات؛ أعد تحميل الإعدادات.');
+            $content = $record->content;
+            $content['app_config'] = $data['config'];
+            $content['app_config_version'] = (int) $data['version'] + 1;
+            $record->update(['content' => $content, 'editor_id' => $request->user()->id]);
+            $this->audit->record('company.app-config', $request, $request->user(), $request->user()->membership->account_id, ['printer_count' => count($data['config']['printers'])]);
+        });
+
+        return $this->appConfig($request);
+    }
+
     public function save(CompanyProfileRequest $request): JsonResponse
     {
         return response()->json(['data' => $this->content->save($request->user(), $request->validated(), $request)]);

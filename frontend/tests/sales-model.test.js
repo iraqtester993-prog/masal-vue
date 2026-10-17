@@ -1,8 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createSalesApi,queryString} from '../src/modules/sales/sales-api.js';
-import {canReadReceipt,canRequestReprint,canReviewRequest,createMutationKey,multiply,pendingAttempt,salePayload,digitalCatalogProduct,catalogCompanyMatches} from '../src/modules/sales/sales-model.js';
+import {canReadReceipt,canRequestReprint,canReviewRequest,createMutationKey,multiply,pendingAttempt,salePayload,digitalCatalogProduct,catalogCompanyMatches,stockUnavailableReason} from '../src/modules/sales/sales-model.js';
 const product={id:3,price:'100.25',price_version:8,stock_available:5,wallet_available:'501.25',print_policy:{max_cards:10}};
+test('granted cards stay visible with distinct empty stock and insufficient POS credit states',()=>{
+ assert.equal(stockUnavailableReason({...product,stock_available:0,wallet_available:'0.00'}),'الكمية نافدة');
+ assert.equal(stockUnavailableReason({...product,wallet_available:'100.24'}),'رصيدك غير كافٍ');
+ assert.equal(stockUnavailableReason({...product,wallet_available:'100.25'}),'');
+ assert.equal(stockUnavailableReason({...product,stock_available:0,price:null}),'الكمية نافدة');
+ assert.throws(()=>salePayload({...product,wallet_available:'200.49'},2,''),/رصيدك غير كافٍ/);
+});
 test('Fourth with only a token keeps its service bucket while Topup joins the actual local product company and stock remains selectable',()=>{
   const base={id:7,connection_id:3,product_id:8,name:'API category',retail:'5000.25',provider_id:null,product_provider_id:'2',product_provider_name:'آسياسيل'};
   const fourth=digitalCatalogProduct({...base,provider:'rabiaa',company_name:'الرابعة'}),topup=digitalCatalogProduct({...base,id:9,product_id:10,provider:'topup',company_name:'Topup'}),stock={id:11,provider_id:2,name:'Physical category'};
@@ -21,7 +28,7 @@ test('sale quote uses exact decimal strings and rejects unapproved, insufficient
   assert.throws(()=>salePayload({...product,price:null},1,''),/لم يعتمد/);
   assert.throws(()=>salePayload(product,1.5,''),/عددًا صحيحًا/);
   assert.throws(()=>salePayload(product,6,''),/المتاحة/);
-  assert.throws(()=>salePayload({...product,wallet_available:'100.24'},1,''),/الرصيد/);
+  assert.throws(()=>salePayload({...product,wallet_available:'100.24'},1,''),/رصيدك غير كافٍ/);
 });
 test('receipt is restricted to the actual selling account and issued records even for a privileged system actor',()=>{
   const sale={account_id:12,issued_at:'2026-10-06T09:00:00Z',status:'Printed'};
@@ -48,6 +55,9 @@ test('a POS owner can request another reprint after successful printing while an
 test('a new print attempt supersedes earlier history and an uncertain retry retains the exact key',()=>{
   assert.equal(pendingAttempt({attempt_id:9,attempts:[{id:3,status:'pending'}]}),9);
   assert.equal(pendingAttempt({attempts:[{id:3,status:'success'},{id:4,status:'pending'}]}),4);
+  const olderAttempts=[{id:3,status:'pending'},{id:4,status:'pending'}];
+  olderAttempts.findLast=undefined;
+  assert.equal(pendingAttempt({attempts:olderAttempts}),4);
   let serial=0;const key=createMutationKey(()=>`test-key-${++serial}`),payload={version:8,attempt_id:9,success:false,reason:'ورقة عالقة'};
   assert.equal(key.for(payload),key.for({...payload}));
   assert.notEqual(key.for(payload),key.for({...payload,success:true}));

@@ -2,6 +2,10 @@ import { workbookSections, printableReport } from './report-model.js';
 export async function exportReport(api, parameters, print, signal, current = () => true) {
   const response=await api.export({...parameters,purpose:print?'print':'export'},signal);
   if(!current()||signal?.aborted) return;
+  if(response?.data?.download){
+    const file=response.data.download;if(print||!/^\/api\/v1\/reports\/exports\/[a-f0-9-]{36}$/.test(file.url||''))throw new Error('رابط التصدير غير صالح.');
+    const anchor=document.createElement('a');anchor.href=file.url;anchor.download=file.name||'dananeer-report.csv';anchor.click();return;
+  }
   if(!Array.isArray(response?.data?.sections)) throw new Error('استجابة التقرير غير متوقعة.');
   if(print) {
     const frame=document.createElement('iframe'); frame.title='طباعة التقرير'; frame.style.cssText='position:fixed;width:0;height:0;border:0';

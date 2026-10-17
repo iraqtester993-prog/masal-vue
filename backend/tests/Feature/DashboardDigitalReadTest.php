@@ -7,7 +7,11 @@ use App\Models\CatalogProduct;
 use App\Models\Digital\DigitalConnection;
 use App\Models\Digital\DigitalOffer;
 use App\Models\Digital\DigitalOrder;
+use App\Models\Digital\TopupGrant;
+use App\Services\Digital\DigitalConfiguration;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\Support\CreatesSupport;
 use Tests\TestCase;
@@ -15,6 +19,54 @@ use Tests\TestCase;
 class DashboardDigitalReadTest extends TestCase
 {
     use CreatesSupport, RefreshDatabase;
+
+    public function test_derived_totals_follow_resolution_refund_and_transaction_rollback(): void
+    {
+        $f = $this->digitalFixture();
+        $order = $this->order($f, 'topup', ['status' => 'pending', 'actual_cost_minor' => null, 'actual_retail_minor' => null, 'cost_basis' => null]);
+        $resolved = ['actual_cost_minor' => 430001, 'actual_retail_minor' => 500002, 'status' => 'succeeded', 'cost_basis' => 'provider_response', 'reservation_active' => false, 'company_transaction_id' => fake()->uuid(), 'receipt_ref' => fake()->uuid(), 'resolved_at' => now()];
+        $this->assertSame(1, (int) DB::table('digital_order_totals')->sum('order_count'));
+        DB::beginTransaction();
+        try {
+            DB::table('digital_orders')->where('id', $order->id)->update($resolved);
+            $this->assertSame(430001, (int) DB::table('digital_order_totals')->sum('cost_minor'));
+            $this->assertSame(1, (int) DB::table('digital_order_totals')->where('status', 'succeeded')->sum('order_count'));
+        } finally {
+            DB::rollBack();
+        }
+        $this->assertSame(0, (int) DB::table('digital_order_totals')->sum('cost_minor'));
+        $this->assertSame(1, (int) DB::table('digital_order_totals')->where('status', 'pending')->sum('order_count'));
+        DB::table('digital_orders')->where('id', $order->id)->update($resolved);
+        DB::table('digital_orders')->where('id', $order->id)->update(['status' => 'refunded', 'refunded_at' => now()]);
+        $this->assertSame(430001, (int) DB::table('digital_order_totals')->sum('cost_minor'));
+        $this->assertSame(500002, (int) DB::table('digital_order_totals')->sum('retail_minor'));
+        $this->assertSame(1, (int) DB::table('digital_order_totals')->where('status', 'refunded')->sum('order_count'));
+        $this->assertSame(1, (int) DB::table('digital_order_totals')->sum('order_count'));
+        $this->assertSame(0, (int) DB::table('digital_order_totals')->sum('unknown_cost_count'));
+    }
+
+    public function test_order_page_keys_keep_foreign_rows_out_and_preserve_last_page_totals(): void
+    {
+        $f = $this->digitalFixture();
+        $ownIds = [];
+        for ($i = 0; $i < 35; $i++) {
+            $ownIds[] = $this->completed($f, 'topup')->id;
+            $this->completed($f, 'topup', ['account_id' => $f['foreign']->id, 'main_account_id' => $f['foreign']->id]);
+        }
+        $this->asPortalUser($f['posUser']);
+        $last = $this->getJson('/api/v1/digital/orders?per_page=10&page=4')->assertOk()
+            ->assertJsonPath('meta.total', 35)->assertJsonPath('meta.last_page', 4)->assertJsonPath('meta.current_page', 4)->assertJsonCount(5, 'data');
+        $this->assertSame(array_reverse(array_slice($ownIds, 0, 5)), array_column($last->json('data'), 'id'));
+        $middle = $this->getJson('/api/v1/digital/orders?per_page=10&page=3')->assertOk()->assertJsonCount(10, 'data');
+        $this->assertSame(array_reverse(array_slice($ownIds, 5, 10)), array_column($middle->json('data'), 'id'));
+        $this->getJson('/api/v1/digital/orders?per_page=10&page=5')->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('meta.total', 35);
+        $this->getJson('/api/v1/digital/orders?per_page=10&status=failed')->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('meta.total', 0);
+        $this->asPortalUser($f['admin']);
+        foreach (['account_id' => $f['pos']->id, 'main_account_id' => $f['main']->id] as $field => $id) {
+            $filtered = $this->getJson('/api/v1/digital/orders?per_page=10&page=4&'.$field.'='.$id)->assertOk()->assertJsonCount(5, 'data')->assertJsonPath('meta.total', 35);
+            $this->assertSame(array_reverse(array_slice($ownIds, 0, 5)), array_column($filtered->json('data'), 'id'));
+        }
+    }
 
     public function test_topup_summary_totals_all_visible_balances_and_preserves_unknown_or_zero_balances(): void
     {
@@ -59,6 +111,71 @@ class DashboardDigitalReadTest extends TestCase
         $this->assertDatabaseCount('finance_transactions', 0);
     }
 
+    public function test_full_point_card_uses_bounded_visible_ids_for_candidates_and_keeps_latest_five_scoped_rows(): void
+    {
+        $f = $this->digitalFixture();
+        $own = [];
+        for ($i = 0; $i < 8; $i++) {
+            $product = CatalogProduct::factory()->create(['name' => 'Latest own '.$i]);
+            $this->completed($f, 'topup', ['product_id' => $product->id, 'created_at' => now()->subMinutes($i)]);
+            $own[] = $f['pos']->name.' · '.$f['posUser']->name.' · '.$product->name;
+            $this->completed($f, 'topup', ['account_id' => $f['foreign']->id, 'main_account_id' => $f['foreign']->id]);
+        }
+        $queries = [];
+        DB::listen(function ($query) use (&$queries): void {
+            if (str_contains($query->sql, 'digital_orders') && str_contains($query->sql, 'limit 5')) {
+                $queries[] = $query->sql;
+            }
+        });
+        $this->asPortalUser($f['posUser']);
+        $card = collect($this->getJson('/api/v1/dashboard/summary')->assertOk()->json('data.cards'))->firstWhere('key', 'digital:topup');
+        $this->assertSame(8, $card['rows_total']);
+        $this->assertCount(5, $card['rows']);
+        $this->assertSame(array_slice($own, 0, 5), array_column($card['rows'], 'name'));
+        $this->assertNotEmpty($queries);
+        foreach ($queries as $query) {
+            $this->assertStringNotContainsString('select "accounts"."id"', $query);
+            $this->assertStringNotContainsString('select `accounts`.`id`', $query);
+        }
+        $this->assertDatabaseCount('finance_transactions', 0);
+    }
+
+    public function test_compact_cards_preserve_totals_and_full_details_are_bounded(): void
+    {
+        $f = $this->digitalFixture();
+        for ($i = 0; $i < 102; $i++) {
+            DigitalConnection::factory()->create(['account_id' => $f['main']->id, 'provider' => 'topup', 'company_balance_minor' => 100001]);
+        }
+        $this->asPortalUser($f['admin']);
+        $full = $this->getJson('/api/v1/dashboard/summary')->assertOk();
+        $compact = $this->getJson('/api/v1/dashboard/summary?view=cards')->assertOk();
+        $fullCard = collect($full->json('data.cards'))->firstWhere('key', 'digital:topup');
+        $card = collect($compact->json('data.cards'))->firstWhere('key', 'digital:topup');
+        $this->assertSame($fullCard['remaining'], $card['remaining']);
+        $this->assertSame($fullCard['value'], $card['value']);
+        $this->assertSame(103, $card['balance_rows_total']);
+        $this->assertCount(100, $fullCard['balanceRows']);
+        $this->assertSame([], $card['balanceRows']);
+        $compact->assertJsonCount(0, 'data.chart')->assertJsonCount(0, 'data.regions')->assertJsonCount(0, 'data.recent_operations');
+        $this->assertLessThan(strlen($full->getContent()), strlen($compact->getContent()));
+        $this->getJson('/api/v1/dashboard/summary?view=wrong')->assertUnprocessable();
+    }
+
+    public function test_all_activity_uses_bounded_cursor_pages_without_skipping_equal_timestamps(): void
+    {
+        $f = $this->digitalFixture();
+        for ($i = 0; $i < 205; $i++) {
+            DB::table('audit_logs')->insert(['user_id' => $f['admin']->id, 'account_id' => $f['system']->id, 'subject_account_id' => $f['main']->id, 'portal' => 'admin', 'action' => 'wallets.deposit', 'created_at' => '2026-10-01 10:00:00', 'details' => '{}']);
+        }
+        $this->asPortalUser($f['admin']);
+        $first = $this->getJson('/api/v1/dashboard/activity?limit=all')->assertOk()->assertJsonCount(100, 'data');
+        $second = $this->getJson('/api/v1/dashboard/activity?limit=all&cursor='.urlencode($first->json('meta.next_cursor')))->assertOk()->assertJsonCount(100, 'data');
+        $third = $this->getJson('/api/v1/dashboard/activity?limit=all&cursor='.urlencode($second->json('meta.next_cursor')))->assertOk()->assertJsonCount(5, 'data')->assertJsonPath('meta.next_cursor', null);
+        $keys = array_merge(array_column($first->json('data'), 'key'), array_column($second->json('data'), 'key'), array_column($third->json('data'), 'key'));
+        $this->assertCount(205, array_unique($keys));
+        $this->getJson('/api/v1/dashboard/activity?limit=all&cursor=invalid')->assertUnprocessable();
+    }
+
     private function digitalFixture(): array
     {
         $f = $this->supportFixture();
@@ -71,6 +188,77 @@ class DashboardDigitalReadTest extends TestCase
         Http::preventStrayRequests();
 
         return $f + compact('product', 'connections', 'offers');
+    }
+
+    public function test_account_rollups_stay_small_preserve_scope_and_product_filters_use_detailed_totals(): void
+    {
+        $f = $this->digitalFixture();
+        for ($i = 0; $i < 13; $i++) {
+            $product = $i === 0 ? $f['product'] : CatalogProduct::factory()->create();
+            $this->completed($f, 'topup', ['product_id' => $product->id]);
+        }
+        $this->completed($f, 'topup', ['account_id' => $f['foreign']->id, 'main_account_id' => $f['foreign']->id]);
+        $this->assertSame(14, DB::table('digital_order_totals')->count());
+        $this->assertSame(2, DB::table('digital_account_totals')->count());
+        $queries = [];
+        DB::listen(function ($query) use (&$queries): void {
+            $queries[] = $query->sql;
+        });
+        $this->asPortalUser($f['posUser']);
+        $this->getJson('/api/v1/digital/orders/summary?provider=topup')->assertOk()
+            ->assertJsonPath('data.quantity', 13)->assertJsonPath('data.retail', '65000.26');
+        $this->assertTrue(collect($queries)->contains(fn ($sql) => str_contains($sql, 'digital_account_totals')));
+        $queries = [];
+        $this->getJson('/api/v1/digital/orders/summary?product_id='.$f['product']->id)->assertOk()
+            ->assertJsonPath('data.quantity', 1)->assertJsonPath('data.retail', '5000.02');
+        $this->assertTrue(collect($queries)->contains(fn ($sql) => str_contains($sql, 'digital_order_totals')));
+        $this->asPortalUser($f['admin']);
+        $this->getJson('/api/v1/digital/orders/summary?provider=topup')->assertOk()->assertJsonPath('data.quantity', 14);
+    }
+
+    public function test_account_rollup_backfill_replays_once_and_history_deletion_cannot_remove_its_amounts(): void
+    {
+        $f = $this->digitalFixture();
+        $this->completed($f, 'topup');
+        $migration = require database_path('migrations/2026_10_14_002408_create_digital_account_totals.php');
+        $migration->down();
+        $this->completed($f, 'topup');
+        $migration->up();
+        $migration->up();
+        $this->assertSame(2, (int) DB::table('digital_account_totals')->sum('order_count'));
+        $this->assertSame(860002, (int) DB::table('digital_account_totals')->sum('cost_minor'));
+        $this->assertSame(1000004, (int) DB::table('digital_account_totals')->sum('retail_minor'));
+        $pending = $this->order($f, 'topup');
+        $this->assertSame(3, (int) DB::table('digital_account_totals')->sum('order_count'));
+        try {
+            DB::table('digital_orders')->where('id', $pending->id)->delete();
+            $this->fail('Digital history must stay immutable.');
+        } catch (QueryException) {
+            $this->assertSame(3, (int) DB::table('digital_account_totals')->sum('order_count'));
+            $this->assertSame(1, (int) DB::table('digital_account_totals')->where('status', 'pending')->sum('order_count'));
+        }
+    }
+
+    public function test_sqlite_rebuild_rolls_back_totals_and_order_triggers_when_backfill_fails(): void
+    {
+        if (DB::getDriverName() !== 'sqlite') {
+            $this->markTestSkipped('SQLite atomic DDL test.');
+        }
+        $f = $this->digitalFixture();
+        $this->completed($f, 'topup');
+        DB::unprepared("CREATE TRIGGER rollup_reject_fixture BEFORE INSERT ON digital_account_totals BEGIN SELECT RAISE(ABORT, 'fixture backfill failure'); END");
+        $migration = require database_path('migrations/2026_10_14_002408_create_digital_account_totals.php');
+        try {
+            $migration->up();
+            $this->fail('The fixture must reject the backfill.');
+        } catch (QueryException) {
+            $this->assertSame(1, (int) DB::table('digital_account_totals')->sum('order_count'));
+            $this->assertSame(430001, (int) DB::table('digital_account_totals')->sum('cost_minor'));
+        } finally {
+            DB::unprepared('DROP TRIGGER rollup_reject_fixture');
+        }
+        $this->completed($f, 'topup');
+        $this->assertSame(2, (int) DB::table('digital_account_totals')->sum('order_count'));
     }
 
     private function order(array $f, string $provider = 'rabiaa', array $changes = []): DigitalOrder
@@ -182,6 +370,35 @@ class DashboardDigitalReadTest extends TestCase
         $this->assertSame(1, $card['rows_total']);
         $this->assertSame([], $card['balanceRows']);
         $this->assertSame(0, $card['balance_rows_total']);
+        $this->assertDatabaseCount('finance_transactions', 0);
+    }
+
+    public function test_main_employee_with_one_point_scope_cannot_inherit_main_allocation_balances(): void
+    {
+        $f = $this->digitalFixture();
+        $connection = DigitalConnection::factory()->create(['account_id' => $f['system']->id, 'provider' => 'topup']);
+        TopupGrant::factory()->create(['from_account_id' => $f['system']->id, 'target_account_id' => $f['main']->id, 'main_account_id' => $f['main']->id, 'connection_id' => $connection->id, 'balance_minor' => 98712300, 'spent_minor' => 65432100]);
+        $order = $this->completed($f, 'topup');
+        $foreign = $this->completed($f, 'topup', ['account_id' => $f['foreign']->id, 'main_account_id' => $f['foreign']->id]);
+        $employee = $this->supportEmployee($f['main'], $f['pos'], ['account.view', 'dashboard.view', 'digital.view', 'data.cost']);
+        $this->asPortalUser($employee);
+        foreach (['/api/v1/dashboard/summary', '/api/v1/dashboard/summary?view=cards'] as $path) {
+            $card = collect($this->getJson($path)->assertOk()->json('data.cards'))->firstWhere('key', 'digital:topup');
+            $this->assertSame('4300.01', $card['value']);
+            $this->assertNull($card['remaining']);
+            $this->assertSame([], $card['balanceRows']);
+            $this->assertSame(0, $card['balance_rows_total']);
+        }
+        $this->getJson('/api/v1/digital/orders/summary?provider=topup')->assertOk()->assertJsonPath('data.quantity', 1)->assertJsonPath('data.retail', '5000.02');
+        $this->getJson('/api/v1/digital/orders/'.$order->id)->assertOk();
+        $this->getJson('/api/v1/digital/orders/'.$foreign->id)->assertNotFound();
+        $this->getJson('/api/v1/digital/connections?provider=topup')->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('balance.known', 0)->assertJsonPath('balance.amount', null);
+        $this->getJson('/api/v1/digital/connections?main_account_id='.$f['main']->id)->assertNotFound();
+        $dto = app(DigitalConfiguration::class)->dto($connection, $employee);
+        foreach (['company_balance', 'balance_updated_at', 'main_account_id', 'allocation_available', 'allocation_spent', 'allocation_held', 'unallocated_balance'] as $field) {
+            $this->assertArrayNotHasKey($field, $dto);
+        }
+        $this->assertSame([], $dto['grants']);
         $this->assertDatabaseCount('finance_transactions', 0);
     }
 }

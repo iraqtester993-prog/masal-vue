@@ -18,6 +18,10 @@ class ImportFileReader
 
     private const MAX_RAW_ROWS = 53000;
 
+    private const MAX_SHARED_STRINGS = 250000;
+
+    private const MAX_SHARED_STRING_BYTES = 16000000;
+
     private function invalid(string $message): never
     {
         throw ValidationException::withMessages(['file' => $message]);
@@ -160,11 +164,8 @@ class ImportFileReader
         }
         $strings = [];
         if (isset($files['xl/sharedStrings.xml'])) {
-            $document = $this->document($files['xl/sharedStrings.xml']);
-            foreach ((new DOMXPath($document))->query('//*[local-name()="si"]') as $item) {
-                $strings[] = $item->textContent;
-            }
-            unset($document);
+            $strings = $this->sharedStrings($files['xl/sharedStrings.xml']);
+            unset($files['xl/sharedStrings.xml']);
         }
         $dateStyles = [];
         $formats = [];
@@ -262,5 +263,53 @@ class ImportFileReader
         }
 
         return $result;
+    }
+
+    /** Bound string-table memory independently of the number of worksheet rows. */
+    private function sharedStrings(string $xml): array
+    {
+        $reader = new XMLReader;
+        $previous = libxml_use_internal_errors(true);
+        $strings = [];
+        $bytes = 0;
+        $depth = null;
+        $value = '';
+        try {
+            if (! $reader->XML($xml, null, LIBXML_NONET | LIBXML_COMPACT)) {
+                $this->invalid('بنية Excel غير صالحة.');
+            }
+            while ($reader->read()) {
+                if ($reader->nodeType === XMLReader::ELEMENT && $reader->localName === 'si') {
+                    if ($depth !== null || count($strings) >= self::MAX_SHARED_STRINGS) {
+                        $this->invalid('جدول نصوص Excel كبير جدًا؛ قسم الملف إلى أجزاء أصغر.');
+                    }
+                    $depth = $reader->depth;
+                    $value = '';
+                    if ($reader->isEmptyElement) {
+                        $strings[] = '';
+                        $depth = null;
+                    }
+                } elseif ($depth !== null && in_array($reader->nodeType, [XMLReader::TEXT, XMLReader::CDATA, XMLReader::WHITESPACE, XMLReader::SIGNIFICANT_WHITESPACE], true)) {
+                    $length = strlen($reader->value);
+                    if (strlen($value) + $length > 20000 || $bytes + $length > self::MAX_SHARED_STRING_BYTES) {
+                        $this->invalid('نصوص Excel تتجاوز حدود الذاكرة؛ قسم الملف إلى أجزاء أصغر.');
+                    }
+                    $value .= $reader->value;
+                    $bytes += $length;
+                } elseif ($depth !== null && $reader->nodeType === XMLReader::END_ELEMENT && $reader->depth === $depth && $reader->localName === 'si') {
+                    $strings[] = $value;
+                    $depth = null;
+                }
+            }
+            if ($depth !== null || libxml_get_errors()) {
+                $this->invalid('بنية Excel غير صالحة.');
+            }
+
+            return $strings;
+        } finally {
+            $reader->close();
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+        }
     }
 }

@@ -28,7 +28,7 @@ class StockVolumeTest extends TestCase
         memory_reset_peak_usage();
         $draft = $this->stockDraft($fixture, 50000, 'volume');
         $previewResponse = $this->sendPayload('/api/v1/stock/orders/preview', $draft)->assertOk();
-        $preview = $previewResponse->baseResponse->original['data'];
+        $preview = $previewResponse->json('data');
         $this->assertSame(50000, $preview['quantity']);
         $input = $preview['draft'] + ['preview_hash' => $preview['preview_hash'], 'exclude_rejected' => true, 'idempotency_key' => 'volume-submit'];
         $peaks['preview'] = memory_get_peak_usage(true);
@@ -37,7 +37,7 @@ class StockVolumeTest extends TestCase
         gc_mem_caches();
         memory_reset_peak_usage();
         $submission = $this->sendPayload('/api/v1/stock/orders', $input)->assertSuccessful();
-        $orderId = (int) $submission->baseResponse->original->id;
+        $orderId = (int) $submission->json('data.id');
         $peaks['submit'] = memory_get_peak_usage(true);
         unset($input, $submission);
         gc_collect_cycles();
@@ -45,7 +45,7 @@ class StockVolumeTest extends TestCase
         $this->asPortalUser($fixture['admin']);
         memory_reset_peak_usage();
         $approval = $this->postJson('/api/v1/stock/orders/'.$orderId.'/review', ['version' => 1, 'decision' => 'approve', 'idempotency_key' => 'volume-approve'])->assertOk();
-        $this->assertSame('approved', $approval->baseResponse->original->status);
+        $this->assertSame('approved', $approval->json('data.status'));
         $peaks['approve'] = memory_get_peak_usage(true);
         unset($approval);
         gc_collect_cycles();

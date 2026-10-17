@@ -4,6 +4,8 @@ namespace App\Services\Digital;
 
 use App\Models\Digital\DigitalConnection;
 use App\Services\Finance\Money;
+use Illuminate\Http\Client\Pool;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
 
@@ -64,7 +66,43 @@ class ProviderGateway
 
     public function transport(string $base, string $path, string $method, array $headers, array $payload = [], bool $exactMoney = false, bool $scalarBalance = false): array
     {
+        $response = Http::acceptJson()->connectTimeout(8)->timeout(25)->withOptions($this->transportOptions($base))->withHeaders($headers)->send($method, rtrim($base, '/').'/'.ltrim($path, '/'), $method === 'GET' ? ['query' => $payload] : ['json' => $payload]);
+
+        return $this->responseData($response, $exactMoney, $scalarBalance);
+    }
+
+    /** @param array<string, array{path:string, method:string, payload:array}> $requests */
+    public function preflight(string $base, array $headers, array $requests): array
+    {
+        abort_unless(count($requests) > 0 && count($requests) <= 2, 500);
+        $options = $this->transportOptions($base);
+        foreach ($requests as $request) {
+            abort_unless($request['method'] === 'GET' && $request['path'] === 'api/v1/products'
+                || $request['method'] === 'POST' && $request['path'] === 'api/v1/checkEligibility', 500, 'Only nonfinancial Topup preflight requests may run concurrently.');
+        }
+        $responses = Http::pool(function (Pool $pool) use ($base, $headers, $requests, $options): void {
+            foreach ($requests as $key => $request) {
+                $pool->as($key)->acceptJson()->connectTimeout(8)->timeout(25)->withOptions($options)->withHeaders($headers)
+                    ->send($request['method'], rtrim($base, '/').'/'.$request['path'], $request['method'] === 'GET' ? ['query' => $request['payload']] : ['json' => $request['payload']]);
+            }
+        }, concurrency: 2);
+        $result = [];
+        foreach ($requests as $key => $request) {
+            $response = $responses[$key] ?? null;
+            if ($response instanceof \Throwable) {
+                throw $response;
+            }
+            abort_unless($response instanceof Response, 503, 'لم تكتمل معاينة الشركة.');
+            $result[$key] = $this->responseData($response, true);
+        }
+
+        return $result;
+    }
+
+    private function transportOptions(string $base): array
+    {
         $parts = parse_url($base);
+        abort_unless(is_array($parts) && ($parts['scheme'] ?? '') === 'https' && isset($parts['host']), 503, 'عنوان بوابة الشركة غير صحيح.');
         $host = $parts['host'];
         $ips = filter_var($host, FILTER_VALIDATE_IP) ? [$host] : (gethostbynamel($host) ?: []);
         $safe = array_filter($ips, fn (string $ip): bool => filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false);
@@ -74,7 +112,12 @@ class ProviderGateway
         if (! filter_var($host, FILTER_VALIDATE_IP)) {
             $options['curl'] = [CURLOPT_RESOLVE => [$host.':'.$port.':'.reset($safe)]];
         }
-        $response = Http::acceptJson()->connectTimeout(8)->timeout(25)->withOptions($options)->withHeaders($headers)->send($method, rtrim($base, '/').'/'.ltrim($path, '/'), $method === 'GET' ? ['query' => $payload] : ['json' => $payload]);
+
+        return $options;
+    }
+
+    private function responseData(Response $response, bool $exactMoney = false, bool $scalarBalance = false): array
+    {
         if (! $response->successful()) {
             throw new ProviderRejection($response->status());
         }

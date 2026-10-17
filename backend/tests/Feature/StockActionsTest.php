@@ -6,7 +6,9 @@ use App\Enums\AccountType;
 use App\Models\Finance\Invoice;
 use App\Models\Stock\StockCard;
 use App\Models\Stock\StockClaim;
+use App\Services\Stock\StockValuation;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\CreatesStock;
 use Tests\TestCase;
@@ -18,6 +20,68 @@ class StockActionsTest extends TestCase
     private function action(int $batchId, int $version, string $action, string $key): array
     {
         return ['version' => $version, 'action' => $action, 'reason' => 'معالجة بطاقات المورد', 'idempotency_key' => $key];
+    }
+
+    private function valuationRequest(): Request
+    {
+        $request = Request::create('/qa/stock-valuation', 'POST');
+        $request->attributes->set('portal', 'agents');
+
+        return $request;
+    }
+
+    public function test_unchanged_stock_valuation_does_not_rewrite_cards_or_post_an_audit_or_money(): void
+    {
+        $f = $this->stockFixture();
+        $this->approvedStock($f);
+        $cards = DB::table('stock_cards')->orderBy('id')->get()->all();
+        $wallets = DB::table('finance_wallets')->orderBy('id')->get()->all();
+        $transactions = DB::table('finance_transactions')->count();
+        $audits = DB::table('audit_logs')->where('action', 'inventory.revalue')->count();
+        DB::transaction(fn () => app(StockValuation::class)->revalue($f['agent'], $f['main']->id, $f['product']->id, 450025, 'unchanged-stock-valuation', $this->valuationRequest()));
+        $this->assertEquals($cards, DB::table('stock_cards')->orderBy('id')->get()->all());
+        $this->assertEquals($wallets, DB::table('finance_wallets')->orderBy('id')->get()->all());
+        $this->assertSame($transactions, DB::table('finance_transactions')->count());
+        $this->assertSame($audits, DB::table('audit_logs')->where('action', 'inventory.revalue')->count());
+    }
+
+    public function test_zero_net_price_difference_updates_only_mismatched_cards_and_preserves_backing_and_audit(): void
+    {
+        $f = $this->stockFixture();
+        $this->approvedStock($f);
+        $ids = StockCard::orderBy('id')->pluck('id');
+        DB::table('stock_cards')->where('id', $ids[0])->update(['credit_minor' => 449025]);
+        DB::table('stock_cards')->where('id', $ids[1])->update(['credit_minor' => 451025]);
+        $versions = DB::table('stock_cards')->orderBy('id')->pluck('version', 'id');
+        $wallets = DB::table('finance_wallets')->orderBy('id')->get()->all();
+        $transactions = DB::table('finance_transactions')->count();
+        DB::transaction(fn () => app(StockValuation::class)->revalue($f['agent'], $f['main']->id, $f['product']->id, 450025, 'mixed-zero-net-stock-valuation', $this->valuationRequest()));
+        $this->assertSame([450025], StockCard::pluck('credit_minor')->unique()->all());
+        $this->assertEquals($wallets, DB::table('finance_wallets')->orderBy('id')->get()->all());
+        $this->assertSame($transactions, DB::table('finance_transactions')->count());
+        $after = DB::table('stock_cards')->orderBy('id')->pluck('version', 'id');
+        $this->assertSame($versions[$ids[0]] + 1, $after[$ids[0]]);
+        $this->assertSame($versions[$ids[1]] + 1, $after[$ids[1]]);
+        $this->assertSame($versions[$ids[2]], $after[$ids[2]]);
+        $audit = json_decode(DB::table('audit_logs')->where('action', 'inventory.revalue')->latest('id')->value('details'), true);
+        $this->assertSame(2, $audit['quantity']);
+        $this->assertSame('0.00', $audit['delta']);
+        $this->assertSame(0, (int) DB::table('finance_entries')->sum('amount_minor'));
+    }
+
+    public function test_stock_price_increase_keeps_exact_backing_and_audit_for_all_changed_cards(): void
+    {
+        $f = $this->stockFixture();
+        $this->approvedStock($f);
+        $before = $this->voucherBalance($f['main']);
+        DB::transaction(fn () => app(StockValuation::class)->revalue($f['agent'], $f['main']->id, $f['product']->id, 460025, 'changed-stock-valuation', $this->valuationRequest()));
+        $this->assertSame($before + 30000, $this->voucherBalance($f['main']));
+        $this->assertSame([460025], StockCard::pluck('credit_minor')->unique()->all());
+        $this->assertSame(1, DB::table('finance_transactions')->where('kind', 'stock-revaluation')->count());
+        $audit = json_decode(DB::table('audit_logs')->where('action', 'inventory.revalue')->latest('id')->value('details'), true);
+        $this->assertSame(3, $audit['quantity']);
+        $this->assertSame('300.00', $audit['delta']);
+        $this->assertSame(0, (int) DB::table('finance_entries')->sum('amount_minor'));
     }
 
     public function test_quarantine_debits_once_and_resume_revalues_at_current_price_without_creating_invoice(): void

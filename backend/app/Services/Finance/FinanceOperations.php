@@ -5,6 +5,7 @@ namespace App\Services\Finance;
 use App\Enums\AccountType;
 use App\Http\Resources\Finance\FinanceResource;
 use App\Models\CatalogProduct;
+use App\Models\Digital\ProviderAttempt;
 use App\Models\Finance\FundingRecovery;
 use App\Models\Finance\FundingRequest;
 use App\Models\Finance\Invoice;
@@ -14,6 +15,8 @@ use App\Models\Finance\PriceRequest;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\CatalogAccess;
+use App\Services\Digital\TopupDistribution;
+use App\Services\Digital\TopupWallets;
 use App\Services\ManagementAuthority;
 use App\Services\Operations\MutationGuard;
 use App\Services\Stock\StockFunding;
@@ -26,11 +29,11 @@ class FinanceOperations
 {
     public function __construct(public Ledger $ledger, private FinanceAccess $access, private AuditLogger $audit, private ManagementAuthority $authority, private CatalogAccess $catalog) {}
 
-    public function execute(User $actor, string $action, array $data, callable $work): array
+    public function execute(User $actor, string $action, array $data, callable $work, bool $shareAncestors = false): array
     {
-        return DB::transaction(function () use ($actor, $action, $data, $work): array {
+        return DB::transaction(function () use ($actor, $action, $data, $work, $shareAncestors): array {
             $guard = app(MutationGuard::class);
-            $guard->lock($actor, $guard->targets($data), $action);
+            $guard->lock($actor, $guard->targets($data), $action, $shareAncestors);
             $hash = Ledger::hash([$action, $data]);
             DB::table('finance_operations')->insertOrIgnore(['actor_id' => $actor->id, 'action' => $action, 'idempotency_key' => $data['idempotency_key'], 'payload_hash' => $hash, 'created_at' => now()]);
             $op = DB::table('finance_operations')->where('actor_id', $actor->id)->where('idempotency_key', $data['idempotency_key'])->lockForUpdate()->first();
@@ -58,6 +61,9 @@ class FinanceOperations
         if ($data['service'] === 'voucher') {
             throw ValidationException::withMessages(['service' => 'تمويل محفظة الكارتات يتطلب طلبية مخزون معتمدة؛ لا يسمح بإيداع رصيد دون مخزون.']);
         }
+        if ($data['service'] === 'topup') {
+            throw ValidationException::withMessages(['service' => 'رصيد Topup يمنح من تخصيص الإدارة ثم يمول من محفظة الوكيل؛ لا يسمح بإيداع عام.']);
+        }
 
         return $this->execute($actor, 'wallets.deposit', $data, function () use ($actor, $data, $request): array {
             $this->access->account($actor, (int) $data['account_id'], 'wallets.deposit', true);
@@ -78,11 +84,18 @@ class FinanceOperations
         $this->access->service($data['service'], $data['currency']);
 
         return $this->execute($actor, 'wallets.transfer', $data, function () use ($actor, $data, $request): array {
-            [$from,$to] = $this->access->transfer($actor, (int) $data['from_account_id'], (int) $data['to_account_id']);
             $amount = Money::minor($data['amount']);
-            $debit = $this->ledger->wallet($from->id, $data['service'], $data['currency']);
-            $credit = $this->ledger->wallet($to->id, $data['service'], $data['currency']);
-            $tx = $this->ledger->pair($actor, 'transfer', $data['idempotency_key'], $data, $debit, $credit, $amount, $data['reference']);
+            if ($data['service'] === 'topup') {
+                $from = $this->access->account($actor, (int) $data['from_account_id'], 'wallets.transfer', true);
+                abort_unless($actor->membership->account_id === $from->id || $actor->membership->account->type === AccountType::System, 403, 'التمويل من رصيد الوكيل الممول فقط.');
+                $to = $this->access->descendant($actor, $from, (int) $data['to_account_id'], 'wallets.transfer');
+                $tx = app(TopupWallets::class)->fund($actor, $from, $to, $amount, $data['idempotency_key'], $data, $data['reference']);
+            } else {
+                [$from,$to] = $this->access->transfer($actor, (int) $data['from_account_id'], (int) $data['to_account_id']);
+                $debit = $this->ledger->wallet($from->id, $data['service'], $data['currency']);
+                $credit = $this->ledger->wallet($to->id, $data['service'], $data['currency']);
+                $tx = $this->ledger->pair($actor, 'transfer', $data['idempotency_key'], $data, $debit, $credit, $amount, $data['reference']);
+            }
             $this->audit->record('wallets.transfer', $request, $actor, $to->id, ['transaction_id' => $tx->id, 'from' => $from->id, 'amount' => Money::decimal($amount)]);
 
             return $this->resource($tx, $request);
@@ -119,10 +132,14 @@ class FinanceOperations
                 })->exists()) {
                     throw ValidationException::withMessages(['rows' => 'مرجع التمويل مستخدم سابقًا لهذا الوكيل.']);
                 }
-                $debit = $this->ledger->wallet($own->id, $service, $currency);
-                $credit = $this->ledger->wallet($to->id, $service, $currency);
                 $key = 'BULK:'.hash('sha256', $data['idempotency_key'].':'.$index);
-                $tx = $this->ledger->pair($actor, 'transfer', $key, ['group' => $data['idempotency_key'], 'row' => $row], $debit, $credit, Money::minor($row['amount']), $reference ?: $data['reference']);
+                if ($service === 'topup') {
+                    $tx = app(TopupWallets::class)->fund($actor, $own, $to, Money::minor($row['amount']), $key, ['group' => $data['idempotency_key'], 'row' => $row], $reference ?: $data['reference']);
+                } else {
+                    $debit = $this->ledger->wallet($own->id, $service, $currency);
+                    $credit = $this->ledger->wallet($to->id, $service, $currency);
+                    $tx = $this->ledger->pair($actor, 'transfer', $key, ['group' => $data['idempotency_key'], 'row' => $row], $debit, $credit, Money::minor($row['amount']), $reference ?: $data['reference']);
+                }
                 $result[] = ['from_account_id' => $own->id, 'to_account_id' => $to->id, 'service' => $service, 'currency' => $currency, 'amount' => $row['amount'], 'transaction_id' => $tx->id];
             }
             $this->audit->record('wallets.bulk', $request, $actor, $own->id, ['transfers' => $result]);
@@ -153,9 +170,13 @@ class FinanceOperations
             if ($amount > (int) $creditEntry->amount_minor - $recovered) {
                 throw ValidationException::withMessages(['amount' => 'المبلغ يتجاوز المتبقي القابل للاسترجاع من التمويل الأصلي.']);
             }
-            $debit = $this->ledger->wallet($target->id, $original->service, $original->currency);
-            $credit = $this->ledger->wallet($own->id, $original->service, $original->currency);
-            $tx = $this->ledger->pair($actor, 'recovery', $data['idempotency_key'], ['transfer_id' => $id] + $data, $debit, $credit, $amount, 'استرجاع تمويل #'.$id);
+            if ($original->service === 'topup') {
+                $tx = app(TopupWallets::class)->recover($actor, $original, $own, $target, $amount, $data['idempotency_key'], ['transfer_id' => $id] + $data);
+            } else {
+                $debit = $this->ledger->wallet($target->id, $original->service, $original->currency);
+                $credit = $this->ledger->wallet($own->id, $original->service, $original->currency);
+                $tx = $this->ledger->pair($actor, 'recovery', $data['idempotency_key'], ['transfer_id' => $id] + $data, $debit, $credit, $amount, 'استرجاع تمويل #'.$id);
+            }
             $recovery = FundingRecovery::create(['transfer_id' => $id, 'transaction_id' => $tx->id, 'from_account_id' => $own->id, 'to_account_id' => $target->id, 'actor_id' => $actor->id, 'amount_minor' => $amount, 'reason' => $data['reason'], 'created_at' => now()]);
             $this->audit->record('wallets.reverse', $request, $actor, $target->id, ['recovery_id' => $recovery->id, 'transfer_id' => $id, 'amount' => Money::decimal($amount), 'reason' => $data['reason']]);
 
@@ -168,6 +189,8 @@ class FinanceOperations
         $account = $this->access->own($actor, 'wallets.request');
         abort_unless($account->parent_id !== null && $account->type !== AccountType::System, 403, 'هذا الحساب ليس له ممول أعلى.');
         $this->access->service($data['service'], $data['currency']);
+
+        abort_if($data['service'] === 'topup' && $account->type !== AccountType::Pos, 422, 'حصة الوكيل Topup تدار من تخصيص الإدارة؛ طلب التمويل مخصص لنقاط البيع.');
 
         return $this->execute($actor, 'wallets.request', $data, function () use ($actor, $data, $request): array {
             $account = $this->access->own($actor, 'wallets.request', true);
@@ -184,7 +207,9 @@ class FinanceOperations
                     throw ValidationException::withMessages(['amount' => 'وصلت إلى الحد اليومي لطلبات التمويل؛ يمكنك تقديم طلب جديد غداً بتوقيت بغداد.']);
                 }
             }
-            $record = FundingRequest::create(['from_account_id' => $account->parent_id, 'to_account_id' => $account->id, 'creator_id' => $actor->id, 'service' => $data['service'], 'currency' => $data['currency'], 'amount_minor' => $amount, 'purpose' => $data['purpose'] ?? '']);
+            $funder = $data['service'] === 'topup' ? app(TopupDistribution::class)->main($account)?->id : $account->parent_id;
+            abort_unless($funder, 409, 'نقطة البيع غير مرتبطة بوكيل رئيسي ممول.');
+            $record = FundingRequest::create(['from_account_id' => $funder, 'to_account_id' => $account->id, 'creator_id' => $actor->id, 'service' => $data['service'], 'currency' => $data['currency'], 'amount_minor' => $amount, 'purpose' => $data['purpose'] ?? '']);
             $this->audit->record('wallets.request', $request, $actor, $account->id, ['request_id' => $record->id, 'amount' => Money::decimal($amount)]);
 
             return $this->resource($record, $request);
@@ -202,10 +227,14 @@ class FinanceOperations
             $this->authority->version($record, $data['version']);
             abort_unless($record->status === 'pending', 409, 'تمت معالجة الطلب مسبقاً.');
             $target = $this->access->account($actor, $record->to_account_id, 'wallets.approve', true);
-            abort_unless($target->parent_id === $own->id, 409, 'تغير تسلسل الحساب؛ أعد تقديم الطلب.');
+            abort_unless($record->service === 'topup' ? DB::table('account_closure')->where('ancestor_id', $own->id)->where('descendant_id', $target->id)->where('depth', '>', 0)->exists() : $target->parent_id === $own->id, 409, 'تغير تسلسل الحساب؛ أعد تقديم الطلب.');
             $this->access->service($record->service, $record->currency);
             if ($data['decision'] === 'approve') {
-                if ($own->type === AccountType::System && $record->service === 'voucher') {
+                if ($record->service === 'topup') {
+                    abort_unless($own->type === AccountType::MainAgent && $target->type === AccountType::Pos, 422, 'حصة الوكيل Topup تدار من تخصيص الإدارة؛ لا يعتمد طلب تمويل عام لها.');
+                    $tx = app(TopupWallets::class)->fund($actor, $own, $target, $record->amount_minor, $data['idempotency_key'], ['request_id' => $id] + $data, $data['reference'], 'funding');
+                    $record->transaction_id = $tx->id;
+                } elseif ($own->type === AccountType::System && $record->service === 'voucher') {
                     $this->access->require($actor, 'import.approve', true);
                     if (empty($data['stock_batch_id']) || ! class_exists(StockFunding::class)) {
                         throw ValidationException::withMessages(['stock_batch_id' => 'اختر طلبية مخزون معتمدة بعد الطلب وبنفس قيمته.']);
@@ -259,6 +288,7 @@ class FinanceOperations
     {
         $this->access->account($actor, (int) $data['account_id'], 'invoices.create');
         $this->access->service($data['service'], $data['currency']);
+        abort_if($data['service'] === 'topup', 422, 'فواتير Topup تنشأ من البيع المؤكد فقط؛ التحصيل لا يزيد رصيد Topup.');
 
         return $this->execute($actor, 'invoices.create', $data, function () use ($actor, $data, $request): array {
             $account = $this->access->account($actor, (int) $data['account_id'], 'invoices.create', true);
@@ -279,8 +309,11 @@ class FinanceOperations
             $this->authority->version($record, $data['version']);
             abort_unless($record->status !== 'cancelled', 409, 'الفاتورة ملغاة.');
             $topup = $record->source_type === 'digital_topup';
+            abort_if($record->service === 'topup' && ! $topup, 422, 'فاتورة Topup اليدوية تحتاج مطابقة؛ لا يسمح بتغيير رصيد Topup من التحصيل.');
             if ($topup) {
                 abort_unless($actor->membership->account_id === $record->creditor_account_id || $actor->membership->account->type === AccountType::System, 403, 'التحصيل للوكيل الدائن أو إدارة النظام فقط.');
+                $refundAttempt = ProviderAttempt::where('order_id', $record->source_id)->where('operation', 'refund-status')->orderByDesc('id')->lockForUpdate()->first();
+                abort_if($refundAttempt && ($refundAttempt->active_order_id !== null || $refundAttempt->status === 'unknown'), 409, 'نتيجة استرجاع العملية غير محسومة؛ تحقق منها قبل التحصيل.');
             }
             $this->access->account($actor, $record->account_id, 'invoices.settle', true);
             $this->access->service($record->service, $record->currency);

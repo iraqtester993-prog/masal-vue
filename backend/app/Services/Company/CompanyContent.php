@@ -18,6 +18,7 @@ class CompanyContent
 
     public function publicSnapshot(array $profile): array
     {
+        unset($profile['app_config'], $profile['app_config_version']);
         foreach (self::GALLERIES as $key) {
             $profile[$key] = $profile['visibility'][$key] ? array_values(array_filter($profile[$key], fn (array $item): bool => $item['visible'])) : [];
         }
@@ -51,6 +52,7 @@ class CompanyContent
 
     public function transport(array $profile, bool $public): array
     {
+        unset($profile['app_config'], $profile['app_config_version']);
         $convert = fn (?string $id): array|string|null => $id === null ? null : ($public ? '/api/v1/company/public/assets/'.$id : ['id' => $id, 'url' => '/api/v1/company/assets/'.$id]);
         $profile['logo'] = $convert($profile['logo'] ?? null);
         foreach (self::GALLERIES as $key) {
@@ -78,6 +80,10 @@ class CompanyContent
             $record = CompanyProfile::lockForUpdate()->findOrFail(1);
             abort_unless($record->version === (int) $data['version'], 409, 'تغيرت إعدادات الشركة؛ أعد فتحها قبل الحفظ.');
             $profile = $data['profile'];
+            if (isset($record->content['app_config'])) {
+                $profile['app_config'] = $record->content['app_config'];
+                $profile['app_config_version'] = $record->content['app_config_version'] ?? 1;
+            }
             foreach (['name', 'tagline', 'about', 'phone', 'email', 'address', 'website', 'whatsapp', 'hours'] as $key) {
                 $profile[$key] = trim((string) ($profile[$key] ?? ''));
             }

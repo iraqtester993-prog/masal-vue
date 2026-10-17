@@ -8,6 +8,7 @@ use App\Models\Digital\DigitalOffer;
 use App\Models\Digital\DigitalOrder;
 use App\Models\Digital\TopupCategory;
 use App\Models\Digital\TopupGrant;
+use App\Models\Finance\Wallet;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -98,11 +99,22 @@ class TopupCatalogTest extends TestCase
         return $this->postJson('/api/v1/digital/connections/'.$id.'/sync', ['version' => DigitalConnection::findOrFail($id)->version])->assertOk()->assertJsonMissingPath('data.credential')->json('data');
     }
 
-    private function grant(array $f, TopupCategory $category): void
+    private function grant(array $f, TopupCategory $category, bool $fund = false): void
     {
+        if ($fund) {
+            $migration = require database_path('migrations/2026_10_10_131003_add_central_topup_allocations.php');
+            $migration->centralizeConnections();
+            $this->asPortalUser($f['admin']);
+            $mainGrant = TopupGrant::where('target_account_id', $f['main']->id)->firstOrFail();
+            $this->putJson('/api/v1/topup/distribution/'.$f['main']->id, ['connection_id' => $category->connection_id, 'allocation_balance' => '100000.00', 'category_ids' => [$category->id], 'active' => true, 'version' => $mainGrant->version, 'idempotency_key' => 'catalog-central-allocation'])->assertOk();
+        }
         foreach ([['agent', 'sub'], ['subUser', 'branch'], ['branchUser', 'pos']] as [$actor, $target]) {
             $this->asPortalUser($f[$actor]);
             $this->putJson('/api/v1/topup/distribution/'.$f[$target]->id, ['category_ids' => [$category->id], 'active' => true, 'version' => 0, 'idempotency_key' => 'synced-topup-'.$target])->assertOk();
+        }
+        if ($fund) {
+            $this->asPortalUser($f['agent']);
+            $this->postJson('/api/v1/finance/transfers', ['from_account_id' => $f['main']->id, 'to_account_id' => $f['pos']->id, 'service' => 'topup', 'currency' => 'IQD', 'amount' => '20000.00', 'reference' => 'Catalog point funding', 'idempotency_key' => 'catalog-point-funding'])->assertCreated();
         }
     }
 
@@ -206,7 +218,7 @@ class TopupCatalogTest extends TestCase
         $this->populate();
         $id = $this->connection($f);
         $this->synchronize($f, $id);
-        $this->grant($f, TopupCategory::where('connection_id', $id)->firstOrFail());
+        $this->grant($f, TopupCategory::where('connection_id', $id)->firstOrFail(), true);
         $this->asPortalUser($f['posUser']);
         $offer = $this->getJson('/api/v1/digital/offers')->assertOk()->json('data.0');
         $this->postJson('/api/v1/digital/device-session', ['app_version' => '1.0.0'])->assertOk();
@@ -223,7 +235,7 @@ class TopupCatalogTest extends TestCase
         $id = $this->connection($f);
         $this->synchronize($f, $id);
         $offer = DigitalOffer::where('connection_id', $id)->firstOrFail();
-        $this->putJson('/api/v1/digital/connections/'.$id, ['provider' => 'topup', 'account_id' => $f['main']->id, 'active' => true, 'version' => 2, 'offers' => [['id' => $offer->id, 'product_id' => $offer->product_id, 'remote_id' => 'ASIA-5000', 'retail' => '6000.00', 'active' => false]], 'idempotency_key' => 'provider-retail-price'])->assertOk();
+        $this->putJson('/api/v1/digital/connections/'.$id, ['provider' => 'topup', 'account_id' => $f['main']->id, 'active' => true, 'version' => DigitalConnection::findOrFail($id)->version, 'offers' => [['id' => $offer->id, 'product_id' => $offer->product_id, 'remote_id' => 'ASIA-5000', 'retail' => '6000.00', 'active' => false]], 'idempotency_key' => 'provider-retail-price'])->assertOk();
         $this->products[0]['price'] = '5500.00';
         $this->synchronize($f, $id);
         $this->assertSame(550000, $offer->fresh()->cost_minor);
@@ -253,7 +265,7 @@ class TopupCatalogTest extends TestCase
     #[TestWith([false])]
     #[TestWith([true])]
     #[TestWith([true, true])]
-    public function test_imported_categories_flow_to_pos_and_execute_once_using_the_main_token_without_internal_wallets(bool $actualId, bool $nested = false): void
+    public function test_imported_categories_flow_to_funded_pos_and_execute_once_using_the_central_token(bool $actualId, bool $nested = false): void
     {
         $f = $this->supportFixture();
         $this->populate();
@@ -267,7 +279,7 @@ class TopupCatalogTest extends TestCase
         $result = $this->synchronize($f, $id);
         $this->assertSame('ok', $result['sync']['catalog']);
         $category = TopupCategory::where('connection_id', $id)->firstOrFail();
-        $this->grant($f, $category);
+        $this->grant($f, $category, true);
         $salePrice = $category->retail_minor + 50000;
         DigitalOffer::where('topup_category_id', $category->id)->update(['retail_minor' => $salePrice]);
         $category->update(['retail_minor' => $salePrice]);
@@ -286,7 +298,9 @@ class TopupCatalogTest extends TestCase
         $this->postJson('/api/v1/digital/orders', $input)->assertCreated()->assertJsonPath('data.status', 'succeeded');
         $this->postJson('/api/v1/digital/orders', $input)->assertCreated()->assertJsonPath('data.status', 'succeeded');
         $this->assertDatabaseCount('digital_orders', 1);
-        $this->assertDatabaseCount('finance_entries', 0);
+        $this->assertDatabaseCount('finance_entries', 6);
+        $this->assertDatabaseHas('finance_wallets', ['account_id' => $f['main']->id, 'service' => 'topup', 'kind' => 'account', 'balance_minor' => 8000000]);
+        $this->assertSame(2000000 - $salePrice, Wallet::where('account_id', $f['pos']->id)->where('service', 'topup')->where('kind', 'account')->value('balance_minor'));
         $transactions = Http::recorded(fn ($request): bool => str_ends_with($request->url(), '/transactions'));
         $this->assertCount(1, $transactions);
         $this->assertTrue($transactions->first()[0]->hasHeader('x-api-key', 'test-private-topup-key'));
@@ -312,12 +326,15 @@ class TopupCatalogTest extends TestCase
         $offer = DigitalOffer::where('topup_category_id', $category->id)->firstOrFail();
         $order = DigitalOrder::factory()->create(['offer_id' => $offer->id, 'connection_id' => $id, 'main_account_id' => $f['main']->id, 'account_id' => $f['pos']->id, 'creator_id' => $f['posUser']->id, 'provider' => 'topup', 'type' => 'topup', 'mobile' => '9647701234567', 'quoted_cost_minor' => 500000, 'quoted_retail_minor' => 500000, 'status' => 'review', 'provider_purchase_started_at' => now(), 'provider_purchase_response' => ['status' => 'success', 'data' => ['status' => $status, 'id' => $reference, 'logicalResource' => ['value' => $mobile]]]]);
         $this->inventory = '94000';
+        $companyBefore = DigitalConnection::findOrFail($id)->company_balance_minor;
+        $inventoryCalls = Http::recorded(fn ($request): bool => str_ends_with($request->url(), '/inventory'))->count();
         $this->asPortalUser($f['posUser']);
         $input = ['version' => 1, 'idempotency_key' => 'saved-topup-result'];
         $this->postJson('/api/v1/digital/orders/'.$order->id.'/verify', $input)->assertOk()->assertJsonPath('data.status', $confirmed ? 'succeeded' : 'review')->assertJsonPath('data.reservation_active', ! $confirmed);
         $this->postJson('/api/v1/digital/orders/'.$order->id.'/verify', $input)->assertOk();
         $this->assertSame($confirmed ? $reference : null, $order->fresh()->company_transaction_id);
-        $this->assertSame($confirmed ? 9400000 : 10000000, DigitalConnection::findOrFail($id)->company_balance_minor);
+        $this->assertSame($companyBefore - ($confirmed ? 500000 : 0), DigitalConnection::findOrFail($id)->company_balance_minor);
+        $this->assertCount($inventoryCalls, Http::recorded(fn ($request): bool => str_ends_with($request->url(), '/inventory')));
         $this->assertDatabaseCount('digital_orders', 1);
         $this->assertSame(1, $order->attempts()->count());
         Http::assertNotSent(fn ($request): bool => str_ends_with($request->url(), '/transactions'));
@@ -370,7 +387,7 @@ class TopupCatalogTest extends TestCase
         $category = TopupCategory::where('connection_id', $id)->firstOrFail();
         $this->grant($f, $category);
         $this->asPortalUser($f['admin']);
-        $this->putJson('/api/v1/digital/connections/'.$id, ['provider' => 'topup', 'account_id' => $f['main']->id, 'active' => true, 'version' => 2, 'credential' => 'replacement-topup-key', 'offers' => [], 'idempotency_key' => 'rotate-synced-topup'])->assertOk()->assertJsonPath('data.company_balance', null);
+        $this->putJson('/api/v1/digital/connections/'.$id, ['provider' => 'topup', 'account_id' => $f['main']->id, 'active' => true, 'version' => DigitalConnection::findOrFail($id)->version, 'credential' => 'replacement-topup-key', 'offers' => [], 'idempotency_key' => 'rotate-synced-topup'])->assertOk()->assertJsonPath('data.company_balance', null);
         $this->invalidCatalog = true;
         $result = $this->synchronize($f, $id);
         $this->assertSame('ok', $result['sync']['balance']);
@@ -403,7 +420,7 @@ class TopupCatalogTest extends TestCase
         $id = $this->connection($f);
         $this->synchronize($f, $id);
         $category = TopupCategory::where('connection_id', $id)->firstOrFail();
-        $this->grant($f, $category);
+        $this->grant($f, $category, true);
         $this->asPortalUser($f['posUser']);
         $offer = $this->getJson('/api/v1/digital/offers')->assertOk()->json('data.0');
         $this->postJson('/api/v1/digital/device-session', ['app_version' => '1.0.0'])->assertOk();

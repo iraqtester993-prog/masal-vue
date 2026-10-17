@@ -25,7 +25,7 @@ test('restores only the identity belonging to the requested portal', async () =>
 });
 
 test('rejects a server identity from another portal', async () => {
-  const session = createSession('pos', client());
+  const session = createSession('pos', client({mutate:async path=>({data:path.endsWith('/challenge')?{challenge_id:'proof',challenge:'exact-challenge'}:{allowed:true}})}),{readIdentity:async()=>({installation_id:'00000000-0000-4000-8000-000000000001',proof_public_key:'public',proof_key_kind:'webcrypto'}),signChallenge:async()=>'signature'});
   await session.refresh();
   assert.equal(session.state.identity, null);
   assert.equal(session.state.checked, true);
@@ -119,6 +119,63 @@ test('revoking account access clears a previously authenticated identity', async
   await session.refresh();
   assert.equal(session.state.identity, null);
   assert.ok(session.state.error);
+});
+
+test('transient server and network failures retain the account caption without granting any cached permission', async () => {
+  for (const failure of [new ApiError('Unavailable', 503), new ApiError('Connection interrupted')]) {
+    let clears = 0;
+    const session = createSession('agents', client({
+      me: async () => { throw failure; },
+      clearReadCache: () => { clears += 1; },
+    }));
+    await session.login('test', 'password');
+    assert.equal(session.can('account.view'), true);
+    await session.refresh();
+    assert.equal(session.state.identity.user.id, 1);
+    assert.equal(session.state.checked, false);
+    assert.equal(session.state.accessConfirmed, false);
+    assert.equal(session.can('account.view'), false);
+    assert.equal(session.can('sell.create'), false);
+    assert.equal(session.state.error, failure.message);
+    assert.equal(clears, 1);
+  }
+});
+
+test('a fresh identity check restores only server-confirmed permissions after a transient failure', async () => {
+  let checks = 0, finish;
+  const session = createSession('agents', client({
+    me: () => ++checks === 1
+      ? Promise.reject(new ApiError('Unavailable', 503))
+      : new Promise(resolve => { finish = resolve; }),
+  }));
+  await session.login('test', 'password');
+  await session.refresh();
+  const checking = session.refresh();
+  assert.equal(session.can('account.view'), false);
+  const changed = identity();
+  changed.data.permissions = ['reports.view'];
+  finish(changed);
+  await checking;
+  assert.equal(session.state.checked, true);
+  assert.equal(session.state.accessConfirmed, true);
+  assert.equal(session.state.error, '');
+  assert.equal(session.can('account.view'), false);
+  assert.equal(session.can('reports.view'), true);
+  assert.equal(session.can('sell.create'), false);
+});
+
+test('authentication expiry after a transient outage still clears the retained identity', async () => {
+  let checks = 0;
+  const session = createSession('agents', client({
+    me: async () => { throw new ApiError(checks++ ? 'Unauthenticated' : 'Unavailable', checks > 1 ? 401 : 503); },
+  }));
+  await session.login('test', 'password');
+  await session.refresh();
+  assert.equal(session.state.identity.user.id, 1);
+  await session.refresh();
+  assert.equal(session.state.identity, null);
+  assert.equal(session.state.accessConfirmed, false);
+  assert.equal(session.can('account.view'), false);
 });
 
 test('logout clears identity when the server rejects revoked account access', async () => {

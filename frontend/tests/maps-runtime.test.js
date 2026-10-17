@@ -57,6 +57,21 @@ test('refresh resumes previously granted location without a click and obtains th
   assert.ok(api.calls.filter(call=>call[0]==='locate').at(-1)[1].consent_version>1);runtime.dispose();
 });
 
+test('temporary high accuracy GPS failure falls back without revoking consent or accepting stale samples',async()=>{
+  const env=environment(),api=apiFixture();env.permission.state='granted';
+  const runtime=createPresenceRuntime({api,environment:env});await runtime.setIdentity(identity());
+  const precise=[...env.watchers.values()][0];precise.error({code:3});
+  assert.equal(runtime.state.sharing,true);assert.equal(env.watchers.size,1);
+  const fallback=[...env.watchers.values()][0];assert.equal(fallback.options.enableHighAccuracy,false);
+  assert.equal(api.calls.filter(call=>call[0]==='disconnect').length,0);
+  await precise.success(sample(env));assert.equal(api.calls.filter(call=>call[0]==='locate').length,0);
+  await fallback.success(sample(env));assert.equal(runtime.state.ready,true);
+  assert.equal(api.calls.find(call=>call[0]==='locate')[1].consent_version,1);
+  fallback.error({code:1});await flush();assert.equal(runtime.state.ready,false);
+  assert.equal(runtime.state.permission,'denied');assert.equal(env.watchers.size,0);
+  runtime.dispose();
+});
+
 test('successful location choice survives reload when permission introspection is unavailable without storing coordinates',async()=>{
   const values=new Map(),storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)},api=apiFixture();
   const firstEnv=environment();firstEnv.storage=storage;firstEnv.permissions=undefined;
@@ -71,6 +86,21 @@ test('successful location choice survives reload when permission introspection i
   next.dispose();
 });
 
+test('repeated GPS timeouts preserve consent and the active watch until a real position arrives',async()=>{
+  const env=environment(),api=apiFixture();env.permission.state='granted';
+  const runtime=createPresenceRuntime({api,environment:env});await runtime.setIdentity(identity());
+  [...env.watchers.values()][0].error({code:3});
+  const fallback=[...env.watchers.values()][0];fallback.error({code:3});fallback.error({code:2});await flush();
+  assert.equal(runtime.state.sharing,true);assert.equal(runtime.state.ready,false);
+  assert.equal(env.watchers.size,1);assert.equal(api.calls.filter(call=>call[0]==='disconnect').length,0);
+  assert.equal(api.calls.filter(call=>call[0]==='locate').length,0);
+  await fallback.success(sample(env));assert.equal(runtime.state.ready,true);
+  fallback.error({code:3});await flush();assert.equal(runtime.state.ready,true);
+  assert.equal(api.calls.filter(call=>call[0]==='disconnect').length,0);
+  fallback.error({code:1});await flush();assert.equal(runtime.state.ready,false);
+  assert.equal(env.watchers.size,0);assert.equal(api.calls.filter(call=>call[0]==='disconnect').length,1);runtime.dispose();
+});
+
 test('explicit stop persists across reload and remembered permission belongs only to that user',async()=>{
   const values=new Map(),storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)};
   const env=environment();env.storage=storage;env.permission.state='granted';const api=apiFixture();
@@ -80,6 +110,56 @@ test('explicit stop persists across reload and remembered permission belongs onl
   await next.setIdentity(identity(22));assert.equal(nextEnv.watchers.size,1);next.dispose();
   const blockedEnv=environment();blockedEnv.storage=storage;blockedEnv.permission.state='prompt';values.set('masal.location-sharing.v1:11:31:owner','enabled');
   const blocked=createPresenceRuntime({api,environment:blockedEnv});await blocked.setIdentity(identity());assert.equal(blockedEnv.watchers.size,0);blocked.dispose();
+});
+
+test('external permission failure preserves the enabled choice across reload but readiness still requires a server-accepted location',async()=>{
+  const values=new Map(),storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)},api=apiFixture();
+  const env=environment();env.storage=storage;env.permission.state='granted';
+  const first=createPresenceRuntime({api,environment:env});await first.setIdentity(identity());
+  const oldWatch=[...env.watchers.values()][0];await oldWatch.success(sample(env));assert.deepEqual([...values.values()],['enabled']);
+  oldWatch.error({code:1});await flush();assert.equal(first.state.ready,false);assert.equal(first.state.sharing,false);assert.equal(env.watchers.size,0);
+  assert.deepEqual([...values.values()],['enabled']);assert.equal(api.calls.filter(call=>call[0]==='disconnect').length,1);
+  await oldWatch.success(sample(env));assert.equal(first.state.ready,false);first.dispose();await flush();
+  const nextEnv=environment();nextEnv.storage=storage;nextEnv.permission.state='granted';
+  const next=createPresenceRuntime({api,environment:nextEnv});await next.setIdentity(identity());
+  assert.equal(nextEnv.watchers.size,1);assert.equal(next.state.ready,false);
+  await [...nextEnv.watchers.values()][0].success(sample(nextEnv));assert.equal(next.state.ready,true);
+  assert.ok(api.calls.filter(call=>call[0]==='locate').at(-1)[1].consent_version>1);next.dispose();
+});
+
+test('OS-level denial with granted browser permission retries after a cooldown without overriding an explicit stop',async()=>{
+  const env=environment(),api=apiFixture();env.permission.state='granted';
+  const runtime=createPresenceRuntime({api,environment:env});await runtime.setIdentity(identity());
+  [...env.watchers.values()][0].error({code:1});await flush();
+  for(let i=0;i<5;i++)await env.handlers.get('focus')();
+  assert.equal(env.watchers.size,0);assert.equal(runtime.state.ready,false);assert.equal(api.calls.filter(call=>call[0]==='disconnect').length,1);
+  env.advance(29999);await env.handlers.get('focus')();assert.equal(env.watchers.size,0);
+  env.advance(1);env.timers.get(60000)();await flush();assert.equal(env.watchers.size,1);assert.equal(runtime.state.ready,false);
+  await runtime.stopLocationSharing();env.advance(60000);await env.handlers.get('focus')();env.timers.get(60000)();await flush();
+  assert.equal(env.watchers.size,0);assert.equal(runtime.state.sharing,false);runtime.dispose();
+});
+
+test('denied permission never creates a retry loop and a same-session regrant starts a fresh consent epoch',async()=>{
+  const values=new Map(),env=environment(),api=apiFixture();env.storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)};env.permission.state='granted';
+  const runtime=createPresenceRuntime({api,environment:env});await runtime.setIdentity(identity());await [...env.watchers.values()][0].success(sample(env));
+  env.permission.state='denied';env.permission.onchange();await flush();assert.equal(env.watchers.size,0);assert.equal(runtime.state.ready,false);
+  for(let i=0;i<5;i++){env.advance(60000);env.timers.get(60000)();await env.handlers.get('focus')();}
+  assert.equal(env.watchers.size,0);assert.equal(api.calls.filter(call=>call[0]==='disconnect').length,1);assert.deepEqual([...values.values()],['enabled']);
+  env.permission.state='granted';env.permission.onchange();await flush();assert.equal(env.watchers.size,1);assert.equal(runtime.state.ready,false);
+  await [...env.watchers.values()][0].success(sample(env));assert.equal(runtime.state.ready,true);
+  assert.equal(api.calls.filter(call=>call[0]==='locate').at(-1)[1].consent_version,2);runtime.dispose();
+});
+
+test('an external error does not store a disabled choice and legacy disabled choices require an explicit enable',async()=>{
+  const values=new Map(),storage={getItem:key=>values.get(key)??null,setItem:(key,value)=>values.set(key,value)},env=environment();env.storage=storage;env.permission.state='granted';
+  const runtime=createPresenceRuntime({api:apiFixture(),environment:env});await runtime.setIdentity(identity());
+  [...env.watchers.values()][0].error({code:1});await flush();assert.equal(values.size,0);runtime.dispose();await flush();
+  values.set('masal.location-sharing.v1:11:31:owner','disabled');
+  const legacyEnv=environment();legacyEnv.storage=storage;legacyEnv.permission.state='granted';
+  const legacy=createPresenceRuntime({api:apiFixture(),environment:legacyEnv});await legacy.setIdentity(identity());
+  legacyEnv.advance(120000);await legacyEnv.handlers.get('focus')();legacyEnv.timers.get(60000)();await flush();assert.equal(legacyEnv.watchers.size,0);
+  await legacy.startLocationSharing();assert.equal(legacyEnv.watchers.size,1);assert.equal(legacy.state.ready,false);
+  await [...legacyEnv.watchers.values()][0].success(sample(legacyEnv));assert.deepEqual([...values.values()],['enabled']);legacy.dispose();
 });
 
 test('granted permission never restarts explicitly stopped sharing on focus or enables system and employee tracking',async()=>{

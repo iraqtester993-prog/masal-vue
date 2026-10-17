@@ -2,6 +2,7 @@
 
 namespace App\Services\Backups;
 
+use App\Services\Digital\TopupWallets;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +12,14 @@ use RuntimeException;
 
 class SnapshotImporter
 {
+    private const DERIVED_TABLES = ['digital_order_totals', 'digital_account_totals'];
+
+    private const DERIVED_MIGRATIONS = ['2026_10_14_002408_create_digital_account_totals'];
+
+    private const INDEX_ONLY_MIGRATIONS = ['2026_10_14_012607_add_sales_current_read_cover_indexes', '2026_10_14_081739_add_stock_card_sale_lookup_index'];
+
+    private const GUARD_ONLY_MIGRATIONS = ['2026_10_14_073138_enforce_finance_entry_chain'];
+
     public function __construct(private SnapshotSchema $schema, private SnapshotArchive $archive) {}
 
     public function preview(string $path, Connection $source): array
@@ -51,10 +60,13 @@ class SnapshotImporter
             throw new RuntimeException('قاعدة الاسترجاع يجب أن تكون جديدة وفارغة.');
         }
         $originalDefault = DB::getDefaultConnection();
+        $hadRestoreContext = app()->bound('masal.fresh_restore_database');
+        $originalRestoreContext = $hadRestoreContext ? app('masal.fresh_restore_database') : null;
         try {
             DB::setDefaultConnection($connection);
+            app()->instance('masal.fresh_restore_database', $destination);
             $paths = [];
-            foreach ($verified['header']['schema']['migrations'] as $migration) {
+            foreach ($this->schema->describe($source)['migrations'] as $migration) {
                 if (! preg_match('/^[0-9]{4}_[0-9]{2}_[0-9]{2}_[0-9]{6}_[a-z0-9_]+$/D', $migration) || ! is_file($file = database_path('migrations/'.$migration.'.php'))) {
                     throw new RuntimeException('ملف ترحيل النسخة غير موجود.');
                 }
@@ -64,10 +76,14 @@ class SnapshotImporter
                 throw new RuntimeException('تعذر إنشاء مخطط قاعدة الاسترجاع.');
             }
             $this->import($path, $destination, $verified, $assetFolder);
-            $this->validate($destination, $verified['manifest']['counts']);
+            $this->validate($destination, array_diff_key($verified['manifest']['counts'], array_flip(self::DERIVED_TABLES)));
 
             return $verified['manifest'];
         } finally {
+            app()->forgetInstance('masal.fresh_restore_database');
+            if ($hadRestoreContext) {
+                app()->instance('masal.fresh_restore_database', $originalRestoreContext);
+            }
             DB::setDefaultConnection($originalDefault);
         }
     }
@@ -76,7 +92,13 @@ class SnapshotImporter
     {
         $current = $this->schema->describe($source);
         if (! hash_equals($current['fingerprint'], $verified['manifest']['schema_fingerprint'] ?? '')) {
-            throw new RuntimeException('مخطط النسخة يختلف عن إصدار النظام الحالي؛ يلزم مسار ترحيل مراجع.');
+            $stored = $verified['header']['schema'];
+            $compatible = function (array $description): array {
+                return ['driver' => $description['driver'], 'migrations' => array_values(array_diff($description['migrations'], self::DERIVED_MIGRATIONS, self::INDEX_ONLY_MIGRATIONS, self::GUARD_ONLY_MIGRATIONS)), 'tables' => array_diff_key($description['tables'], array_flip(self::DERIVED_TABLES))];
+            };
+            if ($compatible($current) !== $compatible($stored)) {
+                throw new RuntimeException('مخطط النسخة يختلف عن إصدار النظام الحالي؛ يلزم مسار ترحيل مراجع.');
+            }
         }
     }
 
@@ -113,6 +135,9 @@ class SnapshotImporter
                     $row = $record['row'];
                     if ($table !== $activeTable || array_diff(array_keys($row), array_column($tables[$table]['columns'], 'name')) !== [] || array_diff(array_column($tables[$table]['columns'], 'name'), array_keys($row)) !== []) {
                         throw new RuntimeException('أعمدة السجل لا تطابق مخطط النسخة.');
+                    }
+                    if (in_array($table, self::DERIVED_TABLES, true)) {
+                        return;
                     }
                     foreach ($this->schema->assetPaths($table, $row) as $asset) {
                         $db->table('backup_file_refs')->insertOrIgnore(['path' => $asset]);
@@ -240,6 +265,9 @@ class SnapshotImporter
         $history = $db->table('finance_entries')->selectRaw('id, balance_after_minor, SUM(amount_minor) OVER (PARTITION BY wallet_id ORDER BY id ROWS UNBOUNDED PRECEDING) AS expected');
         if ($db->query()->fromSub($history, 'history')->whereColumn('balance_after_minor', '<>', 'expected')->exists()) {
             throw new RuntimeException('أرصدة حركات المحفظة غير متسلسلة.');
+        }
+        if (isset($counts['topup_wallet_bindings']) && ! app(TopupWallets::class)->auditInvariants($db)['ok']) {
+            throw new RuntimeException('أرصدة تمويل Topup أو حجوزاته أو سجلاته المحاسبية غير متطابقة.');
         }
         $owner = $db->table('account_memberships as m')->join('users as u', 'u.id', '=', 'm.user_id')->join('accounts as a', 'a.id', '=', 'm.account_id')->where('m.kind', 'owner')->where('a.type', 'system')->where('a.status', 'active')->where('m.status', 'active')->where('u.status', 'active')->first(['u.password']);
         if (! $owner || password_get_info($owner->password)['algo'] === null) {

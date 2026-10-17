@@ -16,6 +16,7 @@ use App\Models\User;
 use App\Services\Backups\BackupAccess;
 use App\Services\Backups\BackupWorkflow;
 use App\Services\Backups\SnapshotArchive;
+use App\Services\Backups\SnapshotImporter;
 use App\Services\Backups\SnapshotSchema;
 use App\Services\Finance\Ledger;
 use App\Services\ManagementAuthority;
@@ -30,6 +31,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\Support\CreatesAccounts;
 use Tests\TestCase;
@@ -42,12 +44,36 @@ class ServerBackupTest extends TestCase
     {
         parent::setUp();
         Storage::fake('local');
+        config(['backups.coordination_path' => storage_path('framework/backup-coordination-test-'.getmypid().'.lock')]);
         $this->withHeader('X-Masal-Portal', 'admin')->withServerVariables(['REMOTE_ADDR' => '198.51.100.'.(crc32($this->name()) % 200 + 1)]);
     }
 
     private function actor(): User
     {
         return $this->userFor($this->account(AccountType::System));
+    }
+
+    public function test_scheduled_backup_is_private_verified_and_not_repeated_within_a_day(): void
+    {
+        $this->actor();
+        $this->artisan('backups:create-scheduled')->assertSuccessful();
+        $backup = ServerBackup::where('status', 'completed')->sole();
+        $this->assertTrue(Storage::disk('local')->exists($backup->path));
+        $this->assertSame($backup->sha256, hash_file('sha256', Storage::disk('local')->path($backup->path)));
+        $this->assertDatabaseHas('audit_logs', ['action' => 'backup.create']);
+        $this->artisan('backups:create-scheduled')->assertSuccessful();
+        $this->assertDatabaseCount('server_backups', 1);
+        Storage::disk('local')->delete($backup->path);
+        $this->artisan('backups:create-scheduled')->assertSuccessful();
+        $this->assertDatabaseCount('server_backups', 2);
+    }
+
+    public function test_scheduled_backup_does_not_bypass_a_revoked_owner_permission(): void
+    {
+        $actor = $this->actor();
+        DB::table('membership_permissions')->insert(['membership_id' => $actor->membership->id, 'permission_id' => DB::table('permissions')->where('name', 'backup.create')->value('id'), 'allowed' => false]);
+        $this->artisan('backups:create-scheduled')->assertFailed();
+        $this->assertDatabaseCount('server_backups', 0);
     }
 
     public function test_table_enumeration_is_confined_to_the_selected_mysql_database(): void
@@ -242,6 +268,51 @@ class ServerBackupTest extends TestCase
         $this->assertSame(2, DB::table('finance_entries')->count());
     }
 
+    public function test_restore_preserves_nondefault_permission_ids_and_role_grants_without_modifying_source(): void
+    {
+        $actor = $this->actor();
+        DB::transaction(function (): void {
+            $permission = DB::table('permissions')->where('name', 'account.password_reset')->value('id');
+            $grants = DB::table('role_permissions')->where('permission_id', $permission)->get()->map(fn ($row): array => (array) $row)->all();
+            DB::table('role_permissions')->where('permission_id', $permission)->delete();
+            DB::table('permissions')->where('id', $permission)->delete();
+            DB::table('permissions')->insert(['id' => 10001, 'name' => 'account.password_reset']);
+            foreach ($grants as $grant) {
+                $grant['permission_id'] = 10001;
+                DB::table('role_permissions')->insert($grant);
+            }
+            DB::table('permissions')->insert(['id' => $permission, 'name' => 'fixture.restore.marker']);
+        });
+        $source = DB::connection();
+        $default = DB::getDefaultConnection();
+        $permissions = DB::table('permissions')->orderBy('id')->get()->map(fn ($row): array => (array) $row)->all();
+        $grants = DB::table('role_permissions')->orderBy('role_id')->orderBy('permission_id')->get()->map(fn ($row): array => (array) $row)->all();
+        $backup = app(BackupWorkflow::class)->create($actor);
+        $folder = 'backups/permission-fixture/'.Str::uuid();
+        Storage::disk('local')->makeDirectory($folder);
+        $database = Storage::disk('local')->path($folder.'/target.sqlite');
+        touch($database);
+        $alias = 'permission_restore_'.str_replace('-', '', Str::uuid());
+        config(['database.connections.'.$alias => ['driver' => 'sqlite', 'database' => $database, 'prefix' => '', 'foreign_key_constraints' => true]]);
+        try {
+            app(SnapshotImporter::class)->restore($backup->path, $alias, $source, $folder.'/assets');
+            $target = DB::connection($alias);
+            $this->assertSame($permissions, $target->table('permissions')->orderBy('id')->get()->map(fn ($row): array => (array) $row)->all());
+            $this->assertSame($grants, $target->table('role_permissions')->orderBy('role_id')->orderBy('permission_id')->get()->map(fn ($row): array => (array) $row)->all());
+            $this->assertSame(10001, $target->table('permissions')->where('name', 'account.password_reset')->value('id'));
+            $this->assertSame('fixture.restore.marker', $target->table('permissions')->where('id', 1)->value('name'));
+            $this->assertSame($permissions, $source->table('permissions')->orderBy('id')->get()->map(fn ($row): array => (array) $row)->all());
+            $this->assertSame($grants, $source->table('role_permissions')->orderBy('role_id')->orderBy('permission_id')->get()->map(fn ($row): array => (array) $row)->all());
+            $this->assertSame($default, DB::getDefaultConnection());
+            $this->assertSame($source, DB::connection());
+            $this->assertFalse(app()->bound('masal.fresh_restore_database'));
+        } finally {
+            DB::purge($alias);
+            config(['database.connections.'.$alias => null]);
+            Storage::disk('local')->deleteDirectory($folder);
+        }
+    }
+
     public function test_unresolved_provider_purchases_reject_restore_preview_without_mutating_source_or_reissuing_purchase(): void
     {
         $actor = $this->actor();
@@ -259,6 +330,71 @@ class ServerBackupTest extends TestCase
         $this->assertSame(0, BackupPreview::count());
         $this->assertSame(0, RestoreJob::count());
         $this->assertSame([], Storage::disk('local')->allFiles('backups/validation'));
+    }
+
+    public static function derivedSnapshotFormats(): array
+    {
+        return ['current snapshot' => [false], 'legacy detailed totals snapshot' => [true]];
+    }
+
+    #[DataProvider('derivedSnapshotFormats')]
+    public function test_restore_rebuilds_digital_rollups_without_doubling_old_snapshot_totals_or_changing_money(bool $legacy): void
+    {
+        $actor = $this->actor();
+        $main = $this->account(AccountType::MainAgent, $actor->membership->account);
+        DB::transaction(function () use ($actor, $main): void {
+            $ledger = app(Ledger::class);
+            $ledger->pair($actor, 'funding', (string) Str::uuid(), ['fixture' => true],
+                $ledger->wallet($actor->membership->account_id, 'cash', 'IQD', 'external'),
+                $ledger->wallet($main->id, 'cash', 'IQD'), 10000, 'restore fixture');
+        });
+        DigitalOrder::factory()->create(['status' => 'succeeded', 'reservation_active' => false,
+            'quoted_cost_minor' => 430001, 'quoted_retail_minor' => 500002,
+            'actual_cost_minor' => 430001, 'actual_retail_minor' => 500002, 'cost_basis' => 'provider_response',
+            'company_transaction_id' => fake()->uuid(), 'receipt_ref' => fake()->uuid(), 'resolved_at' => now()]);
+        $sourceWallets = DB::table('finance_wallets')->orderBy('id')->get()->map(fn ($row) => (array) $row)->all();
+        $excluded = config('backups.excluded_tables');
+        $migrations = DB::table('migrations')->whereIn('migration', ['2026_10_14_002408_create_digital_account_totals', '2026_10_14_012607_add_sales_current_read_cover_indexes', '2026_10_14_073138_enforce_finance_entry_chain', '2026_10_14_081739_add_stock_card_sale_lookup_index'])->get()->map(fn ($row) => (array) $row)->all();
+        $path = 'backups/derived-fixture/'.Str::uuid().'.json';
+        try {
+            if ($legacy) {
+                config(['backups.excluded_tables' => array_values(array_diff($excluded, ['digital_order_totals']))]);
+                DB::table('migrations')->whereIn('id', array_column($migrations, 'id'))->delete();
+            }
+            $snapshot = app(SnapshotArchive::class)->create(DB::connection(), $path);
+        } finally {
+            config(['backups.excluded_tables' => $excluded]);
+            if ($legacy) {
+                DB::table('migrations')->insert($migrations);
+            }
+        }
+        $this->assertSame($legacy, array_key_exists('digital_order_totals', $snapshot['manifest']['counts']));
+        $this->assertArrayNotHasKey('digital_account_totals', $snapshot['manifest']['counts']);
+        $folder = 'backups/derived-fixture/'.Str::uuid();
+        Storage::disk('local')->makeDirectory($folder);
+        $database = Storage::disk('local')->path($folder.'/target.sqlite');
+        touch($database);
+        $alias = 'derived_restore_'.str_replace('-', '', Str::uuid());
+        config(['database.connections.'.$alias => ['driver' => 'sqlite', 'database' => $database, 'prefix' => '', 'foreign_key_constraints' => true]]);
+        try {
+            app(SnapshotImporter::class)->restore($path, $alias, DB::connection(), $folder.'/assets');
+            $target = DB::connection($alias);
+            foreach (['digital_order_totals', 'digital_account_totals'] as $table) {
+                $this->assertSame(1, (int) $target->table($table)->sum('order_count'));
+                $this->assertSame(430001, (int) $target->table($table)->sum('cost_minor'));
+                $this->assertSame(500002, (int) $target->table($table)->sum('retail_minor'));
+            }
+            $this->assertSame($sourceWallets, $target->table('finance_wallets')->orderBy('id')->get()->map(fn ($row) => (array) $row)->all());
+            $this->assertSame(0, (int) $target->table('finance_entries')->sum('amount_minor'));
+            $walletGuard = $target->table('sqlite_master')->where('type', 'trigger')->where('name', 'finance_wallets_valid_update')->value('sql');
+            $this->assertStringContainsString('balance_after_minor', $walletGuard);
+            $this->assertStringNotContainsString('SUM(amount_minor)', $walletGuard);
+            $this->assertSame($sourceWallets, DB::table('finance_wallets')->orderBy('id')->get()->map(fn ($row) => (array) $row)->all());
+        } finally {
+            DB::purge($alias);
+            config(['database.connections.'.$alias => null]);
+            Storage::disk('local')->deleteDirectory($folder);
+        }
     }
 
     public function test_historical_unknown_attempt_resolved_by_terminal_order_can_restore_but_open_attempt_cannot(): void

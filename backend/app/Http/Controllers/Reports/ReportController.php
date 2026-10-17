@@ -4,11 +4,15 @@ namespace App\Http\Controllers\Reports;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Reports\ReportRequest;
+use App\Services\Reports\BoundedReportExport;
 use App\Services\Reports\DashboardSummary;
 use App\Services\Reports\ReportAccess;
 use App\Services\Reports\ReportCatalog;
 use App\Services\Reports\ReportQueries;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class ReportController extends Controller
 {
@@ -30,9 +34,12 @@ class ReportController extends Controller
         $this->filters($request);
         $actor = $request->user();
         $products = $this->access->products($actor)->with('provider')->orderBy('display_order')->get(['id', 'name', 'provider_id', 'currency']);
-        $accounts = $this->access->accounts($actor)->orderBy('name')->get(['id', 'name', 'type', 'parent_id', 'city']);
+        $scope = $this->access->accounts($actor);
+        $cities = (clone $scope)->whereNotNull('city')->where('city', '<>', '')->distinct()->orderBy('city')->pluck('city');
+        $kinds = (clone $scope)->selectRaw('type, COUNT(*) AS total')->groupBy('type')->pluck('total', 'type');
+        $accounts = (clone $scope)->when($request->boolean('compact'), fn ($query) => $query->whereKey($actor->membership->account_id))->orderBy('name')->get(['id', 'name', 'type', 'parent_id', 'city']);
 
-        return response()->json(['data' => ['accounts' => $accounts, 'products' => $products->map(fn ($p): array => ['id' => $p->id, 'name' => $p->name, 'provider_id' => $p->provider_id, 'currency' => $p->currency]), 'providers' => $products->map(fn ($p): array => ['id' => $p->provider_id, 'name' => $p->provider->name])->unique('id')->values(), 'cities' => $accounts->pluck('city')->filter()->unique()->values(), 'currencies' => ['IQD'], 'groups' => ReportCatalog::GROUPS, 'sections' => $this->catalog->allowed($actor), 'timezone' => 'Asia/Baghdad']]);
+        return response()->json(['data' => ['accounts' => $accounts, 'products' => $products->map(fn ($p): array => ['id' => $p->id, 'name' => $p->name, 'provider_id' => $p->provider_id, 'currency' => $p->currency]), 'providers' => $products->map(fn ($p): array => ['id' => $p->provider_id, 'name' => $p->provider->name])->unique('id')->values(), 'cities' => $cities, 'account_kinds' => $kinds, 'currencies' => ['IQD'], 'groups' => ReportCatalog::GROUPS, 'sections' => $this->catalog->allowed($actor), 'timezone' => 'Asia/Baghdad']]);
     }
 
     public function summary(ReportRequest $request): JsonResponse
@@ -112,41 +119,14 @@ class ReportController extends Controller
         return response()->json(['data' => $row, 'related' => $related, 'columns' => $dataset->schema['columns'], 'section' => $dataset->schema, 'currency' => $filters['currency']]);
     }
 
-    public function export(ReportRequest $request): JsonResponse
+    public function export(ReportRequest $request, BoundedReportExport $exports): JsonResponse
     {
-        $filters = $this->filters($request);
-        $this->access->require($request->user(), ($filters['purpose'] ?? 'export') === 'print' ? 'reports.print' : 'reports.export');
-        $schemas = $this->catalog->allowed($request->user());
-        $ids = $filters['section_ids'] ?? array_column($schemas, 'id');
-        abort_unless(array_diff($ids, array_column($schemas, 'id')) === [], 404);
-        $sections = [];
-        foreach ($schemas as $schema) {
-            if (! in_array($schema['id'], $ids, true)) {
-                continue;
-            }
-            if (($filters['kind'] ?? 'all') !== 'all' && explode('-', $schema['id'])[0] !== $filters['kind']) {
-                continue;
-            }
-            $dataset = $this->queries->build($request->user(), $schema, $filters);
-            if (! $dataset) {
-                $sections[] = ['id' => $schema['id'], 'title' => $schema['title'], 'available' => false, 'reason' => $this->queries->unavailableReason($schema['id']), 'columns' => $schema['columns'], 'rows' => []];
+        return $exports->create($request, $this->filters($request));
+    }
 
-                continue;
-            }
-            $columns = $dataset->schema['columns'];
-            if (isset($filters['visible_columns'])) {
-                abort_unless(count($ids) === 1 && array_diff($filters['visible_columns'], array_column($columns, 'key')) === [], 422, 'أعمدة التصدير غير متاحة.');
-                $columns = array_values(array_filter($columns, fn ($c): bool => in_array($c['key'], $filters['visible_columns'], true)));
-            }
-            $rows = [];
-            $keys = array_flip(array_column($columns, 'key'));
-            foreach ($dataset->filtered($filters)->cursor() as $record) {
-                $rows[] = array_intersect_key($dataset->row($record), $keys);
-            }
-            $sections[] = ['id' => $schema['id'], 'title' => $schema['title'], 'available' => true, 'snapshot' => $schema['snapshot'], 'note' => $schema['note'], 'columns' => $columns, 'rows' => $rows];
-        }
-
-        return response()->json(['data' => ['sections' => $sections, 'currency' => $filters['currency'], 'generated_at' => now()->toISOString(), 'timezone' => 'Asia/Baghdad']]);
+    public function download(Request $request, string $id, BoundedReportExport $exports): StreamedResponse
+    {
+        return $exports->download($request, $id);
     }
 
     public function dashboard(ReportRequest $request): JsonResponse
@@ -160,8 +140,18 @@ class ReportController extends Controller
     {
         $this->access->require($request->user(), 'dashboard.view');
         $limit = $request->validated('limit', '20');
-        $rows = $this->dashboard->recentOperations($request->user(), 'IQD', $limit === 'all' ? null : (int) $limit);
+        $cursor = null;
+        if ($request->filled('cursor')) {
+            $cursor = json_decode(base64_decode(strtr($request->input('cursor'), '-_', '+/'), true) ?: '', true);
+            if (! is_array($cursor) || ! is_string($cursor['time'] ?? null) || ! preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $cursor['time']) || ! is_int($cursor['id'] ?? null) || $cursor['id'] < 1 || ! in_array($cursor['source'] ?? null, ['audit', 'stock', 'digital'], true)) {
+                throw ValidationException::withMessages(['cursor' => 'مرجع صفحة العمليات غير صالح.']);
+            }
+        }
+        $pageSize = $limit === 'all' ? 100 : (int) $limit;
+        $rows = $this->dashboard->recentOperations($request->user(), 'IQD', $pageSize, $cursor);
+        $last = $rows ? $rows[array_key_last($rows)] : null;
+        $next = $last && count($rows) === $pageSize ? rtrim(strtr(base64_encode(json_encode(['time' => $last['occurred_at'], 'id' => (int) explode(':', $last['key'])[1], 'source' => explode(':', $last['key'])[0]], JSON_THROW_ON_ERROR)), '+/', '-_'), '=') : null;
 
-        return response()->json(['data' => $rows, 'meta' => ['count' => count($rows), 'limit' => $limit]]);
+        return response()->json(['data' => $rows, 'meta' => ['count' => count($rows), 'limit' => $limit, 'next_cursor' => $next]]);
     }
 }

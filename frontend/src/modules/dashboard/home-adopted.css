@@ -1,0 +1,64 @@
+/* Approved POS home presentation. Data, permissions, navigation and receipt paper retain their existing behavior. */
+@media screen {
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace.pos-home-workspace{display:flex;flex-direction:column;gap:18px;min-width:0;font-size:14px;line-height:1.7}
+html[data-portal=pos] .portal-shell.pos-app .pos-home-workspace>*{flex-shrink:0;min-width:0}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-hero{position:relative;isolation:isolate;overflow:hidden;background:var(--pos-hero-card,#19464b);color:#f5f8f0;border:1px solid #ffffff12;border-radius:22px;padding:17px 18px 15px;box-shadow:0 16px 24px -24px #102d31a0}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-hero::before{content:"د";position:absolute;z-index:-1;left:-28px;top:-38px;font-size:210px;font-weight:900;line-height:1.3;opacity:.045;transform:rotate(-12deg);pointer-events:none}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-banknote{position:absolute;left:-90px;top:-35px;width:270px;height:270px;border:1px solid #ffffff0d;border-radius:50%;box-shadow:0 0 0 8px #ffffff04,0 0 0 17px #ffffff04,0 0 0 28px #ffffff04,0 0 0 40px #ffffff04,0 0 0 54px #ffffff04;z-index:-1;pointer-events:none}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-balance-label{display:flex;align-items:center;justify-content:space-between;gap:12px;color:var(--pos-hero-muted,#c9dcd4);font-size:12px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-privacy{display:grid;place-items:center;width:44px;height:44px;flex:none;margin:-12px -6px;color:var(--pos-hero-muted,#d7e7de);border:0;background:transparent;border-radius:11px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-privacy:focus-visible{outline:2px solid #f5f8f0;outline-offset:-3px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-privacy svg{width:18px;height:18px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-main-balance{display:flex;align-items:baseline;gap:7px;margin:4px 0 8px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-main-balance strong{font-size:38px;font-weight:800!important;line-height:1.25;letter-spacing:-.8px;font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate;overflow-wrap:anywhere;min-width:0}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-main-balance small{color:var(--pos-hero-muted,#d3e1d9);font-size:12px;white-space:nowrap}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-hero-metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:14px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-hero-metrics>div{min-width:0;display:grid;gap:3px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-hero-metrics>div+div{border-inline-start:1px solid #ffffff14;padding-inline-start:14px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-hero-metrics span{color:var(--pos-hero-muted,#bfd5ce);font-size:10px;line-height:1.7}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-hero-metrics strong{font-size:17px;color:#f5f8f0;font-variant-numeric:tabular-nums;line-height:1.4;overflow-wrap:anywhere}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-hero-metrics small{font-size:10px;font-weight:400;color:var(--pos-hero-muted,#bfd5ce);white-space:nowrap}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-hero-actions{display:flex;gap:8px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-hero-actions a{display:flex;justify-content:center;align-items:center;gap:7px;min-width:0;min-height:44px;flex:1;padding:8px 10px;border:1px solid #ffffff25;border-radius:11px;color:#f0f6ec;text-decoration:none;font-size:12px;font-weight:700!important;background:#ffffff05}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-hero-actions a:first-child{background:var(--pos-soft-light,#f1f5e9);border-color:transparent;color:var(--pos-hero,#103237)}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-hero-actions svg{width:16px;height:16px;flex:none}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-quickkeys{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:4px;margin:0;padding:12px 5px 9px;border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 8px 18px -22px #173c43}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-quickkeys:empty{display:none}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-quickkeys>a,html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-quickkeys>button{display:flex;min-width:0;align-items:center;flex-direction:column;gap:5px;color:var(--ink);font:inherit;text-decoration:none;background:none;border:0;padding:0 2px;text-align:center}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-quickkeys :is(a,button)>span{display:grid;place-items:center;flex:none;width:45px;height:45px;border-radius:14px;background:linear-gradient(var(--panel),var(--raised));border:1px solid var(--line);box-shadow:0 2px 2px #0e2e3105,inset 0 1px 0 #ffffff14;color:var(--pos-accent,var(--accent))}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-quickkeys svg{width:21px;height:21px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-quickkeys b{font-size:10px;font-weight:700!important;line-height:1.7;overflow-wrap:anywhere}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-companies{margin:0;padding:0;border:0;background:none}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace :is(.pos-home-companies>header,.activity-card-heading){display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:28px;margin-bottom:12px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace :is(.pos-home-companies h2,.activity-card-heading h2){font-size:16px;font-weight:800!important;line-height:1.7;margin:0}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-text-action{font-size:11px;font-weight:700;min-height:44px;display:inline-flex;align-items:center;padding:0;margin-block:-8px;color:var(--pos-accent,var(--accent))}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-company-strip{display:flex;gap:18px;padding:2px 0 4px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-company-strip.is-expanded{display:grid;grid-template-columns:repeat(auto-fill,minmax(62px,1fr));overflow:visible;gap:16px 18px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-company{display:flex;flex-direction:column;align-items:center;gap:5px;flex:0 0 62px;min-width:0;max-width:100%;color:var(--ink);text-align:center;text-decoration:none;scroll-snap-align:start}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-company .pos-company-circle{display:grid;place-items:center;flex:none;width:60px;height:60px;border-radius:14px;overflow:hidden;border:1px solid var(--line);background:var(--panel);color:var(--pos-accent,var(--accent));font-size:22px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-company img{display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:contain;padding:6px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-company-name{font-size:11px;line-height:1.6;max-width:100%;overflow-wrap:anywhere}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .dashboard-activity-log{border:0;background:none;margin:0;padding:0;box-shadow:none}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-activity-list{display:grid;gap:0;margin:0;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--panel)}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-activity-row.is-compact{display:grid;grid-template-columns:33px minmax(0,1fr) auto 22px;align-items:center;gap:10px;padding:11px 12px;border:0;border-bottom:1px solid var(--soft-line);border-radius:0;margin:0;background:transparent;box-shadow:none;min-width:0;min-height:61px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-activity-row:last-child{border-bottom:0}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-activity-row>div{display:grid;gap:1px;min-width:0}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-operation-icon{width:33px;height:36px;border-radius:10px;background:var(--accent-soft);color:var(--pos-accent,var(--accent));display:grid;place-items:center}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-operation-icon svg{width:17px;height:17px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-activity-row strong{font-size:12px;font-weight:700;line-height:1.6;overflow-wrap:anywhere}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-activity-row small{font-size:10px;line-height:1.6;color:var(--muted)}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-activity-row>div:nth-last-of-type(1){text-align:end;justify-items:end;gap:3px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-activity-row b{display:inline-flex;align-items:baseline;gap:3px;font-size:12px;font-weight:700;white-space:nowrap;font-variant-numeric:tabular-nums}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-activity-row b>span{direction:ltr;unicode-bidi:isolate}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-activity-row b small{font-size:9px;font-weight:400;color:var(--muted)}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .activity-status{font-size:9px;font-weight:400;line-height:1.8;border-radius:6px;padding:0 6px;text-align:center;white-space:normal}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .activity-status[data-tone=success]{background:#ebf4ed;color:#377a60}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .activity-status[data-tone=pending]{background:#f8eed9;color:#9a732f}
+html[data-portal=pos][data-theme=dark] .portal-shell.pos-app .dashboard-workspace .activity-status[data-tone=success]{background:#163c37;color:#8bd5ba}
+html[data-portal=pos][data-theme=dark] .portal-shell.pos-app .dashboard-workspace .activity-status[data-tone=pending]{background:#3d3421;color:#e8c680}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-row-open{display:grid;place-items:center;min-width:44px;width:44px;height:44px;margin-inline:-11px;padding:0;border:0;border-radius:9px;background:none;color:var(--muted)}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-row-open svg{width:15px;height:15px}
+html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-row-open:focus-visible{outline:2px solid var(--pos-accent,var(--accent));outline-offset:-5px}
+@media(min-width:700px){html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace.pos-home-workspace{max-width:720px;margin-inline:auto}html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-hero{padding:21px 22px 19px}html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-main-balance strong{font-size:42px}html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-hero-metrics strong{font-size:19px}html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-quickkeys{padding-block:15px}html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-quickkeys b{font-size:11px}}
+@media(max-width:359px){html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-hero{padding-inline:15px}html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-home-main-balance strong{font-size:34px}html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-activity-row.is-compact{grid-template-columns:28px minmax(0,1fr) auto 18px;gap:7px;padding-inline:9px}html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-operation-icon{width:28px;height:32px}html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-activity-row b{font-size:11px}html[data-portal=pos] .portal-shell.pos-app .dashboard-workspace .pos-row-open{margin-inline:-13px}}
+}

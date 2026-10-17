@@ -13,6 +13,8 @@ use App\Models\User;
 use App\Services\AccountScope;
 use App\Services\CatalogAccess;
 use App\Services\ManagementAuthority;
+use App\Services\Operations\MutationGuard;
+use App\Support\RequestReadCache;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -46,7 +48,7 @@ class DigitalAccess
         abort_unless($own->isOperational(), 409, 'الحساب أو أحد الحسابات الأعلى موقوف.');
         if ($lock) {
             $ids = DB::table('account_closure')->where('descendant_id', $own->id)->pluck('ancestor_id');
-            Account::whereIn('id', $ids)->orderBy('id')->lockForUpdate()->get();
+            app(MutationGuard::class)->lockAccounts($ids->all(), $actor->membership->account_id, shareAncestors: true);
             $own->refresh();
         }
 
@@ -80,8 +82,30 @@ class DigitalAccess
         return $connection;
     }
 
+    /** @return array{DigitalConnection, ?DigitalOffer} */
+    public function saleOffer(User $actor, Account $own, int $connectionId, int $offerId): array
+    {
+        $this->require($actor, 'digital.create');
+        abort_unless(DB::transactionLevel() > 0 && $own->id === $actor->membership->account_id && $own->type === AccountType::Pos, 403);
+        $ancestors = DB::table('account_closure')->where('descendant_id', $own->id)->select('ancestor_id');
+        $connection = $this->connections($actor)->lockForUpdate()->with([
+            'account', 'company',
+            'offers' => fn ($query) => $query->whereKey($offerId)->with('product.provider'),
+            'grants' => fn ($query) => $query->whereIn('target_account_id', $ancestors),
+        ])->findOrFail($connectionId);
+
+        $offer = $this->offers($connection, $own)->firstWhere('id', $offerId);
+        if (! $offer && $connection->account_id !== $own->id) {
+            $connection->load('offers.product.provider');
+            abort_if($this->offers($connection, $own, true)->isEmpty(), 404);
+        }
+
+        return [$connection, $offer];
+    }
+
     public function offers(DigitalConnection $connection, Account $target, bool $includePaused = false): Collection
     {
+        $connection->loadMissing('offers.product.provider');
         if (! $target->isOperational() || ! $connection->account->isOperational() || $connection->provider_id !== null && $connection->company?->status !== 'active' || ! $connection->active && ! $includePaused) {
             return collect();
         }
@@ -123,6 +147,15 @@ class DigitalAccess
         return $synced->concat($offers->filter(fn ($offer): bool => in_array($offer->product_id, $allowed, true)))->values();
     }
 
+    public function recentIndex(mixed $query, User $actor, string $index): mixed
+    {
+        if (DB::getDriverName() === 'mysql' && $this->accounts($actor)->limit(101)->pluck('accounts.id')->count() > 100) {
+            $query->forceIndex($index);
+        }
+
+        return $query;
+    }
+
     public function orders(User $actor): Builder
     {
         return DigitalOrder::whereIn('account_id', $this->accounts($actor)->select('accounts.id'));
@@ -130,10 +163,30 @@ class DigitalAccess
 
     public function isAssignedProduct(Account $own, int $productId): bool
     {
-        $mainIds = DB::table('account_closure')->where('descendant_id', $own->id)->select('ancestor_id');
+        $mainIds = DB::table('account_closure')->join('accounts', 'accounts.id', '=', 'ancestor_id')->where('descendant_id', $own->id)->where('accounts.type', '<>', AccountType::System->value)->select('ancestor_id');
 
         // Pausing a configured digital offer must never turn it into a stock/PIN sale.
-        return DigitalOffer::where('product_id', $productId)->where('listed', true)->whereHas('connection', fn ($query) => $query->whereIn('account_id', $mainIds))->exists();
+        $ancestorIds = DB::table('account_closure')->where('descendant_id', $own->id)->select('ancestor_id');
+        if (DigitalOffer::where('product_id', $productId)->where('listed', true)->whereHas('connection', fn ($query) => $query->whereIn('account_id', $ancestorIds)
+            ->where(fn ($provider) => $provider->where('provider', '<>', 'topup')->orWhereIn('account_id', $mainIds)))->exists()) {
+            return true;
+        }
+        $main = app(TopupDistribution::class)->main($own);
+        if (! $main) {
+            return false;
+        }
+        $allocation = app(TopupAccounting::class)->grant($own);
+        $manual = RequestReadCache::remember('DigitalAccess.centralProductGrants:'.$main->id, fn (): Collection => DigitalGrant::where('target_account_id', $main->id)->whereIn('connection_id', DigitalConnection::where('provider', 'topup')->whereHas('account', fn ($account) => $account->where('type', AccountType::System))->select('id'))->get());
+
+        return DigitalOffer::where('product_id', $productId)->where('listed', true)->where(function ($query) use ($allocation, $manual): void {
+            $query->whereRaw('1=0');
+            if ($allocation) {
+                $query->orWhere(fn ($offer) => $offer->where('connection_id', $allocation->connection_id)->whereIn('topup_category_id', $allocation->category_ids));
+            }
+            foreach ($manual as $grant) {
+                $query->orWhere(fn ($offer) => $offer->where('connection_id', $grant->connection_id)->whereIn('id', $grant->offer_ids));
+            }
+        })->exists();
     }
 
     public function order(User $actor, int $id, string $permission = 'digital.view', bool $owned = false, bool $lock = false): DigitalOrder

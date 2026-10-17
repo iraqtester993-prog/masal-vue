@@ -1,6 +1,19 @@
 [
   {
     "domain": null,
+    "method": "GET|POST|HEAD",
+    "uri": "api/v1/account-lookup",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AccountLookupController@accounts",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
     "method": "GET|HEAD",
     "uri": "api/v1/account-options",
     "name": null,
@@ -135,6 +148,45 @@
     "uri": "api/v1/accounts/{id}/categories",
     "name": null,
     "action": "App\\Http\\Controllers\\CatalogController@saveCategories",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/accounts/{id}/devices",
+    "name": null,
+    "action": "App\\Http\\Controllers\\DeviceController@index",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/accounts/{id}/devices/{deviceId}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\DeviceController@review",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/accounts/{id}/devices/{deviceId}/login-access",
+    "name": null,
+    "action": "App\\Http\\Controllers\\DeviceController@loginAccess",
     "middleware": [
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
@@ -326,6 +378,31 @@
   },
   {
     "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/auth/brand-image",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AuthController@brandImage",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/auth/device-challenge",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AuthController@deviceChallenge",
+    "middleware": [
+      "web",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:device-login-challenge"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
     "method": "POST",
     "uri": "api/v1/auth/login",
     "name": null,
@@ -372,6 +449,30 @@
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
       "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/auth/recovery/phone",
+    "name": null,
+    "action": "App\\Http\\Controllers\\PhoneRecoveryController@issue",
+    "middleware": [
+      "web",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:5,1"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/auth/recovery/reset",
+    "name": null,
+    "action": "App\\Http\\Controllers\\PhoneRecoveryController@reset",
+    "middleware": [
+      "web",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:15,1"
     ],
     "path": null
   },
@@ -653,6 +754,32 @@
   },
   {
     "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/company/app-config",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyController@appConfig",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/company/app-config",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyController@saveAppConfig",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
     "method": "POST",
     "uri": "api/v1/company/assets",
     "name": null,
@@ -700,6 +827,30 @@
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
       "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/company/inquiries/followup",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyPublicController@followup",
+    "middleware": [
+      "web",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:5,1,company-followup:"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/company/inquiries/track",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyPublicController@track",
+    "middleware": [
+      "web",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:30,1,company-tracking:"
     ],
     "path": null
   },
@@ -769,6 +920,19 @@
   {
     "domain": null,
     "method": "GET|HEAD",
+    "uri": "api/v1/dashboard/activity",
+    "name": "dashboard.activity",
+    "action": "App\\Http\\Controllers\\Reports\\ReportController@activity",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
     "uri": "api/v1/dashboard/summary",
     "name": null,
     "action": "App\\Http\\Controllers\\Reports\\ReportController@dashboard",
@@ -776,6 +940,34 @@
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
       "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/device/challenge",
+    "name": null,
+    "action": "App\\Http\\Controllers\\DeviceController@challenge",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:60,1"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/device/heartbeat",
+    "name": null,
+    "action": "App\\Http\\Controllers\\DeviceController@heartbeat",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:120,1"
     ],
     "path": null
   },
@@ -850,6 +1042,19 @@
     "uri": "api/v1/digital/connections/{id}/grants/{target}",
     "name": null,
     "action": "App\\Http\\Controllers\\Digital\\DigitalController@grant",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/digital/connections/{id}/sync",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@synchronize",
     "middleware": [
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
@@ -951,6 +1156,19 @@
   {
     "domain": null,
     "method": "GET|HEAD",
+    "uri": "api/v1/digital/orders/recovery",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@recovery",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
     "uri": "api/v1/digital/orders/summary",
     "name": null,
     "action": "App\\Http\\Controllers\\Digital\\DigitalController@summary",
@@ -967,6 +1185,19 @@
     "uri": "api/v1/digital/orders/{id}",
     "name": null,
     "action": "App\\Http\\Controllers\\Digital\\DigitalController@show",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/digital/orders/{id}/acknowledge",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@acknowledge",
     "middleware": [
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
@@ -1016,9 +1247,36 @@
   {
     "domain": null,
     "method": "POST",
+    "uri": "api/v1/digital/orders/{id}/review-note",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@recordReview",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:6,1,digital-review:"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
     "uri": "api/v1/digital/orders/{id}/verify",
     "name": null,
     "action": "App\\Http\\Controllers\\Digital\\DigitalController@verify",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/finance/accounts",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@accounts",
     "middleware": [
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
@@ -1097,6 +1355,19 @@
     "uri": "api/v1/finance/funding-requests",
     "name": null,
     "action": "App\\Http\\Controllers\\Finance\\FinanceController@storeFundingRequest",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/finance/funding-requests/{id}/batches",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@fundingBatches",
     "middleware": [
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
@@ -1240,6 +1511,19 @@
     "uri": "api/v1/finance/price-requests/{id}/review",
     "name": null,
     "action": "App\\Http\\Controllers\\Finance\\FinanceController@reviewPriceRequest",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/finance/price-template",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@priceTemplate",
     "middleware": [
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
@@ -1843,7 +2127,22 @@
     "middleware": [
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
-      "App\\Http\\Middleware\\EnsurePortalMembership"
+      "App\\Http\\Middleware\\EnsurePortalMembership",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:report-export"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/reports/exports/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Reports\\ReportController@download",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:report-export"
     ],
     "path": null
   },
@@ -2230,6 +2529,19 @@
     "uri": "api/v1/sales/{id}/deliver",
     "name": null,
     "action": "App\\Http\\Controllers\\Sales\\SalesController@deliver",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/sales/{id}/print/copy",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Sales\\SalesController@copy",
     "middleware": [
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
@@ -2695,6 +3007,58 @@
   {
     "domain": null,
     "method": "GET|HEAD",
+    "uri": "api/v1/support/site-inquiries",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyController@inquiries",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/support/site-inquiries/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyController@inquiryDetail",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/support/site-inquiries/{id}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyController@review",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/support/site-inquiries/{id}/replies",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyController@reply",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
     "uri": "api/v1/support/tickets",
     "name": null,
     "action": "App\\Http\\Controllers\\Support\\SupportController@index",
@@ -2763,6 +3127,97 @@
     "uri": "api/v1/support/tickets/{id}/status",
     "name": null,
     "action": "App\\Http\\Controllers\\Support\\SupportController@status",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/topup/available",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\TopupDistributionController@available",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/topup/categories",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\TopupCategoryController@index",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/topup/categories/{id}/image",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\TopupCategoryController@image",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/topup/distribution",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\TopupDistributionController@index",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/topup/distribution/{target}",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\TopupDistributionController@update",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/topup/offers/{id}/image",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@offerImage",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PUT",
+    "uri": "api/v1/topup/prices",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\TopupDistributionController@prices",
     "middleware": [
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",

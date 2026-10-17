@@ -30,6 +30,9 @@ class SnapshotSchema
             if (in_array($name, config('backups.excluded_tables'), true)) {
                 continue;
             }
+            if (in_array($db->getDriverName(), ['mysql', 'mariadb'], true) && strtolower($table['engine'] ?? '') !== 'innodb') {
+                throw new RuntimeException('النسخة المتسقة تتطلب جداول InnoDB: '.$name);
+            }
             if (! preg_match('/^[a-z][a-z0-9_]*$/D', $name)) {
                 throw new RuntimeException('اسم جدول غير مدعوم في النسخة.');
             }
@@ -58,6 +61,12 @@ class SnapshotSchema
             $progress = false;
             foreach ($pending as $index => $table) {
                 $dependencies = array_values(array_unique(array_filter(array_column($tables[$table]['foreign'], 'table'), fn (string $dependency): bool => $dependency !== $table && isset($tables[$dependency]))));
+                $businessDependencies = match ($table) {
+                    'topup_finance_events' => ['finance_entries'],
+                    'topup_wallet_bindings' => ['account_closure'],
+                    default => [],
+                };
+                $dependencies = array_values(array_unique(array_merge($dependencies, array_values(array_intersect($businessDependencies, array_keys($tables))))));
                 if (array_diff($dependencies, $ordered) !== []) {
                     continue;
                 }

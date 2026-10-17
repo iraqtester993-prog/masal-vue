@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\AccountType;
 use App\Models\Account;
+use App\Services\SessionRevoker;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +15,30 @@ use Tests\TestCase;
 class PortalIsolationTest extends TestCase
 {
     use CreatesAccounts, RefreshDatabase;
+
+    public function test_remember_login_restores_only_its_own_portal_and_is_revocable(): void
+    {
+        $user = $this->userFor($this->accountForType(AccountType::MainAgent));
+        $cookieName = Auth::guard('web')->getRecallerName();
+        $this->withHeader('X-Masal-Portal', 'agents')->postJson('/api/v1/auth/login', ['login' => $user->login, 'password' => 'password', 'remember' => true])->assertOk()->assertCookie($cookieName);
+        $user->refresh();
+        $this->assertNotEmpty($user->remember_token);
+        $recaller = $user->id.'|'.$user->remember_token.'|'.$user->password;
+        session()->flush();
+        Auth::forgetGuards();
+        $this->withCredentials()->withCookie($cookieName, $recaller)->getJson('/api/v1/auth/me')->assertOk()->assertSessionHas('masal.portal', 'agents');
+        $this->withHeader('X-Masal-Portal', 'pos')->getJson('/api/v1/auth/me')->assertForbidden();
+        app(SessionRevoker::class)->revoke([$user->id]);
+        $this->assertNull($user->fresh()->remember_token);
+    }
+
+    public function test_unauthenticated_api_returns_json_without_requiring_an_accept_header(): void
+    {
+        foreach (['admin', 'agents', 'pos'] as $portal) {
+            $this->withHeader('X-Masal-Portal', $portal)->get('/api/v1/auth/me')->assertUnauthorized()->assertJsonPath('message', 'Unauthenticated.');
+            $this->withHeader('X-Masal-Portal', $portal)->get('/api/v1/accounts', ['Accept' => 'text/html'])->assertUnauthorized()->assertJsonPath('message', 'Unauthenticated.');
+        }
+    }
 
     public static function portalCases(): array
     {
@@ -53,13 +78,16 @@ class PortalIsolationTest extends TestCase
         ])->assertUnprocessable()->assertJsonValidationErrors('login');
         $this->assertGuest('web');
         $guestSessionId = session()->getId();
-        $response = $this->withHeader('X-Masal-Portal', $portal)->postJson('/api/v1/auth/login', [
-            'login' => $user->login, 'password' => 'password', 'role' => 'admin', 'account_id' => 999,
-        ])->assertOk()->assertJsonPath('data.portal', $portal)
+        $credentials = ['login' => $user->login, 'password' => 'password', 'role' => 'admin', 'account_id' => 999];
+        if ($type === AccountType::Pos) {
+            $credentials = $this->signedPosLogin($user, $this->posLoginIdentity()) + $credentials;
+        }
+        $response = $this->withHeader('X-Masal-Portal', $portal)->postJson('/api/v1/auth/login', $credentials)->assertOk()->assertJsonPath('data.portal', $portal)
             ->assertJsonPath('data.account.type', $type->value)
             ->assertJsonMissingPath('data.user.password')
             ->assertSessionHas('masal.portal', $portal);
         $this->assertContains('account.view', $response->json('data.permissions'));
+        $this->assertMatchesRegularExpression('/^app;dur=\d+\.\d{2}$/', $response->headers->get('Server-Timing'));
         $this->assertSame($type !== AccountType::Pos, in_array('account.create', $response->json('data.permissions'), true));
         $this->assertDatabaseHas('audit_logs', ['action' => 'auth.login', 'user_id' => $user->id, 'portal' => $portal]);
         $this->assertNotSame($guestSessionId, session()->getId());

@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {cardPayload, importedLine, mapColumns, matchedProduct, orderPayload, rejectedRows} from '../src/modules/stock/stock-model.js';
+import {cardPayload, importedLine, mapColumns, matchedProduct, orderPayload, rejectedRows,stockStatus} from '../src/modules/stock/stock-model.js';
 import {encryptFile} from '../src/shared/files/encrypted-file.js';
 import {workbook} from '../src/shared/files/excel-export.js';
+test('inventory states shared with selling and printing are displayed in Arabic',()=>{for(const value of ['Issued','Printed','Reprinted','Delivered','Pending','Awaiting Replacement','Written Off','Sold Out'])assert.ok(/[\u0600-\u06ff]/.test(stockStatus(value)),value);});
 
 test('import links use the selected provider and explicit codes, including prefixed aliases', () => {
   const products = [{id:1,provider_id:10,import_codes:['EV5']},{id:2,provider_id:20,import_codes:['EV5']}];

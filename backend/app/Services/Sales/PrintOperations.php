@@ -14,18 +14,33 @@ use App\Services\Finance\FinanceOperations;
 use App\Services\ManagementAuthority;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class PrintOperations
 {
     public function __construct(private SalesAccess $access, private SalesPolicies $policies, private SalesOperations $sales, private FinanceOperations $operations, private ManagementAuthority $authority, private AuditLogger $audit) {}
 
+    private function executeOwned(User $actor, int $id, string $action, array $data, callable $work): array
+    {
+        $own = $actor->membership->account;
+        $quoted = Sale::where('account_id', $own->id)->findOrFail($id);
+        $shareAncestors = $own->type === AccountType::Pos && ! $this->policies->requiresNetworkLock($this->policies->context($own, $quoted->product_id));
+
+        return $this->operations->execute($actor, $action, $data, function () use ($actor, $quoted, $work, $shareAncestors): array {
+            $context = $this->policies->context($actor->membership->account, $quoted->product_id);
+            abort_if($shareAncestors && $this->policies->requiresNetworkLock($context), 409, 'تغير نطاق حد الطباعة؛ أعد فتح العملية.');
+
+            return $work($shareAncestors);
+        }, shareAncestors: $shareAncestors);
+    }
+
     public function start(User $actor, int $id, array $data, Request $request): array
     {
         $this->access->sale($actor, $id, 'sell.print', true);
 
-        return $this->operations->execute($actor, 'sales.print-start', $data + ['sale_id' => $id], function () use ($actor, $id, $data, $request): array {
-            $own = $this->access->own($actor, 'sell.print', true);
-            $sale = $this->access->sale($actor, $id, 'sell.print', true, true);
+        return $this->executeOwned($actor, $id, 'sales.print-start', $data + ['sale_id' => $id], function (bool $shareAncestors) use ($actor, $id, $data, $request): array {
+            $own = $this->access->own($actor, 'sell.print', true, $shareAncestors);
+            $sale = $this->access->sale($actor, $id, 'sell.print', true, true, $shareAncestors);
             $this->authority->version($sale, (int) $data['version']);
             $context = $this->policies->context($own, $sale->product_id);
             $this->access->device($actor, $own, $request, $context['settings']);
@@ -49,13 +64,32 @@ class PrintOperations
         });
     }
 
+    public function copy(User $actor, int $id, array $data, Request $request): array
+    {
+        $this->access->sale($actor, $id, 'sell.print', true);
+        $this->access->require($actor, 'sell.receipt');
+        $this->access->require($actor, 'data.pin');
+
+        return $this->executeOwned($actor, $id, 'sales.receipt-copy', $data + ['sale_id' => $id], function (bool $shareAncestors) use ($actor, $id, $request): array {
+            $own = $this->access->own($actor, 'sell.print', true, $shareAncestors);
+            $sale = $this->access->sale($actor, $id, 'sell.print', true, true, $shareAncestors);
+            abort_unless($sale->issued_at && in_array($sale->status, ['Printed', 'Reprinted', 'Print Failed', 'Delivered'], true) && ! $sale->print_pending, 409, 'سجل نتيجة المحاولة المعلقة أولًا.');
+            $context = $this->policies->context($own, $sale->product_id);
+            abort_unless($context['settings']['printing_enabled'], 409, 'الطباعة موقوفة من الإدارة.');
+            $this->access->device($actor, $own, $request, $context['settings']);
+            $this->audit->record('sell.receipt-copy', $request, $actor, $own->id, ['sale_id' => $id, 'quantity' => $sale->quantity]);
+
+            return ['sale_id' => $id, 'copy_id' => (string) Str::uuid()];
+        });
+    }
+
     public function result(User $actor, int $id, array $data, Request $request): array
     {
         $this->access->sale($actor, $id, 'sell.result', true);
 
-        return $this->operations->execute($actor, 'sales.print-result', $data + ['sale_id' => $id], function () use ($actor, $id, $data, $request): array {
-            $own = $this->access->own($actor, 'sell.result', true);
-            $sale = $this->access->sale($actor, $id, 'sell.result', true, true);
+        return $this->executeOwned($actor, $id, 'sales.print-result', $data + ['sale_id' => $id], function (bool $shareAncestors) use ($actor, $id, $data, $request): array {
+            $own = $this->access->own($actor, 'sell.result', true, $shareAncestors);
+            $sale = $this->access->sale($actor, $id, 'sell.result', true, true, $shareAncestors);
             $this->authority->version($sale, (int) $data['version']);
             abort_unless($sale->print_pending && in_array($sale->status, ['Print Requested', 'Reprint Requested'], true), 409, 'ابدأ محاولة الطباعة قبل تسجيل نتيجتها.');
             $attempt = PrintAttempt::where('sale_id', $id)->whereKey($data['attempt_id'])->where('status', 'pending')->lockForUpdate()->firstOrFail();
@@ -87,9 +121,9 @@ class PrintOperations
         $this->access->sale($actor, $id, 'sell.reprint', true);
         $this->access->require($actor, 'sell.print');
 
-        return $this->operations->execute($actor, 'sales.print-retry', $data + ['sale_id' => $id], function () use ($actor, $id, $data, $request): array {
-            $own = $this->access->own($actor, 'sell.reprint', true);
-            $sale = $this->access->sale($actor, $id, 'sell.reprint', true, true);
+        return $this->executeOwned($actor, $id, 'sales.print-retry', $data + ['sale_id' => $id], function (bool $shareAncestors) use ($actor, $id, $data, $request): array {
+            $own = $this->access->own($actor, 'sell.reprint', true, $shareAncestors);
+            $sale = $this->access->sale($actor, $id, 'sell.reprint', true, true, $shareAncestors);
             $this->authority->version($sale, (int) $data['version']);
             abort_unless($sale->status === 'Print Failed' && ! $sale->print_pending, 409, 'إعادة المحاولة للطباعة الفاشلة المسجلة فقط.');
             $context = $this->policies->context($own, $sale->product_id);
@@ -109,9 +143,9 @@ class PrintOperations
     {
         $this->access->sale($actor, $id, 'sell.reprint', true);
 
-        return $this->operations->execute($actor, 'sales.reprint-request', $data + ['sale_id' => $id], function () use ($actor, $id, $data, $request): array {
-            $own = $this->access->own($actor, 'sell.reprint', true);
-            $sale = $this->access->sale($actor, $id, 'sell.reprint', true, true);
+        return $this->executeOwned($actor, $id, 'sales.reprint-request', $data + ['sale_id' => $id], function (bool $shareAncestors) use ($actor, $id, $data, $request): array {
+            $own = $this->access->own($actor, 'sell.reprint', true, $shareAncestors);
+            $sale = $this->access->sale($actor, $id, 'sell.reprint', true, true, $shareAncestors);
             $this->authority->version($sale, (int) $data['version']);
             abort_unless(! $sale->print_pending && in_array($sale->status, ['Printed', 'Print Failed', 'Reprinted'], true), 409, 'سجل نتيجة الطباعة أولًا أو انتظر معالجة الطلب الحالي.');
             $parent = Account::findOrFail($own->parent_id);
@@ -166,8 +200,8 @@ class PrintOperations
         $this->access->sale($actor, $id, 'sell.deliver', true);
         $this->access->require($actor, 'data.pin');
 
-        return $this->operations->execute($actor, 'sales.deliver', $data + ['sale_id' => $id], function () use ($actor, $id, $data, $request): array {
-            $sale = $this->access->sale($actor, $id, 'sell.deliver', true, true);
+        return $this->executeOwned($actor, $id, 'sales.deliver', $data + ['sale_id' => $id], function (bool $shareAncestors) use ($actor, $id, $data, $request): array {
+            $sale = $this->access->sale($actor, $id, 'sell.deliver', true, true, $shareAncestors);
             $this->authority->version($sale, (int) $data['version']);
             abort_unless($sale->issued_at && ! $sale->print_pending && ! in_array($sale->status, ['Reserved', 'Cancelled', 'Delivered', 'Reprint Requested'], true), 409, 'لا يمكن التسليم قبل الإصدار أو أثناء طباعة أو طلب معلق.');
             $sale->update(['status' => 'Delivered', 'delivery_channel' => $data['channel'], 'delivery_reference' => $data['reference'], 'version' => $sale->version + 1]);

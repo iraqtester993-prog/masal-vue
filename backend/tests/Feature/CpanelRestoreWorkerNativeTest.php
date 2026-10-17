@@ -6,8 +6,16 @@ use App\Enums\AccountType;
 use App\Models\Account;
 use App\Models\Backups\RestoreJob;
 use App\Models\Backups\ServerBackup;
+use App\Models\Digital\DigitalConnection;
+use App\Models\Digital\DigitalOffer;
+use App\Models\Digital\DigitalOrder;
+use App\Models\Digital\TopupGrant;
+use App\Models\Finance\Invoice;
+use App\Models\Finance\Wallet;
+use App\Models\User;
 use App\Services\Backups\BackupWorkflow;
 use App\Services\Backups\CpanelRestorePlatform;
+use App\Services\Digital\TopupWallets;
 use Dotenv\Dotenv;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +31,31 @@ class CpanelRestoreWorkerNativeTest extends TestCase
     use CreatesAccounts;
 
     private const ROOT = '/home/dananiriq/masal-verification/restore-platform-20261006-07';
+
+    private const FINANCIAL_TABLES = ['finance_wallets', 'finance_transactions', 'finance_entries', 'finance_invoices', 'finance_operations', 'finance_funding_requests', 'finance_recoveries', 'topup_grants', 'digital_connections', 'digital_orders', 'stock_batches', 'stock_cards', 'sales', 'topup_wallet_bindings', 'topup_finance_events'];
+
+    private function fundedFixture(User $actor, Account $main): Account
+    {
+        $point = $this->account(AccountType::Pos, $main);
+        $agent = $this->userFor($main);
+        $seller = $this->userFor($point);
+        $connection = DigitalConnection::factory()->create(['account_id' => $actor->membership->account_id, 'provider' => 'topup', 'company_balance_minor' => 9400000]);
+        $grant = TopupGrant::factory()->create(['from_account_id' => $actor->membership->account_id, 'target_account_id' => $main->id, 'main_account_id' => $main->id, 'connection_id' => $connection->id, 'balance_minor' => 10000000, 'held_minor' => 0, 'spent_minor' => 0]);
+        $offer = DigitalOffer::factory()->create(['connection_id' => $connection->id, 'type' => 'topup', 'cost_minor' => 600000, 'retail_minor' => 600000]);
+        DB::transaction(function () use ($actor, $main, $point, $agent, $seller, $connection, $grant, $offer): void {
+            $wallets = app(TopupWallets::class);
+            $wallets->bootstrap($grant, $actor);
+            $wallets->fund($agent, $main, $point, 1000000, 'native-worker-topup-fund', ['fixture' => 'private shadow'], 'Native funded Topup restore');
+            $wallet = Wallet::where('account_id', $point->id)->where('service', 'topup')->where('kind', 'account')->sole();
+            $order = DigitalOrder::factory()->create(['connection_id' => $connection->id, 'offer_id' => $offer->id, 'product_id' => $offer->product_id, 'provider' => 'topup', 'type' => 'topup', 'account_id' => $point->id, 'main_account_id' => $main->id, 'creator_id' => $seller->id, 'topup_grant_id' => $grant->id, 'admin_price_minor' => 600000, 'quoted_cost_minor' => 600000, 'quoted_retail_minor' => 650000, 'actual_cost_minor' => 600000, 'actual_retail_minor' => 650000, 'cost_basis' => 'provider_response', 'status' => 'succeeded', 'reservation_active' => false, 'accounted_at' => now(), 'resolved_at' => now(), 'company_transaction_id' => (string) Str::uuid(), 'receipt_ref' => (string) Str::uuid(), 'budget_basis' => 'point_budget_v1', 'budget_wallet_id' => $wallet->id]);
+            $wallets->settle($order, $grant);
+            $grant->update(['balance_minor' => 9400000, 'spent_minor' => 600000]);
+            Invoice::create(['account_id' => $point->id, 'creditor_account_id' => $main->id, 'creator_id' => $seller->id, 'kind' => 'receivable', 'supplier' => $main->name, 'service' => 'topup', 'currency' => 'IQD', 'amount_minor' => 650000, 'reference' => 'Topup '.$order->request_id, 'source_type' => 'digital_topup', 'source_id' => $order->id]);
+        });
+        $this->assertTrue(app(TopupWallets::class)->auditInvariants()['ok']);
+
+        return $point;
+    }
 
     private function guard(): void
     {
@@ -58,7 +91,9 @@ class CpanelRestoreWorkerNativeTest extends TestCase
 
     private function digest(Connection $db, string $table): string
     {
-        $rows = $db->table($table)->orderBy('id')->get()->map(fn ($row): array => (array) $row)->all();
+        $query = $db->table($table);
+        $table === 'account_closure' ? $query->orderBy('ancestor_id')->orderBy('descendant_id') : $query->orderBy('id');
+        $rows = $query->get()->map(fn ($row): array => (array) $row)->all();
 
         return hash('sha256', json_encode($rows, JSON_THROW_ON_ERROR));
     }
@@ -100,12 +135,17 @@ PHP;
         $actor->update(['password' => $testPassword]);
         $actor->refresh();
         $main = $this->account(AccountType::MainAgent, $system);
+        $fundedPoint = $this->fundedFixture($actor, $main);
         $sourceAlias = 'cpanel_native_worker_source';
         config(['database.connections.'.$sourceAlias => ['name' => $sourceAlias] + config('database.connections.mysql')]);
         $source = DB::connection($sourceAlias);
         $this->assertSame($sourceAlias, $source->getName());
         $this->assertSame('dananiriq_masalverify', $source->selectOne('SELECT DATABASE() AS name')->name);
-        $this->assertSame(2, $source->table('accounts')->count());
+        $this->assertSame(3, $source->table('accounts')->count());
+        $financialDigests = [];
+        foreach (self::FINANCIAL_TABLES as $table) {
+            $financialDigests[$table] = $this->digest($source, $table);
+        }
         $sourceGateVersion = (int) $source->table('runtime_write_gate')->where('id', 1)->value('version');
         $sourceSessionVersion = (int) $actor->session_version;
         $sessionId = 'native-worker-'.Str::uuid();
@@ -120,12 +160,12 @@ PHP;
         $preview = $workflow->preview($actor, null, $backup->id)->refresh();
         $this->assertSame(1, $preview->version);
         $this->assertTrue($preview->reference_verified);
-        $this->assertSame(2, $backup->manifest['counts']['accounts']);
+        $this->assertSame(3, $backup->manifest['counts']['accounts']);
         $later = $this->account(AccountType::Pos, $main);
         $job = $workflow->queue($actor, ['preview_id' => $preview->id, 'version' => $preview->version, 'current_password' => $testPassword]);
         $this->assertSame('queued', $job->status);
         $sourceDigests = [];
-        foreach (['accounts', 'account_memberships', 'users', 'finance_wallets', 'finance_transactions', 'finance_entries', 'finance_invoices', 'user_presences'] as $table) {
+        foreach (array_unique(array_merge(['accounts', 'account_closure', 'account_memberships', 'users', 'user_presences'], self::FINANCIAL_TABLES)) as $table) {
             $sourceDigests[$table] = $this->digest($source, $table);
         }
         $controlCounts = [];
@@ -156,20 +196,28 @@ PHP;
         $this->assertArrayNotHasKey('rollback', $targetJob->toArray());
         $safety = ServerBackup::on($sourceAlias)->findOrFail($sourceJob->safety_backup_id);
         $this->assertSame('completed', $safety->status);
-        $this->assertSame(3, $safety->manifest['counts']['accounts']);
-        $this->assertSame(2, ServerBackup::findOrFail($backup->id)->manifest['counts']['accounts']);
-        $this->assertSame(3, ServerBackup::findOrFail($safety->id)->manifest['counts']['accounts']);
+        $this->assertSame(4, $safety->manifest['counts']['accounts']);
+        $this->assertSame(3, ServerBackup::findOrFail($backup->id)->manifest['counts']['accounts']);
+        $this->assertSame(4, ServerBackup::findOrFail($safety->id)->manifest['counts']['accounts']);
         foreach ($controlCounts as $table => $count) {
             $this->assertSame($count + ($table === 'server_backups' ? 1 : 0), $source->table($table)->count(), 'Source control records must remain in the original database.');
             $this->assertSame($source->table($table)->count(), $target->table($table)->count(), 'Source control records must be copied to the restored target.');
         }
-        $this->assertSame(3, $source->table('accounts')->count());
-        $this->assertSame(2, $target->table('accounts')->count());
+        $this->assertSame(4, $source->table('accounts')->count());
+        $this->assertSame(3, $target->table('accounts')->count());
         $this->assertTrue($source->table('accounts')->where('id', $later->id)->exists());
         $this->assertFalse($target->table('accounts')->where('id', $later->id)->exists());
         foreach ($sourceDigests as $table => $digest) {
             $this->assertSame($digest, $this->digest($source, $table), 'Current source business data must remain unchanged: '.$table);
         }
+        foreach ($financialDigests as $table => $digest) {
+            $this->assertSame($digest, $this->digest($target, $table), 'Funded financial data must restore exactly: '.$table);
+        }
+        $this->assertSame(['ok' => true, 'issues' => [], 'read_only' => true], app(TopupWallets::class)->auditInvariants($target));
+        $this->assertSame(9000000, (int) $target->table('finance_wallets')->where('account_id', $main->id)->where('service', 'topup')->where('kind', 'account')->value('balance_minor'));
+        $this->assertSame(350000, (int) $target->table('finance_wallets')->where('account_id', $fundedPoint->id)->where('service', 'topup')->where('kind', 'account')->value('balance_minor'));
+        $this->assertSame(50000, (int) $target->table('finance_wallets')->where('account_id', $main->id)->where('service', 'topup')->where('kind', 'external')->value('balance_minor'));
+        $this->assertSame(3, $target->table('topup_finance_events')->count());
         $this->assertTrue($source->table('sessions')->where('id', $sessionId)->exists());
         $this->assertSame(0, $target->table('sessions')->count());
         $restoredUser = $target->table('users')->where('id', $actor->id)->first();

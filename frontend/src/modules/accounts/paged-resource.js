@@ -1,14 +1,21 @@
 import { reactive } from 'vue';
-export function createPagedResource(fetcher, onFailure = async (error) => error.message) {
+export function createPagedResource(fetcher, onFailure = async (error) => error.message, {peek} = {}) {
   const state = reactive({ rows: [], meta: {current_page:1,last_page:1,total:0}, loading: false, error: '' });
   let controller, revision = 0;
-  async function load(parameters = {}) {
+  function hydrate(parameters={}) {
+    const cached=peek?.(parameters);
+    state.rows = Array.isArray(cached?.data)?cached.data:[];
+    state.meta = cached?.meta || {current_page:1,last_page:1,total:state.rows.length};
+    return cached;
+  }
+  async function load(parameters = {}, {fresh=false} = {}) {
     controller?.abort();
     controller = new AbortController();
     const own = controller, expected = ++revision;
-    state.rows = []; state.error = ''; state.loading = true;
+    const cached=hydrate(parameters);
+    state.error = ''; state.loading = fresh||!cached;
     try {
-      const result = await fetcher(parameters, own.signal);
+      const result = await fetcher(parameters, own.signal,{fresh});
       if (expected !== revision) return;
       if (!Array.isArray(result?.data)) throw new Error('تعذر قراءة القائمة. حاول مرة أخرى.');
       state.rows = result.data;
@@ -20,5 +27,5 @@ export function createPagedResource(fetcher, onFailure = async (error) => error.
     } finally { if (expected === revision) state.loading = false; }
   }
   function dispose() { revision += 1; controller?.abort(); state.rows = []; state.loading = false; }
-  return {state,load,dispose};
+  return {state,hydrate,load,dispose};
 }

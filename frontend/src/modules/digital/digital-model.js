@@ -48,3 +48,4 @@ export function connectionPayload(draft,credential='') {
   return {version:Number(draft.version||0),provider:draft.provider,account_id:Number(draft.account_id),...(draft.provider_id?{provider_id:Number(draft.provider_id)}:{}),active:!!draft.active,...(credential.trim()?{credential:credential.trim()}:{}),...(draft.catalog_snapshot_id?{catalog_snapshot_id:Number(draft.catalog_snapshot_id)}:{}),offers:draft.offers.map(row=>({...row.id?{id:Number(row.id)}:{},product_id:Number(row.product_id),remote_id:row.remote_id||'',province_id:row.province_id||'',...row.bein_province_id?{bein_province_id:row.bein_province_id}:{},retail:amount(row.retail),active:!!row.active}))};
 }
 export function catalogProductChoices(products,offers,boundProductId) {return products.filter(product=>!offers.some(offer=>Number(offer.product_id)===Number(product.id))||Number(boundProductId)===Number(product.id));}
+

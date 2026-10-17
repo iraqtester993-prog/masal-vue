@@ -26,7 +26,7 @@ class SupportRequest extends FormRequest
             'status' => ['action' => ['required', Rule::in(['close', 'escalate'])], 'version' => $version, 'idempotency_key' => $key],
             'phones' => ['phones' => ['required', 'array', 'list', 'max:5'], 'phones.*' => ['array:label,number'], 'phones.*.label' => ['required', 'string', 'max:60'], 'phones.*.number' => ['required', 'string', 'regex:/^07[78][0-9]{8}$/'], 'version' => ['required', 'integer', 'min:0'], 'idempotency_key' => $key],
             'notice-create' => ['title' => ['required', 'string', 'max:200'], 'body' => ['required', 'string', 'max:10000'], 'attachment_id' => ['nullable', 'integer', 'min:1'], 'idempotency_key' => $key, 'mode' => ['required', Rule::in(['all', 'agents', 'branches', 'points', 'custom'])], 'user_ids' => ['sometimes', 'array', 'list', 'max:10000'], 'user_ids.*' => ['integer', 'min:1', 'distinct:strict'], 'translations' => ['sometimes', 'array:en,ckb'], 'translations.*' => ['array:title,body'], 'translations.*.title' => ['nullable', 'string', 'max:200'], 'translations.*.body' => ['nullable', 'string', 'max:10000']],
-            'read-page' => ['page' => ['required', Rule::in(['support', 'import', 'inventory', 'claims', 'exports', 'wallets', 'invoices', 'prices', 'sales', 'exceptions', 'accounts', 'security', 'branding'])]],
+            'read-page' => ['page' => ['required', Rule::in(['support', 'import', 'inventory', 'claims', 'exports', 'wallets', 'invoices', 'prices', 'sales', 'exceptions', 'accounts', 'security', 'branding', 'notifications'])], 'ids' => ['required_if:page,notifications', 'array', 'list', 'max:20'], 'ids.*' => ['integer', 'min:1', 'distinct']],
             default => [],
         };
     }

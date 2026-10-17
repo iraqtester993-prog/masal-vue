@@ -1,0 +1,73 @@
+.pos-app .pos-wallet-page{max-width:1100px;margin-inline:auto;min-width:0}
+.pos-app .pos-wallet-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}
+.pos-app .pos-wallet-heading h2{margin:0;font-size:25px;font-weight:800;color:var(--ink)}
+.pos-app .pos-wallet-heading p{margin:5px 0 0;color:var(--muted);font-size:12px}
+.pos-app .pos-wallet-privacy{display:grid;place-items:center;width:44px;min-height:44px;border:1px solid var(--line);border-radius:13px;background:var(--panel);color:var(--ink)}
+.pos-app .pos-wallet-privacy svg{width:21px;height:21px}
+.pos-app .pos-wallet-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.pos-app .pos-wallet-card{display:flex;flex-direction:column;gap:17px;min-width:0;padding:20px;text-align:start;border:1px solid var(--line);border-radius:20px;background:var(--panel);color:var(--ink);box-shadow:none;cursor:pointer}
+.pos-app .pos-wallet-card.is-selected{background:var(--pos-hero-card,#173f43);color:#f1f8f4;border-color:var(--pos-hero-card,#173f43)}
+.pos-app .pos-wallet-card-heading{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.pos-app .pos-wallet-card-heading>span{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700}
+.pos-app .pos-wallet-card-heading svg{width:19px;height:19px;flex:none}
+.pos-app .pos-wallet-card-heading>small{font-size:10px;letter-spacing:1px;color:var(--muted)}
+.pos-app .pos-wallet-card.is-selected .pos-wallet-card-heading>small{color:var(--pos-hero-muted,#cbdcda)}
+.pos-app .pos-wallet-available{display:grid;gap:5px}
+.pos-app .pos-wallet-available>small{font-size:11px;color:var(--muted)}
+.pos-app .pos-wallet-available>span{display:flex;align-items:baseline;gap:7px;min-width:0;flex-wrap:wrap}
+.pos-app .pos-wallet-available strong{font-size:31px;line-height:1.4;font-weight:800;overflow-wrap:anywhere}
+.pos-app .pos-wallet-available>span>small{font-size:12px;color:var(--muted)}
+.pos-app .pos-wallet-card.is-selected .pos-wallet-available small{color:var(--pos-hero-muted,#cbdcda)}
+.pos-app .pos-wallet-card-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding-top:14px;border-top:1px solid var(--line);font-size:10px;color:var(--muted)}
+.pos-app .pos-wallet-card-details b{display:block;margin-top:5px;font-size:15px;font-weight:700;color:var(--ink);overflow-wrap:anywhere}
+.pos-app .pos-wallet-card.is-selected .pos-wallet-card-details{color:var(--pos-hero-muted,#cbdcda);border-color:#d3ebe122}
+.pos-app .pos-wallet-card.is-selected .pos-wallet-card-details b{color:#edf7f0}
+.pos-app .pos-wallet-selected{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted)}
+.pos-app .pos-wallet-selected i{font-style:normal;font-size:14px}
+.pos-app .pos-wallet-card.is-selected .pos-wallet-selected{color:var(--pos-hero-muted,#cbdcda)}
+.pos-app .pos-wallet-scope{margin:12px 2px 20px;color:var(--muted);font-size:11px;line-height:1.8}
+.pos-app .pos-wallet-page .wallet-advanced>.card{padding:16px;background:var(--panel);border:1px solid var(--line);border-radius:17px;box-shadow:none}
+.pos-app .pos-wallet-page .wallet-filter-toolbar{gap:12px}
+.pos-app .pos-wallet-page :is(.btn,.tabs>button,.account-picker-trigger,input,select){min-height:44px}
+.pos-app .pos-wallet-page .wallet-navigation-tabs{background:transparent;padding:0;gap:8px;border-radius:0}
+.pos-app .pos-wallet-page .wallet-navigation-tabs>button{border:1px solid var(--line);background:var(--panel);border-radius:11px;padding:9px 13px;color:var(--muted);font-size:12px;box-shadow:none}
+.pos-app .pos-wallet-page .wallet-navigation-tabs>button.active{background:var(--pos-accent-soft,var(--raised));border-color:var(--pos-accent,var(--accent));color:var(--pos-accent,var(--accent))}
+.pos-app .pos-wallet-page .wallet-page-actions{display:flex;width:auto;gap:8px;margin:0}
+.pos-app .pos-wallet-page .wallet-page-actions>.btn{flex:1 1 auto;font-size:12px;min-height:44px}
+.pos-app .pos-wallet-other-services{display:grid;gap:5px;font-size:11px;color:var(--muted);margin:0;min-width:0}
+.pos-app .pos-wallet-other-services select{min-width:0;color:var(--ink)}
+.pos-app .pos-wallet-page .topup-funded-balances{display:none}
+.pos-app .pos-wallet-context-actions{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.pos-app .pos-wallet-context-actions>.btn{min-height:44px;flex:1 1 140px;display:flex;align-items:center;justify-content:center;gap:8px;font-weight:700}
+.pos-app .pos-wallet-context-actions svg{width:17px;height:17px}
+.pos-app .pos-wallet-movement-list{display:grid;gap:0;padding:0;margin:0}
+.pos-app .pos-wallet-movement{display:flex;align-items:center;gap:12px;padding:15px 0;border-bottom:1px solid var(--line);min-width:0}
+.pos-app .pos-wallet-movement:last-child{border-bottom:0}
+.pos-app .pos-wallet-movement-icon{display:grid;place-items:center;flex:none;width:38px;height:40px;border-radius:12px;color:var(--pos-accent,var(--accent));background:var(--raised)}
+.pos-app .pos-wallet-movement-icon svg{width:19px;height:19px}
+.pos-app .pos-wallet-movement-text{flex:1;min-width:0}
+.pos-app .pos-wallet-movement-text b{display:block;font-size:13px;font-weight:700;overflow-wrap:anywhere}
+.pos-app .pos-wallet-movement-text small{display:block;margin-top:4px;color:var(--muted);font-size:10px;line-height:1.7;overflow-wrap:anywhere}
+.pos-app .pos-wallet-movement-amount{font-size:15px;font-weight:800;flex:none;direction:ltr;unicode-bidi:isolate;text-align:end}
+.pos-app .pos-wallet-movement-amount small{display:block;font-size:10px;font-weight:500;color:var(--muted);margin-top:3px}
+.pos-app .pos-wallet-page .wallet-movements>h3{margin:0 0 14px;font-size:16px;font-weight:800}
+@media(max-width:759px){
+ .pos-app .pos-wallet-cards{grid-template-columns:minmax(0,1fr);gap:12px}
+ .pos-app .pos-wallet-card{padding:16px 18px;gap:11px;border-radius:17px}
+ .pos-app .pos-wallet-card-heading>span{font-size:13px;gap:8px}
+ .pos-app .pos-wallet-card-heading svg{width:18px;height:18px}
+ .pos-app .pos-wallet-card-heading>small{font-size:10px}
+ .pos-app .pos-wallet-available{display:flex;align-items:center;justify-content:space-between;gap:12px}
+ .pos-app .pos-wallet-available>small{font-size:11px}
+ .pos-app .pos-wallet-available>span{justify-content:flex-end;gap:7px}
+ .pos-app .pos-wallet-available strong{font-size:30px}
+ .pos-app .pos-wallet-card-details{padding-top:10px;gap:16px;font-size:10px}
+ .pos-app .pos-wallet-card-details>span{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+ .pos-app .pos-wallet-card-details b{margin-top:0;font-size:15px}
+ .pos-app .pos-wallet-selected{font-size:10px}
+ .pos-app .pos-wallet-page .wallet-control-row{gap:10px}
+ .pos-app .pos-wallet-page .wallet-page-actions{width:100%}
+ .pos-app .pos-wallet-page .wallet-page-actions>.btn{flex:1}
+ .pos-app .pos-wallet-movement{gap:9px}
+ .pos-app .pos-wallet-movement-amount{font-size:13px}
+}

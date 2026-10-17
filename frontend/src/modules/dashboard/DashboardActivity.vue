@@ -1,42 +1,49 @@
 <script setup>
 
-import { useRouter } from 'vue-router';
+import { useRouter,RouterLink } from 'vue-router';
 import {computed,ref,watch,onMounted,onBeforeUnmount} from 'vue';
 import { usePortal } from '../auth/session.js';
-import { usePreferencesTranslator } from '../preferences/preferences-state.js';
+import { usePreferences, usePreferencesTranslator } from '../preferences/preferences-state.js';
 import { systemLabel } from '../preferences/system-labels.js';
+import {navIconPath} from '../../layouts/navigation.js';
 import { formatNumber } from '../reports/report-model.js';
-import { activityTone as tone } from './activity-model.js';
+import { activityTone as tone, activityDate } from './activity-model.js';
 import {createReportApi} from '../reports/report-api.js';
 import {errorText} from '../reports/report-model.js';
+import {dashboardActivityPath,dashboardReadScope} from './dashboard-cache.js';
 import './dashboard-activity.css';
 
-const props=defineProps({ operations: { type: Array, default: () => [] }, busy: Boolean });
-const router = useRouter(), { session } = usePortal(), t = usePreferencesTranslator();
-const limit=ref('20'),rows=ref(null),loading=ref(false),error=ref(''),api=createReportApi(session.api);
+const props=defineProps({ operations: { type: Array, default: () => [] }, busy: Boolean, compact:Boolean });
+const router = useRouter(), { session } = usePortal(), t = usePreferencesTranslator(), preferences = usePreferences();
+const limit=ref(props.compact?'10':'20'),cachedActivity=session.api.peekRequest?.(dashboardActivityPath(limit.value),120000),rows=ref(Array.isArray(cachedActivity?.data)?cachedActivity.data:null),loading=ref(false),error=ref(''),api=createReportApi(session.api);
+const pages=ref(['']),page=ref(0),nextCursor=ref(cachedActivity?.meta?.next_cursor||null);
 const shown=computed(()=>rows.value ?? props.operations.slice(0,Number(limit.value)||props.operations.length));
 let reader,revision=0,alive=true;
-async function load(){reader?.abort();reader=new AbortController();const expected=++revision;loading.value=true;error.value='';try{const result=await api.activity(limit.value,reader.signal);if(alive&&expected===revision){if(!Array.isArray(result.data))throw Error('تعذر تحميل العمليات.');rows.value=result.data;}}catch(cause){if(alive&&expected===revision&&cause.name!=='AbortError')error.value=errorText(cause);}finally{if(alive&&expected===revision)loading.value=false;}}
-watch(limit,load);onMounted(load);onBeforeUnmount(()=>{alive=false;revision++;reader?.abort();});
+async function load(){reader?.abort();reader=new AbortController();const expected=++revision,path=dashboardActivityPath(limit.value,pages.value[page.value]),cached=session.api.peekRequest?.(path,120000);if(Array.isArray(cached?.data)){rows.value=cached.data;nextCursor.value=cached.meta?.next_cursor||null;}loading.value=!session.api.hasFreshRequest?.(path);error.value='';try{const result=await api.activity(limit.value,reader.signal,pages.value[page.value]);if(alive&&expected===revision){if(!Array.isArray(result.data))throw Error('تعذر تحميل العمليات.');rows.value=result.data;nextCursor.value=result.meta?.next_cursor||null;}}catch(cause){if(alive&&expected===revision&&cause.name!=='AbortError')error.value=errorText(cause);}finally{if(alive&&expected===revision)loading.value=false;}}
+watch(limit,()=>{pages.value=[''];page.value=0;load();});
+watch(()=>dashboardReadScope(session.state.identity),()=>{rows.value=null;pages.value=[''];page.value=0;nextCursor.value=null;if(!session.state.identity){revision++;reader?.abort();loading.value=false;return;}load();});
+function moveNext(){if(nextCursor.value){pages.value[page.value+1]=nextCursor.value;page.value++;load();}}
+function movePrevious(){if(page.value>0){page.value--;load();}}
+onMounted(load);onBeforeUnmount(()=>{alive=false;revision++;reader?.abort();});
 function brief(operation){const fields=(operation.summary_fields||[]).map(field=>`${t(field.label)}: ${field.value}`);return [operation.product_name,...fields,`${t('رقم العملية')}: ${String(operation.key||'').split(':').pop()}`].filter(Boolean).join(' · ');}
 function date(value) {
-  const raw = String(value || '').replace(' ', 'T');
-  const normalized = /Z$|[+-]\d\d:\d\d$/.test(raw) ? raw : raw + 'Z';
-  return new Date(normalized).toLocaleString(undefined, { timeZone: 'Asia/Baghdad', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return activityDate(value, preferences?.state.language || 'ar');
 }
 function canOpen(operation) {
   const route = router.getRoutes().find(row => row.name === operation.destination), identity = session.state.identity;
   return route && (!route.meta.permission || session.can(route.meta.permission)) && (!route.meta.accountTypes || route.meta.accountTypes.includes(identity?.account.type)) && (!route.meta.membershipKinds || route.meta.membershipKinds.includes(identity?.membership.kind));
 }
 function open(operation) { if (canOpen(operation)) router.push({ name: operation.destination, query: operation.parameters }); }
+function operationIcon(operation){return navIconPath(operation.kind==='topup'?'pos':operation.destination==='wallets'?'wallets':'sales');}
 </script>
 
 <template>
   <section class="card dashboard-activity-log dashboard-activity-grid">
-    <header class="activity-card-heading"><h2>آخر العمليات</h2><div class="activity-display-tools"><label>{{t('عرض العمليات')}}<select v-model="limit" :aria-label="t('عدد العمليات المعروضة')"><option v-for="value in ['10','20','50','100','all']" :key="value" :value="value">{{value==='all'?t('الكل'):value}}</option></select></label><span class="badge neutral">{{ formatNumber(shown.length) }} {{t('عمليات')}}</span></div></header>
+    <header class="activity-card-heading"><h2>آخر العمليات</h2><RouterLink v-if="compact&&session.can('sales.view')" class="pos-text-action" :to="{name:'sales'}">{{t('عرض الكل')}}</RouterLink><div v-else-if="!compact" class="activity-display-tools"><label>{{t('عرض العمليات')}}<select v-model="limit" :aria-label="t('عدد العمليات المعروضة')"><option v-for="value in ['10','20','50','100','all']" :key="value" :value="value">{{value==='all'?t('الكل'):value}}</option></select></label><span class="badge neutral">{{ formatNumber(shown.length) }} {{t('عمليات')}}</span></div></header>
     <p v-if="error" class="notice warn" role="alert">{{error}} <button type="button" class="btn small" @click="load">إعادة المحاولة</button></p>
     <p v-if="loading || busy" class="activity-updating" role="status">جارٍ تحديث العمليات…</p>
-    <div v-if="shown.length" class="activity-table-scroll" tabindex="0" :aria-label="t('آخر العمليات')">
+    <div v-if="shown.length&&session.state.identity?.account.type==='pos'" class="pos-activity-list"><article v-for="operation in shown" :key="operation.key" class="pos-activity-row" :class="{'is-compact':compact}"><span v-if="compact" class="pos-operation-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path :d="operationIcon(operation)"/></svg></span><div><strong>{{operation.product_name||t(systemLabel(operation.action||operation.kind,'action'))}}</strong><small>{{date(operation.occurred_at)}}</small><small v-if="!compact">{{brief(operation)}}</small></div><div><b><template v-if="compact&&operation.amount!=null"><span>{{formatNumber(operation.amount)}}</span> <small>د.ع</small></template><template v-else>{{operation.amount==null?'—':formatNumber(operation.amount)+' د.ع'}}</template></b><span class="activity-status" :data-tone="tone(operation.status)">{{t(systemLabel(operation.status,'status'))}}</span></div><button v-if="canOpen(operation)" type="button" :class="compact?'pos-row-open':'btn small'" :aria-label="t('عرض تفاصيل العملية')" @click="open(operation)"><svg v-if="compact" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 7-5 5 5 5"/></svg><template v-else>{{t('عرض')}}</template></button></article></div>
+    <div v-else-if="shown.length" class="activity-table-scroll" tabindex="0" :aria-label="t('آخر العمليات')">
       <table class="activity-table">
         <thead><tr><th scope="col">التسلسل</th><th scope="col">التاريخ والوقت</th><th scope="col">العملية</th><th scope="col">الحساب</th><th scope="col">المستخدم</th><th scope="col">المبلغ · د.ع</th><th scope="col">الحالة</th><th scope="col">التفاصيل</th></tr></thead>
         <tbody><tr v-for="(operation,index) in shown" :key="operation.key">
@@ -49,5 +56,6 @@ function open(operation) { if (canOpen(operation)) router.push({ name: operation
       </table>
     </div>
     <div v-else-if="!busy && !loading && !error" class="activity-empty"><p>لا توجد عمليات ضمن نطاقك</p></div>
+    <div v-if="limit==='all'" class="table-pagination-footer"><button type="button" class="btn small" :disabled="loading||page===0" @click="movePrevious">السابق</button><span>الصفحة {{page+1}} · حتى 100 عملية في الصفحة</span><button type="button" class="btn small" :disabled="loading||!nextCursor" @click="moveNext">التالي</button></div>
   </section>
 </template>

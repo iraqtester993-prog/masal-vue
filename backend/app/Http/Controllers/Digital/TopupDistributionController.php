@@ -18,9 +18,9 @@ class TopupDistributionController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $input = $request->validate(['target_account_id' => 'sometimes|integer|min:1', 'connection_id' => 'sometimes|integer|min:1']);
+        $input = $request->validate(['target_account_id' => 'sometimes|integer|min:1', 'connection_id' => 'sometimes|integer|min:1', 'compact_targets' => 'sometimes|boolean']);
 
-        return $this->response($this->distribution->options($request->user(), $input['target_account_id'] ?? null, $input['connection_id'] ?? null));
+        return $this->response($this->distribution->options($request->user(), $input['target_account_id'] ?? null, $input['connection_id'] ?? null, (bool) ($input['compact_targets'] ?? false)));
     }
 
     public function update(Request $request, int $target): JsonResponse

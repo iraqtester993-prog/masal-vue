@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\Finance\FinanceOperations;
 use App\Services\Finance\Money;
+use App\Support\RequestReadCache;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -42,12 +43,22 @@ class TopupDistribution
 
     public function main(Account $account): ?Account
     {
+        return RequestReadCache::remember('TopupDistribution.main:'.$account->id, fn (): ?Account => $this->resolveMain($account));
+    }
+
+    private function resolveMain(Account $account): ?Account
+    {
         $ancestors = DB::table('account_closure')->where('descendant_id', $account->id)->select('ancestor_id');
 
         return Account::whereIn('id', $ancestors)->where('type', AccountType::MainAgent)->first();
     }
 
     public function effective(Account $target): Collection
+    {
+        return RequestReadCache::remember('TopupDistribution.effective:'.$target->id, fn (): Collection => $this->resolveEffective($target));
+    }
+
+    private function resolveEffective(Account $target): Collection
     {
         $main = $this->main($target);
         if (! $main || ! $target->isOperational()) {
@@ -96,9 +107,11 @@ class TopupDistribution
         return ['id' => $category->id, 'name' => $category->name, 'type' => $category->type, 'price' => Money::decimal($category->retail_minor), 'admin_price' => Money::decimal($category->retail_minor), 'version' => $category->version, 'company' => 'آسياسيل', 'remote_id' => $category->remote_id];
     }
 
-    private function grantDto(?TopupGrant $grant): array
+    private function grantDto(?TopupGrant $grant, bool $money = true): array
     {
-        return ['category_ids' => $grant?->category_ids ?? [], 'active' => $grant?->active ?? true, 'version' => $grant?->version ?? 0, 'connection_id' => $grant?->connection_id, 'balance' => Money::decimal($grant?->balance_minor ?? 0), 'held' => Money::decimal($grant?->held_minor ?? 0), 'available' => Money::decimal(($grant?->balance_minor ?? 0) - ($grant?->held_minor ?? 0)), 'spent' => Money::decimal($grant?->spent_minor ?? 0)];
+        $data = ['category_ids' => $grant?->category_ids ?? [], 'active' => $grant?->active ?? true, 'version' => $grant?->version ?? 0, 'connection_id' => $grant?->connection_id];
+
+        return $money ? $data + ['balance' => Money::decimal($grant?->balance_minor ?? 0), 'held' => Money::decimal($grant?->held_minor ?? 0), 'available' => Money::decimal(($grant?->balance_minor ?? 0) - ($grant?->held_minor ?? 0)), 'spent' => Money::decimal($grant?->spent_minor ?? 0)] : $data;
     }
 
     private function connectionDto(?Account $main, bool $balance = false, bool $details = false, ?int $connectionId = null): ?array
@@ -112,10 +125,12 @@ class TopupDistribution
         return ['id' => $connection?->id, 'version' => $connection?->version, 'main_account_id' => $main->id, 'main_account_name' => $main->name, 'token_present' => (bool) $connection?->credential, 'active' => (bool) $connection?->active] + ($balance ? ['company_balance' => $connection?->company_balance_minor === null ? null : Money::decimal($connection->company_balance_minor), 'balance_updated_at' => $connection?->balance_updated_at?->toISOString()] : []) + ($details ? ['excluded_catalog' => $catalog?->excluded_catalog, 'catalog_updated_at' => $catalog?->created_at?->toISOString()] : []);
     }
 
-    public function options(User $actor, ?int $targetId, ?int $connectionId = null): array
+    public function options(User $actor, ?int $targetId, ?int $connectionId = null, bool $compactTargets = false): array
     {
         $own = $this->distributor($actor);
-        $targets = $this->targets($actor, $own)->orderBy('id')->get();
+        $targetQuery = $this->targets($actor, $own);
+        $targetCount = (clone $targetQuery)->count();
+        $targets = $targetQuery->when($compactTargets, fn ($query) => $query->when($targetId, fn ($row) => $row->whereKey($targetId))->limit(1))->orderBy('id')->get();
         $target = $targetId ? $targets->firstWhere('id', $targetId) : $targets->first();
         abort_if($targetId && ! $target, 404);
         $grant = $target ? TopupGrant::where('target_account_id', $target->id)->first() : null;
@@ -126,16 +141,26 @@ class TopupDistribution
         $connectionId ??= $grant?->connection_id ?? app(TopupAccounting::class)->connection($target)?->id ?? $connections->first()?->id;
         $available = $own->type === AccountType::System ? $this->categories($target, $connectionId)->orderBy('id')->get() : $this->effective($own);
         $mainGrant = app(TopupAccounting::class)->grant($own->type === AccountType::System ? ($target ?? $own) : $own);
+        $mainMoney = $mainGrant && in_array('data.cost', $actor->membership->permissions(), true) && $this->access->accounts($actor)->whereKey($mainGrant->target_account_id)->exists();
+        $allocation = $this->grantDto($mainGrant, $mainMoney);
 
         return [
+            'target_count' => $targetCount,
             'targets' => $targets->map(fn (Account $a): array => ['id' => $a->id, 'name' => $a->name, 'type' => $a->type->value, 'operational' => $a->isOperational()])->all(),
             'target_id' => $target?->id,
-            'categories' => $available->map(fn ($row): array => array_replace($this->categoryDto($row), ['price' => Money::decimal(max($row->retail_minor, (int) ($mainGrant?->retail_prices[(string) $row->id] ?? $row->retail_minor)))]))->all(),
+            'categories' => $available->map(function ($row) use ($mainGrant, $mainMoney): array {
+                $data = array_replace($this->categoryDto($row), ['price' => Money::decimal(max($row->retail_minor, (int) ($mainGrant?->retail_prices[(string) $row->id] ?? $row->retail_minor)))]);
+                if (! $mainMoney) {
+                    unset($data['admin_price']);
+                }
+
+                return $data;
+            })->all(),
             'connections' => $connections->map(fn ($row): array => ['id' => $row->id, 'name' => 'Topup #'.$row->id, 'balance' => $row->company_balance_minor === null ? null : Money::decimal($row->company_balance_minor), 'available' => app(TopupAccounting::class)->free($row) === null ? null : Money::decimal(app(TopupAccounting::class)->free($row))])->all(),
             'connection_id' => $connectionId,
-            'allocation' => $this->grantDto($mainGrant),
+            'allocation' => $allocation,
             'can_edit_prices' => $own->type === AccountType::MainAgent,
-            'grant' => $this->grantDto($grant),
+            'grant' => $this->grantDto($grant, $grant?->target_account_id !== $mainGrant?->target_account_id || $mainMoney),
             'effective_category_ids' => $target ? $this->effective($target)->pluck('id')->all() : [],
             'connection' => $this->connectionDto($target ? $this->main($target) : $this->main($own), $own->type === AccountType::System, $own->type === AccountType::System || $own->type === AccountType::MainAgent, $own->type === AccountType::System ? $connectionId : null),
             'can_manage_categories' => $own->type === AccountType::System,
@@ -158,6 +183,7 @@ class TopupDistribution
             $grant = TopupGrant::where('target_account_id', $targetId)->lockForUpdate()->first();
             abort_unless(($grant?->version ?? 0) === $data['version'], 409, 'تغير تخصيص الفئات؛ حدّث الصفحة.');
             $allocation = [];
+            $desiredBalance = null;
             $connectionId = $grant?->connection_id;
             if ($own->type === AccountType::System && isset($data['connection_id'])) {
                 $connection = $this->access->connections($actor)->where('provider', 'topup')->lockForUpdate()->findOrFail($data['connection_id']);
@@ -167,11 +193,12 @@ class TopupDistribution
                 $held = $grant?->held_minor ?? 0;
                 abort_if($balance < $held, 422, 'لا يمكن سحب المبلغ المحجوز لعمليات معلقة.');
                 if ($grant?->connection_id && $grant->connection_id !== $connectionId) {
-                    abort_unless($grant->balance_minor === 0 && $held === 0, 409, 'استرجع الرصيد المتاح قبل تغيير توكن حصة الوكيل.');
+                    app(TopupWallets::class)->assertRebindable($grant);
                 }
                 $others = (int) TopupGrant::where('connection_id', $connectionId)->where('target_account_id', '!=', $targetId)->sum('balance_minor');
-                abort_if($balance + $others > $connection->company_balance_minor, 422, 'التخصيص يتجاوز رصيد التبب المتبقي لدى الإدارة.');
-                $allocation = ['connection_id' => $connectionId, 'balance_minor' => $balance];
+                abort_if($balance > ($grant?->balance_minor ?? 0) && $balance + $others > $connection->company_balance_minor, 422, 'التخصيص يتجاوز رصيد التبب المتبقي لدى الإدارة.');
+                $allocation = ['connection_id' => $connectionId];
+                $desiredBalance = $balance;
             }
             abort_if($own->type !== AccountType::System && (isset($data['connection_id']) || array_key_exists('allocation_balance', $data)), 403);
             $available = $own->type === AccountType::System ? $this->categories($target, $connectionId)->lockForUpdate()->pluck('id')->all() : $this->effective($own)->pluck('id')->all();
@@ -179,6 +206,12 @@ class TopupDistribution
             $ids = $data['category_ids'];
             sort($ids, SORT_NUMERIC);
             $grant = TopupGrant::updateOrCreate(['target_account_id' => $targetId], $allocation + ['main_account_id' => $main->id, 'from_account_id' => $own->id, 'category_ids' => $ids, 'active' => $data['active'], 'version' => ($grant?->version ?? 0) + 1]);
+            if ($desiredBalance !== null) {
+                $wallets = app(TopupWallets::class);
+                $wallets->bootstrap($grant, $actor);
+                $wallets->allocation($actor, $grant, $desiredBalance, $data['idempotency_key']);
+                $grant->update(['balance_minor' => $desiredBalance]);
+            }
             $this->audit->record('topup.categories.assigned', $request, $actor, $targetId, ['main_account_id' => $main->id, 'category_ids' => $ids, 'active' => $grant->active, 'version' => $grant->version, 'connection_id' => $connectionId, 'balance' => Money::decimal($grant->balance_minor)]);
 
             return $this->grantDto($grant);
@@ -191,17 +224,20 @@ class TopupDistribution
         abort_unless($own->type === AccountType::Pos, 403);
         $main = $this->main($own);
 
-        $connection = app(TopupAccounting::class)->connection($main)?->load(['offers.product.provider', 'grants.target', 'account', 'company']);
+        $ancestors = DB::table('account_closure')->where('descendant_id', $own->id)->select('ancestor_id');
+        $connection = app(TopupAccounting::class)->connection($main)?->load(['offers.product.provider', 'grants' => fn ($query) => $query->whereIn('target_account_id', $ancestors), 'account', 'company']);
         $offers = $connection ? $this->access->offers($connection, $own)->whereNotNull('topup_category_id')->keyBy('topup_category_id') : collect();
         $configuration = app(DigitalConfiguration::class);
         $gateway = $connection ? app(ProviderGateway::class)->status($connection) : null;
         $categories = $this->effective($own)->map(function ($row) use ($actor, $offers, $connection, $configuration, $gateway): array {
             $offer = $offers->get($row->id);
+            $offerData = $offer ? $configuration->offerDto($offer, $actor) : null;
 
             $data = $this->categoryDto($row);
-            $data['price'] = $offer ? $configuration->offerDto($offer, $actor)['retail'] : Money::decimal($row->retail_minor);
+            unset($data['admin_price']);
+            $data['price'] = $offerData['retail'] ?? Money::decimal($row->retail_minor);
 
-            return $data + ['offer' => $offer ? $configuration->offerDto($offer, $actor) + ['connection_id' => $connection->id, 'provider' => 'topup', 'gateway' => $gateway] : null];
+            return $data + ['offer' => $offerData ? $offerData + ['connection_id' => $connection->id, 'provider' => 'topup', 'gateway' => $gateway] : null];
         });
 
         return ['categories' => $categories->all(), 'connection' => $this->connectionDto($main), 'execution_ready' => $offers->isNotEmpty() && $gateway['configured'] && $gateway['purchases_enabled']];
@@ -229,7 +265,7 @@ class TopupDistribution
             $grant->update(['retail_prices' => $prices, 'version' => $grant->version + 1]);
             $this->audit->record('topup.prices.updated', $request, $actor, $own->id, ['prices' => $data['prices'], 'connection_id' => $connection->id]);
 
-            return $this->grantDto($grant);
+            return $this->grantDto($grant, in_array('data.cost', $actor->membership->permissions(), true) && $this->access->accounts($actor)->whereKey($grant->target_account_id)->exists());
         });
     }
 }

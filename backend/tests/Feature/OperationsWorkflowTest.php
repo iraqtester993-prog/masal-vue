@@ -6,15 +6,31 @@ use App\Enums\AccountType;
 use App\Models\Account;
 use App\Models\Operations\DirectStop;
 use App\Models\Operations\OperationStop;
+use App\Services\Operations\MutationGuard;
 use App\Services\Operations\OperationGuard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 use Tests\Support\CreatesSupport;
 use Tests\TestCase;
 
 class OperationsWorkflowTest extends TestCase
 {
     use CreatesSupport, RefreshDatabase;
+
+    public function test_compact_security_preserves_inherited_restrictions_without_shipping_account_options(): void
+    {
+        $f = $this->supportFixture();
+        $this->asPortalUser($f['admin']);
+        $this->getJson('/api/v1/operations/security?compact_accounts=1')->assertOk()->assertJsonCount(0, 'data.accounts')->assertJsonCount(0, 'data.restricted');
+        DirectStop::create(['account_id' => $f['main']->id, 'stops' => ['sales' => true], 'version' => 1]);
+        $full = $this->getJson('/api/v1/operations/security')->assertOk()->json('data');
+        $compact = $this->getJson('/api/v1/operations/security?compact_accounts=1')->assertOk()->json('data');
+        $this->assertSame($full['restricted'], $compact['restricted']);
+        $this->assertSame($full['restricted_total'], $compact['restricted_total']);
+        $this->assertSame([], $compact['accounts']);
+        $this->assertGreaterThan(0, array_sum($compact['account_totals']));
+    }
 
     private function stop(array $extra = []): array
     {
@@ -142,5 +158,59 @@ class OperationsWorkflowTest extends TestCase
         $this->postJson('/api/v1/operations/security/restore-global', ['version' => 1, 'idempotency_key' => 'whole-global'])->assertOk();
         $this->assertNull(app(OperationGuard::class)->reason($f['pos']->id, 'sales'));
         $this->assertDatabaseHas('operation_direct_stops', ['account_id' => $f['system']->id, 'version' => 2]);
+    }
+
+    public function test_current_write_admission_preserves_scope_type_custom_targets_and_inherited_direct_stops(): void
+    {
+        $f = $this->supportFixture();
+        $cases = [
+            ['all', null, true, null, null, true],
+            ['main', null, true, null, null, false],
+            ['pos', null, true, null, null, true],
+            ['custom', null, true, $f['pos']->id, null, true],
+            ['custom', null, true, $f['foreign']->id, null, false],
+            ['all', [$f['main']->id], true, null, null, true],
+            ['all', [$f['main']->id], false, null, null, false],
+            ['all', [$f['foreign']->id], true, null, null, false],
+            [null, null, true, null, $f['main']->id, true],
+        ];
+        foreach ($cases as [$scope, $roots, $descendants, $target, $direct, $blocked]) {
+            DB::beginTransaction();
+            try {
+                if ($scope !== null) {
+                    $rule = OperationStop::factory()->create(['creator_id' => $f['admin']->id, 'authority_account_id' => $f['system']->id,
+                        'scope' => $scope, 'scope_roots' => $roots, 'include_descendants' => $descendants, 'actions' => ['sales']]);
+                    if ($target !== null) {
+                        DB::table('operation_stop_targets')->insert(['stop_id' => $rule->id, 'account_id' => $target]);
+                    }
+                }
+                if ($direct !== null) {
+                    DirectStop::create(['account_id' => $direct, 'stops' => ['sales' => true], 'version' => 1]);
+                }
+                $this->assertSame($blocked, app(OperationGuard::class)->reason($f['pos']->id, 'sales') !== null);
+                $ancestors = DB::table('account_closure')->where('descendant_id', $f['pos']->id)->pluck('ancestor_id')->all();
+                app(MutationGuard::class)->lockAccounts($ancestors, $f['pos']->id);
+                try {
+                    app(OperationGuard::class)->assertAllowedCurrent($f['pos']->id, 'sales');
+                    $this->assertFalse($blocked);
+                } catch (HttpException $failure) {
+                    $this->assertTrue($blocked);
+                    $this->assertSame(423, $failure->getStatusCode());
+                }
+            } finally {
+                DB::rollBack();
+            }
+        }
+    }
+
+    public function test_bulk_operation_stops_preserve_system_account_admission(): void
+    {
+        $f = $this->supportFixture();
+        OperationStop::factory()->create(['creator_id' => $f['admin']->id, 'authority_account_id' => $f['system']->id, 'scope' => 'all', 'scope_roots' => null, 'actions' => ['app']]);
+        $this->assertNull(app(OperationGuard::class)->reason($f['system']->id, 'app'));
+        DB::transaction(function () use ($f): void {
+            app(MutationGuard::class)->lock($f['admin']);
+        });
+        $this->assertNotNull(app(OperationGuard::class)->reason($f['pos']->id, 'app'));
     }
 }

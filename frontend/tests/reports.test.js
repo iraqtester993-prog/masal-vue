@@ -24,6 +24,19 @@ test('system values are Arabic while customer names and provider identifiers rem
   assert.deepEqual(output[0].rows[0],['تسجيل الدخول','بوابة مدير النظام']);
 });
 
+test('print report statuses use their exact context in cells and exports without reinterpreting other operation states',()=>{
+  const schema=JSON.parse(fs.readFileSync(new URL('../../backend/app/Services/Reports/schemas.json',import.meta.url))).find(section=>section.id==='sales-printing');
+  const column={...schema.columns.find(item=>item.key==='status'),label_type:'status'};
+  const states=[['pending','بانتظار تأكيد الطباعة'],['success','نجاح الطباعة'],['failed','فشل الطباعة']];
+  for(const [value,label] of states){assert.equal(reportCell(value,column,{},schema.id),label);assert.equal(reportCell(value,{label_type:'print_result'}),label);}
+  assert.equal(reportCell('pending',column,{},'wallets-requests'),'بانتظار المراجعة');
+  assert.equal(reportCell('failed',column,{},'sales-services'),'فاشلة');
+  assert.equal(reportCell('succeeded',column,{},'sales-services'),'ناجحة');
+  const data={currency:'IQD',timezone:'Asia/Baghdad',generated_at:'2026-10-16T00:00:00Z',sections:[{...schema,available:true,columns:[column],rows:states.map(([status])=>({status}))}]};
+  assert.deepEqual(workbookSections(data)[0].rows,states.map(([,label])=>[label]));
+  for(const [,label] of states)assert.ok(printableReport(data).includes(label));
+});
+
 test('52 original sections and all 8 original additional group tiles preserve ordering and unavailable null counts',()=>{
   const schemas=JSON.parse(fs.readFileSync(new URL('../../backend/app/Services/Reports/schemas.json',import.meta.url)));
   assert.equal(schemas.length,52);assert.equal(new Set(schemas.map(s=>s.id)).size,52);

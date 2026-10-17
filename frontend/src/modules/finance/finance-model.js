@@ -1,7 +1,7 @@
 export const financeKey = Symbol('masal.finance');
 export const accountTypes = { system: 'إدارة النظام', main_agent: 'وكيل رئيسي', sub_agent: 'وكيل فرعي', sub_branch: 'فرع فرعي', pos: 'نقطة بيع' };
 export const statuses = { pending: 'بانتظار الموافقة', approved: 'منفذ', rejected: 'مرفوض', cancelled: 'ملغي', reversed: 'تم التراجع', unpaid: 'غير مسدد', partial: 'مسدد جزئيًا', paid: 'مسدد' };
-export const movementKinds = { deposit: 'إيداع', transfer: 'تحويل رصيد', funding: 'تمويل', recovery: 'استرجاع الرصيد', 'invoice-settlement': 'تحصيل / تسديد فاتورة', invoice_settlement: 'تحصيل فاتورة', invoice_payment: 'تسديد فاتورة', stock_funding: 'تمويل بطلبية', stock_import: 'تحميل مخزون' };
+export const movementKinds = { 'topup-opening':'رصيد Topup الافتتاحي', 'topup-allocation':'تخصيص رصيد Topup', 'topup-sale':'بيع Topup', 'topup-refund':'استرجاع بيع Topup', deposit: 'إيداع', transfer: 'تحويل رصيد', funding: 'تمويل', recovery: 'استرجاع الرصيد', sale: 'بيع', 'stock-revaluation': 'إعادة تقييم المخزون', 'invoice-settlement': 'تحصيل / تسديد فاتورة', invoice_settlement: 'تحصيل فاتورة', invoice_payment: 'تسديد فاتورة', stock_funding: 'تمويل بطلبية', stock_import: 'تحميل مخزون', 'stock-import':'تحميل مخزون', 'stock-adjustment':'تسوية المخزون' };
 
 export function cleanMoney(value) {
   return String(value ?? '').trim().replace(/[٠-٩۰-۹]/g, (c) => String(c.charCodeAt(0) - (c <= '٩' ? 1632 : 1776))).replace(/[,٬\s]/g, '').replace(/٫/g, '.');

@@ -13,7 +13,7 @@ test('Topup home card shows balance without spending captions and keeps agent na
     const dashboard=(await server.ssrLoadModule('/src/modules/dashboard/DashboardPage.vue')).default;
     const card={key:'digital:topup',title:'Topup',remaining:'125000.00',value:'7500.00',unit:'د.ع',note:'المصروف لدى الشركة',balanceRows:[{agent:2,name:'اسم الوكيل في التفاصيل',remaining:'125000.00',spent:'7500.00'}],balance_rows_total:1,rows:[],available:true,destination:'digital'};
     let calls=0;
-    const session={state:reactive({identity:{account:{id:1,type:'system'},membership:{kind:'owner'}}}),can:()=>true,api:{request:async(path)=>{assert.equal(path,'/dashboard/summary?currency=IQD');calls++;return{data:{cards:[card],chart:[],regions:[]}};}}};
+    const session={state:reactive({identity:{account:{id:1,type:'system'},membership:{kind:'owner'}}}),can:()=>true,api:{request:async(path)=>{assert.equal(path,'/dashboard/summary?currency=IQD&view=cards');calls++;return{data:{cards:[card],chart:[],regions:[]}};}}};
     const router=createRouter({history:createMemoryHistory(),routes:[{path:'/',name:'dashboard',component:{render:()=>null}}]});await router.push('/');
     const app=createSSRApp({render:()=>h(dashboard)});app.provide(portalContextKey,{session,portal:{id:'admin'},config:{}});app.use(router);
     const html=await renderToString(app);assert.equal(calls,1);assert.ok(html.includes('125,000'));assert.ok(!html.includes('7,500'));assert.ok(!html.includes('المبلغ المصروف'));assert.ok(!html.includes('المصروف لدى الشركة')); assert.ok(html.includes('عرض التفاصيل'));assert.ok(!html.includes(card.balanceRows[0].name));assert.ok(!html.includes('معرّف الشركة'));
@@ -33,10 +33,10 @@ test('actual reports/dashboard pages and report table load scoped API data and r
       const permissions=['reports.view','reports.sales','reports.export','reports.print','sales.view','dashboard.view'];
       const session={state:reactive({identity:{user:{id:1},account:{id:12,type,name:'حساب فعلي'},membership:{kind:'owner'},permissions}}),can:key=>permissions.includes(key),api:{request:async(path)=>{
         calls.push(path);
-        if(path==='/reports/options')return{data:{accounts:[],products:[],providers:[],cities:[],currencies:['IQD','USD'],groups:[{id:'sales',title:'المبيعات والأرباح',note:'المبيعات والطباعة والأسعار',prefixes:['sales','prices'],icon:'reports'}],sections:[section]}};
+        if(path==='/reports/options?compact=1')return{data:{accounts:[],products:[],providers:[],cities:[],currencies:['IQD','USD'],groups:[{id:'sales',title:'المبيعات والأرباح',note:'المبيعات والطباعة والأسعار',prefixes:['sales','prices'],icon:'reports'}],sections:[section]}};
         if(path.startsWith('/reports/summary?'))return{data:{sections:[section]}};
         if(path.startsWith('/reports/sections/sales/rows?'))return{data:[{row_key:'71',id:71,sales:'1234.56'}],columns:section.columns,meta:{current_page:1,last_page:1,total:1}};
-        if(path==='/dashboard/summary?currency=IQD')return{data:{cards:[{key:'sales',title:'مبيعات اليوم',value:'1234.56',unit:'د.ع',note:'اليوم',icon:'sales',available:true,rows:[],destination:'sales',parameters:{}}],chart:[{day:'2026-10-06',label:'10/06',value:'1234.56',transactions:1,today:true}],regions:[],currency:'IQD'}};
+        if(path==='/dashboard/summary?currency=IQD&view=cards')return{data:{cards:[{key:'sales',title:'مبيعات اليوم',value:'1234.56',unit:'د.ع',note:'اليوم',icon:'sales',available:true,rows:[],destination:'sales',parameters:{}}],chart:[{day:'2026-10-06',label:'10/06',value:'1234.56',transactions:1,today:true}],regions:[],currency:'IQD'}};
         throw new Error('Unexpected API request '+path);
       },mutate:()=>{throw new Error('Render must not mutate data');}}};
       for(const [component,props,label] of [[reports,{},'المبيعات والأرباح'],[dashboard,{},'1,234.56'],[details,{section,filters:{currency:'IQD'},api:createReportApi(session.api)},'1,234.56']]){
@@ -44,7 +44,7 @@ test('actual reports/dashboard pages and report table load scoped API data and r
         const app=createSSRApp({render:()=>h(component,props)});app.provide(portalContextKey,{session,portal:{id:type==='system'?'admin':type==='pos'?'pos':'agents'},config:{}});app.use(router);
         const html=await renderToString(app);assert.ok(html.includes(label),type+' must render '+label);assert.ok(!html.includes('undefined'));assert.ok(!html.includes('NaN'));
       }
-      assert.ok(calls.some(path=>path.startsWith('/reports/sections/sales/rows?')));assert.ok(calls.includes('/dashboard/summary?currency=IQD'));
+      assert.ok(calls.some(path=>path.startsWith('/reports/sections/sales/rows?')));assert.ok(calls.includes('/dashboard/summary?currency=IQD&view=cards'));
       assert.ok(!calls.some(path=>path.startsWith('/reports/summary?')),'opening the report groups must not count all sections');
     }
   }finally{await server.close();}

@@ -12,6 +12,7 @@ class TopupGrant extends Model
     use HasFactory;
 
     protected $guarded = ['id'];
+
     protected $attributes = ['balance_minor' => 0, 'held_minor' => 0, 'spent_minor' => 0];
 
     protected function casts(): array

@@ -5,7 +5,11 @@ namespace Tests\Feature;
 use App\Enums\AccountType;
 use App\Models\AccountAttachment;
 use App\Models\CatalogProduct;
+use App\Models\Digital\DigitalConnection;
+use App\Models\Digital\DigitalOffer;
 use App\Models\OrderSource;
+use App\Models\Sales\PrintPolicy;
+use App\Models\Sales\ReprintRequest;
 use App\Models\Sales\Sale;
 use App\Models\Stock\StockBatch;
 use App\Models\Stock\StockCard;
@@ -25,12 +29,12 @@ class SalesPrintingTest extends TestCase
 {
     use CreatesAccounts, RefreshDatabase;
 
-    private function fixture(int $quantity = 12, string $fund = '1000.00'): array
+    private function fixture(int $quantity = 12, string $fund = '1000.00', bool $directPos = false): array
     {
         $system = $this->account(AccountType::System);
         $main = $this->account(AccountType::MainAgent, $system);
         $sub = $this->account(AccountType::SubAgent, $main);
-        $pos = $this->account(AccountType::Pos, $sub);
+        $pos = $this->account(AccountType::Pos, $directPos ? $main : $sub);
         foreach ([$main, $sub, $pos] as $account) {
             $account->update(['city' => 'بغداد']);
         }
@@ -67,9 +71,183 @@ class SalesPrintingTest extends TestCase
         return $this->postJson('/api/v1/sales/'.$id.'/'.$path, ['version' => Sale::findOrFail($id)->version, 'idempotency_key' => $key] + $extra)->assertOk()->json('data');
     }
 
+    public function test_receipt_copy_needs_no_approval_and_never_changes_sale_stock_or_balances(): void
+    {
+        $f = $this->fixture(12, '100.00', true);
+        $this->asPortalUser($f['owner']);
+        $this->postJson('/api/v1/finance/transfers', ['from_account_id' => $f['main']->id, 'to_account_id' => $f['pos']->id, 'service' => 'voucher', 'currency' => 'IQD', 'amount' => '500.00', 'reference' => 'POS test funding', 'idempotency_key' => 'copy-pos-fund'])->assertCreated();
+        $this->asPortalUser($f['point']);
+        $this->postJson('/api/v1/sales/device-session', ['app_version' => '1.0.0'])->assertOk();
+        $this->withCredentials()->withCookie(config('session.cookie'), app('session')->getId());
+        $id = $this->postJson('/api/v1/sales', $this->input($f['product'], 'copy-original-sale'))->assertCreated()->json('data.id');
+        $this->postJson('/api/v1/sales/'.$id.'/print/copy', ['idempotency_key' => 'copy-before-result'])->assertConflict();
+        Sale::findOrFail($id)->update(['status' => 'Print Failed', 'print_pending' => false]);
+        $wallets = DB::table('finance_wallets')->orderBy('id')->get()->toJson();
+        $cards = DB::table('stock_cards')->orderBy('id')->get()->toJson();
+        $sale = Sale::findOrFail($id)->toJson();
+        $transactions = DB::table('finance_transactions')->count();
+        $payload = ['idempotency_key' => 'copy-existing-receipt'];
+        $copy = $this->postJson('/api/v1/sales/'.$id.'/print/copy', $payload)->assertOk()->json('data');
+        $this->postJson('/api/v1/sales/'.$id.'/print/copy', $payload)->assertOk()->assertJsonPath('data.copy_id', $copy['copy_id']);
+        $this->assertSame($wallets, DB::table('finance_wallets')->orderBy('id')->get()->toJson());
+        $this->assertSame($cards, DB::table('stock_cards')->orderBy('id')->get()->toJson());
+        $this->assertSame($sale, Sale::findOrFail($id)->toJson());
+        $this->assertSame($transactions, DB::table('finance_transactions')->count());
+        $this->assertDatabaseCount('sales', 1);
+        $this->assertSame(0, ReprintRequest::count());
+        $this->asPortalUser($f['seller']);
+        $this->postJson('/api/v1/sales/'.$id.'/print/copy', ['idempotency_key' => 'copy-foreign-sale'])->assertNotFound();
+    }
+
     public function test_unauthenticated_sales_api_returns_401(): void
     {
         $this->withHeader('X-Masal-Portal', 'admin')->getJson('/api/v1/sales')->assertUnauthorized();
+    }
+
+    public function test_pos_funding_approval_debits_agent_once_and_issue_consumes_pos_credit_and_shared_stock_only(): void
+    {
+        $f = $this->fixture(12, '1000.00', true);
+        DB::table('finance_policy')->where('id', 1)->update(['amounts_minor' => json_encode([20000]), 'daily_limit' => 2]);
+        $agentBefore = (int) DB::table('finance_wallets')->where('account_id', $f['main']->id)->where('service', 'voucher')->where('kind', 'account')->value('balance_minor');
+        $this->asPortalUser($f['point']);
+        $this->postJson('/api/v1/sales/device-session', ['app_version' => '1.0.0'])->assertOk();
+        $this->withCredentials()->withCookie(config('session.cookie'), app('session')->getId());
+        $this->getJson('/api/v1/sales/products')->assertOk()->assertJsonPath('data.0.stock_available', 12)->assertJsonPath('data.0.wallet_available', '0.00');
+        $this->postJson('/api/v1/sales', $this->input($f['product'], 'unfunded-pos-sale'))->assertUnprocessable()->assertJsonPath('message', 'رصيدك غير كافٍ لإصدار العدد المطلوب من البطاقات.');
+        $funding = ['service' => 'voucher', 'currency' => 'IQD', 'amount' => '200.00', 'idempotency_key' => 'pos-voucher-request'];
+        $requestId = $this->postJson('/api/v1/finance/funding-requests', $funding)->assertCreated()->json('data.id');
+        $this->postJson('/api/v1/finance/funding-requests', $funding)->assertCreated()->assertJsonPath('data.id', $requestId);
+        $this->asPortalUser($f['owner']);
+        $review = ['version' => 1, 'decision' => 'approve', 'reference' => 'Approved POS voucher funding', 'idempotency_key' => 'pos-voucher-approved'];
+        $this->postJson('/api/v1/finance/funding-requests/'.$requestId.'/review', $review)->assertOk();
+        $this->postJson('/api/v1/finance/funding-requests/'.$requestId.'/review', $review)->assertOk();
+        $this->postJson('/api/v1/finance/funding-requests/'.$requestId.'/review', array_replace($review, ['idempotency_key' => 'pos-voucher-reapprove']))->assertConflict();
+        $this->assertDatabaseHas('finance_wallets', ['account_id' => $f['main']->id, 'kind' => 'account', 'service' => 'voucher', 'balance_minor' => $agentBefore - 20000]);
+        $this->assertDatabaseHas('finance_wallets', ['account_id' => $f['pos']->id, 'kind' => 'account', 'service' => 'voucher', 'balance_minor' => 20000]);
+        $this->asPortalUser($f['point']);
+        $this->postJson('/api/v1/sales/device-session', ['app_version' => '1.0.0'])->assertOk();
+        $this->withCredentials()->withCookie(config('session.cookie'), app('session')->getId());
+        $payload = $this->input($f['product'], 'funded-pos-issue');
+        $saleId = $this->postJson('/api/v1/sales', $payload)->assertCreated()->json('data.id');
+        $this->postJson('/api/v1/sales', $payload)->assertCreated()->assertJsonPath('data.id', $saleId);
+        $this->assertDatabaseHas('finance_wallets', ['account_id' => $f['pos']->id, 'kind' => 'account', 'service' => 'voucher', 'balance_minor' => 9975, 'held_minor' => 0]);
+        $this->assertDatabaseHas('finance_wallets', ['account_id' => $f['main']->id, 'kind' => 'account', 'service' => 'voucher', 'balance_minor' => $agentBefore - 20000]);
+        $this->assertSame(11, StockCard::where('account_id', $f['main']->id)->where('status', 'Available')->count());
+        $this->assertSame(0, StockCard::where('account_id', $f['pos']->id)->count());
+        $this->travel(3)->seconds();
+        $this->postJson('/api/v1/sales', $this->input($f['product'], 'funded-pos-over-balance'))->assertUnprocessable();
+        $this->assertDatabaseCount('sales', 1);
+        $this->assertSame(1, DB::table('finance_transactions')->where('kind', 'funding')->count());
+        $this->assertSame(1, DB::table('finance_transactions')->where('kind', 'sale')->count());
+        $this->assertSame(0, (int) DB::table('finance_entries')->sum('amount_minor'));
+    }
+
+    public function test_pos_voucher_funding_with_insufficient_agent_balance_preserves_request_and_both_wallets(): void
+    {
+        $f = $this->fixture(12, '1000.00', true);
+        DB::table('finance_policy')->where('id', 1)->update(['amounts_minor' => json_encode([30000])]);
+        $this->asPortalUser($f['point']);
+        $requestId = $this->postJson('/api/v1/finance/funding-requests', ['service' => 'voucher', 'currency' => 'IQD', 'amount' => '300.00', 'idempotency_key' => 'pos-voucher-over-agent'])->assertCreated()->json('data.id');
+        $this->asPortalUser($f['owner']);
+        $this->postJson('/api/v1/finance/funding-requests/'.$requestId.'/review', ['version' => 1, 'decision' => 'approve', 'reference' => 'Over available balance', 'idempotency_key' => 'pos-voucher-insufficient-approve'])->assertUnprocessable();
+        $this->assertDatabaseHas('finance_funding_requests', ['id' => $requestId, 'status' => 'pending', 'version' => 1, 'transaction_id' => null]);
+        $this->assertDatabaseHas('finance_wallets', ['account_id' => $f['main']->id, 'service' => 'voucher', 'balance_minor' => 20300]);
+        $this->assertSame(0, DB::table('finance_transactions')->where('kind', 'funding')->count());
+        $this->assertSame(0, (int) DB::table('finance_wallets')->where('account_id', $f['pos']->id)->sum('balance_minor'));
+    }
+
+    public function test_pos_sees_granted_empty_categories_but_not_ungranted_categories_and_stock_recovers_without_regrant(): void
+    {
+        $f = $this->fixture();
+        $f['product']->provider->update(['connection' => 'API']);
+        StockCard::where('batch_id', $f['batch']->id)->delete();
+        $other = CatalogProduct::factory()->create(['provider_id' => $f['product']->provider_id]);
+        $mainRule = DB::table('catalog_account_rules')->where('target_account_id', $f['main']->id)->value('id');
+        DB::table('catalog_rule_products')->insert(['rule_id' => $mainRule, 'product_id' => $other->id]);
+        $posRule = DB::table('catalog_account_rules')->insertGetId(['target_account_id' => $f['pos']->id, 'authority_account_id' => $f['main']->id]);
+        DB::table('catalog_rule_products')->insert(['rule_id' => $posRule, 'product_id' => $f['product']->id]);
+        $this->asPortalUser($f['point']);
+        $this->getJson('/api/v1/sales/products')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $f['product']->id)->assertJsonPath('data.0.stock_available', 0);
+        $this->postJson('/api/v1/sales', $this->input($f['product'], 'empty-granted-pos-sale'))->assertUnprocessable();
+        StockCard::factory()->create(['batch_id' => $f['batch']->id, 'account_id' => $f['main']->id, 'product_id' => $f['product']->id, 'cost_minor' => 9000, 'credit_minor' => 10025]);
+        $this->getJson('/api/v1/sales/products')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.stock_available', 1);
+        $this->assertDatabaseCount('sales', 0);
+    }
+
+    public function test_funded_stock_cannot_bypass_disabled_sales_printing_or_daily_category_and_provider_amount_limits(): void
+    {
+        $f = $this->fixture();
+        $base = PrintPolicy::findOrFail(1);
+        $original = $base->settings;
+        foreach (['sales_enabled', 'printing_enabled'] as $setting) {
+            $base->update(['settings' => array_replace($original, [$setting => false])]);
+            $this->postJson('/api/v1/sales', $this->input($f['product'], 'disabled-'.$setting))->assertConflict();
+        }
+        $base->update(['settings' => array_replace($original, ['provider_daily_minor' => ['IQD' => 10024]])]);
+        $this->postJson('/api/v1/sales', $this->input($f['product'], 'over-provider-amount'))->assertUnprocessable();
+        $base->update(['settings' => $original]);
+        $f['product']->update(['daily_amount' => '100.24']);
+        $this->postJson('/api/v1/sales', $this->input($f['product'], 'over-category-amount'))->assertUnprocessable();
+        $this->assertDatabaseCount('sales', 0);
+        $this->assertSame(12, StockCard::where('status', 'Available')->count());
+        $this->assertDatabaseHas('finance_wallets', ['account_id' => $f['sub']->id, 'service' => 'voucher', 'balance_minor' => 100000, 'held_minor' => 0]);
+        $this->assertSame(0, DB::table('finance_transactions')->where('kind', 'sale')->count());
+    }
+
+    public function test_custom_daily_policy_cannot_relax_the_category_daily_quantity_limit(): void
+    {
+        $f = $this->fixture();
+        $f['product']->update(['daily_quantity' => 1]);
+        $this->asPortalUser($f['admin']);
+        $this->postJson('/api/v1/sales/print-rules', ['version' => 0, 'name' => 'More permissive account daily policy', 'active' => true, 'targets' => [['kind' => 'tree', 'id' => $f['main']->id]], 'policy' => $this->printPolicy(['daily_cards' => 10, 'daily_mode' => 'network']), 'idempotency_key' => 'custom-category-limit-rule'])->assertCreated();
+        $this->asPortalUser($f['seller']);
+        $this->postJson('/api/v1/sales', $this->input($f['product'], 'custom-over-category-limit', 2))->assertUnprocessable()->assertJsonPath('message', 'تم بلوغ الحد اليومي لكمية الفئة.');
+        $this->assertDatabaseCount('sales', 0);
+        $this->assertSame(12, StockCard::where('status', 'Available')->count());
+        $this->assertDatabaseHas('finance_wallets', ['account_id' => $f['sub']->id, 'service' => 'voucher', 'balance_minor' => 100000, 'held_minor' => 0]);
+    }
+
+    public function test_assigned_stock_remains_visible_when_agent_price_is_below_minimum_without_allowing_a_sale(): void
+    {
+        $f = $this->fixture();
+        $f['product']->provider->update(['connection' => 'API']);
+        $f['product']->update(['minimum_price' => '100.30']);
+        $this->getJson('/api/v1/sales/products')->assertOk()->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $f['product']->id)
+            ->assertJsonPath('data.0.price', null)
+            ->assertJsonPath('data.0.price_version', null)
+            ->assertJsonPath('data.0.availability_reason', 'price_below_minimum')
+            ->assertJsonPath('data.0.stock_available', 12);
+        $this->postJson('/api/v1/sales', $this->input($f['product'], 'below-minimum-visible'))->assertUnprocessable();
+        $this->assertDatabaseCount('sales', 0);
+        $this->assertSame(12, StockCard::where('status', 'Available')->count());
+        $f['product']->update(['minimum_price' => '100.00']);
+        $this->getJson('/api/v1/sales/products')->assertOk()->assertJsonPath('data.0.price', '100.25')->assertJsonPath('data.0.availability_reason', null);
+    }
+
+    public function test_catalog_query_count_stays_bounded_and_next_request_reads_changed_print_policy(): void
+    {
+        $fixture = $this->fixture();
+        $this->asPortalUser($fixture['point']);
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $this->getJson('/api/v1/sales/products')->assertOk()->assertJsonCount(1, 'data');
+        $baseline = count(DB::getQueryLog());
+        DB::disableQueryLog();
+        $rule = DB::table('catalog_account_rules')->where('target_account_id', $fixture['main']->id)->value('id');
+        foreach (CatalogProduct::factory()->count(24)->create(['provider_id' => $fixture['product']->provider_id]) as $product) {
+            DB::table('catalog_rule_products')->insert(['rule_id' => $rule, 'product_id' => $product->id]);
+        }
+        DB::enableQueryLog();
+        DB::flushQueryLog();
+        $this->getJson('/api/v1/sales/products')->assertOk()->assertJsonCount(25, 'data');
+        $this->assertLessThanOrEqual($baseline + 5, count(DB::getQueryLog()));
+        DB::disableQueryLog();
+        $policy = PrintPolicy::findOrFail(1);
+        $settings = $policy->policy;
+        $settings['max_cards'] = 7;
+        $policy->update(['policy' => $settings]);
+        $this->getJson('/api/v1/sales/products')->assertOk()->assertJsonPath('data.0.print_policy.max_cards', 7);
     }
 
     public function test_real_sale_consumes_fifo_inventory_and_exact_voucher_credit_once_without_returning_secrets(): void
@@ -93,6 +271,47 @@ class SalesPrintingTest extends TestCase
         $this->assertSame(1, DB::table('finance_transactions')->where('kind', 'sale')->count());
         $this->getJson('/api/v1/sales/'.$id)->assertOk()->assertJsonMissingPath('data.cards');
         $this->assertDatabaseHas('stock_batches', ['id' => $f['batch']->id, 'status' => 'Partially Used']);
+    }
+
+    public function test_api_company_local_cards_appear_in_pos_and_sell_once_from_inventory(): void
+    {
+        $f = $this->fixture();
+        $f['product']->provider->update(['connection' => 'API']);
+        $this->asPortalUser($f['point']);
+        $this->getJson('/api/v1/sales/products')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.stock_available', 12)->assertJsonPath('data.0.price', '100.25');
+        $this->asPortalUser($f['seller']);
+        $payload = $this->input($f['product'], 'api-local-stock-sale');
+        $id = $this->postJson('/api/v1/sales', $payload)->assertCreated()->assertJsonPath('data.total', '100.25')->json('data.id');
+        $this->postJson('/api/v1/sales', $payload)->assertCreated()->assertJsonPath('data.id', $id);
+        $this->assertDatabaseHas('finance_wallets', ['account_id' => $f['sub']->id, 'balance_minor' => 89975]);
+        $this->assertSame(1, StockCard::where('sale_id', $id)->where('status', 'Issued')->count());
+        $this->assertSame(0, (int) DB::table('finance_entries')->sum('amount_minor'));
+        $this->assertDatabaseCount('sales', 1);
+    }
+
+    public function test_assigned_api_company_without_eligible_local_cards_stays_visible_but_cannot_issue(): void
+    {
+        $f = $this->fixture();
+        $f['product']->provider->update(['connection' => 'API']);
+        foreach (['held', 'expired', 'unloaded', 'other-agent', 'wrong-currency'] as $reason) {
+            StockCard::where('batch_id', $f['batch']->id)->update(['credit_held' => $reason === 'held', 'expiry' => $reason === 'expired' ? now('Asia/Baghdad')->toDateString() : now()->addYear()->toDateString(), 'account_id' => $reason === 'other-agent' ? $f['system']->id : $f['main']->id]);
+            $f['batch']->update(['status' => $reason === 'unloaded' ? 'Pending' : 'Loaded', 'currency' => $reason === 'wrong-currency' ? 'USD' : 'IQD']);
+            $this->getJson('/api/v1/sales/products')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.stock_available', 0);
+            $this->postJson('/api/v1/sales', $this->input($f['product'], 'api-unavailable-'.$reason))->assertUnprocessable();
+            $this->assertDatabaseCount('sales', 0);
+        }
+    }
+
+    public function test_paused_digital_category_never_falls_back_to_local_card_printing(): void
+    {
+        $f = $this->fixture();
+        $f['product']->provider->update(['connection' => 'API']);
+        $connection = DigitalConnection::factory()->create(['account_id' => $f['system']->id, 'provider_id' => $f['product']->provider_id, 'active' => false]);
+        DigitalOffer::factory()->create(['connection_id' => $connection->id, 'product_id' => $f['product']->id, 'listed' => true, 'active' => false]);
+        $this->getJson('/api/v1/sales/products')->assertOk()->assertJsonCount(0, 'data');
+        $this->postJson('/api/v1/sales', $this->input($f['product'], 'digital-no-stock-fallback'))->assertUnprocessable();
+        $this->assertDatabaseCount('sales', 0);
+        $this->assertSame(12, StockCard::where('status', 'Available')->count());
     }
 
     public function test_reservation_holds_wallet_without_exposing_pin_and_cancellation_releases_stock_and_hold(): void
@@ -224,7 +443,27 @@ class SalesPrintingTest extends TestCase
         $this->postJson('/api/v1/sales/'.$other.'/print/start', ['version' => 2, 'idempotency_key' => 'other-print-start'])->assertConflict();
         $this->postJson('/api/v1/sales/'.$id.'/reprint-request', ['version' => 3, 'reason' => 'Result unknown', 'idempotency_key' => 'unknown-reprint-request'])->assertConflict();
         $this->assertDatabaseCount('sales_print_attempts', 1);
-        $this->assertDatabaseCount('sales_reprint_requests', 0);
+        $this->assertSame(0, ReprintRequest::count());
+    }
+
+    public function test_pending_print_is_identified_for_its_owner_without_exposing_cards_or_another_accounts_attempt(): void
+    {
+        $f = $this->fixture();
+        $id = $this->postJson('/api/v1/sales', $this->input($f['product'], 'pending-summary-sale'))->assertCreated()->json('data.id');
+        $this->mutate($id, 'print/start', [], 'pending-summary-start');
+        $this->travel(3)->seconds();
+        $other = $this->postJson('/api/v1/sales', $this->input($f['product'], 'pending-summary-other'))->assertCreated()->json('data.id');
+        $balance = DB::table('finance_wallets')->where('account_id', $f['sub']->id)->where('service', 'voucher')->value('balance_minor');
+        $this->getJson('/api/v1/sales/products')->assertOk()->assertJsonPath('pending_print.id', $id)->assertJsonMissingPath('pending_print.cards');
+        $this->getJson('/api/v1/sales/options?compact=1')->assertOk()->assertJsonPath('data.pending_print.id', $id);
+        $this->getJson('/api/v1/sales/'.$other.'/receipt')->assertOk()->assertJsonPath('data.pending_print.id', $id)->assertJsonPath('data.reprint_approved', false)->assertJsonMissingPath('data.pending_print.cards');
+        $this->asPortalUser($f['point']);
+        $this->getJson('/api/v1/sales/products')->assertOk()->assertJsonPath('pending_print', null);
+        $this->asPortalUser($f['seller']);
+        $this->mutate($id, 'print/result', ['attempt_id' => DB::table('sales_print_attempts')->where('sale_id', $id)->value('id'), 'success' => false, 'reason' => 'User confirmed no paper came out'], 'pending-summary-result');
+        $this->getJson('/api/v1/sales/products')->assertOk()->assertJsonPath('pending_print', null);
+        $this->assertSame((int) $balance, (int) DB::table('finance_wallets')->where('account_id', $f['sub']->id)->where('service', 'voucher')->value('balance_minor'));
+        $this->assertDatabaseCount('sales', 2);
     }
 
     public function test_failed_retry_limit_consumes_no_additional_money_and_requires_approval_after_limit(): void
@@ -373,6 +612,50 @@ class SalesPrintingTest extends TestCase
         return array_replace(['failed_retries' => 2, 'max_cards' => 10, 'interval_seconds' => 5, 'daily_cards' => 0, 'daily_mode' => 'account', 'daily_product_mode' => 'all', 'daily_products' => []], $overrides);
     }
 
+    public function test_global_print_capacity_is_checked_before_issuing_or_charging_a_batch(): void
+    {
+        $f = $this->fixture();
+        $policy = PrintPolicy::findOrFail(1);
+        $policy->update(['policy' => array_replace($policy->policy, ['daily_cards' => 1, 'max_cards' => 10])]);
+        $before = DB::table('finance_wallets')->orderBy('id')->get()->toJson();
+        $this->postJson('/api/v1/sales', $this->input($f['product'], 'global-print-over-cap', 2))->assertUnprocessable();
+        $this->assertSame($before, DB::table('finance_wallets')->orderBy('id')->get()->toJson());
+        $this->assertDatabaseCount('sales', 0);
+        $this->assertSame(12, StockCard::where('status', 'Available')->whereNull('sale_id')->count());
+    }
+
+    public function test_already_issued_unprinted_cards_reserve_global_capacity_before_another_charge(): void
+    {
+        $f = $this->fixture();
+        $policy = PrintPolicy::findOrFail(1);
+        $policy->update(['policy' => array_replace($policy->policy, ['daily_cards' => 1])]);
+        $id = $this->postJson('/api/v1/sales', $this->input($f['product'], 'global-first-ready-sale'))->assertCreated()->json('data.id');
+        $this->travel(4)->seconds();
+        $before = DB::table('finance_wallets')->orderBy('id')->get()->toJson();
+        $this->postJson('/api/v1/sales', $this->input($f['product'], 'global-second-ready-sale'))->assertUnprocessable();
+        $this->assertSame($before, DB::table('finance_wallets')->orderBy('id')->get()->toJson());
+        $this->assertDatabaseCount('sales', 1);
+        $attempt = $this->mutate($id, 'print/start', [], 'global-ready-print')['attempt_id'];
+        $this->mutate($id, 'print/result', ['attempt_id' => $attempt, 'success' => true], 'global-ready-result');
+        $this->travelTo(CarbonImmutable::now('Asia/Baghdad')->addDay()->startOfDay()->addMinute());
+        $this->postJson('/api/v1/sales', $this->input($f['product'], 'global-next-day-sale'))->assertCreated();
+    }
+
+    public function test_failed_print_and_manual_delivery_do_not_permanently_consume_future_print_capacity(): void
+    {
+        $f = $this->fixture();
+        $policy = PrintPolicy::findOrFail(1);
+        $policy->update(['policy' => array_replace($policy->policy, ['daily_cards' => 1])]);
+        $id = $this->postJson('/api/v1/sales', $this->input($f['product'], 'global-failed-print-sale'))->assertCreated()->json('data.id');
+        $attempt = $this->mutate($id, 'print/start', [], 'global-failed-print-start')['attempt_id'];
+        $this->mutate($id, 'print/result', ['attempt_id' => $attempt, 'success' => false, 'reason' => 'Synthetic failed print'], 'global-failed-print-result');
+        $this->travel(6)->seconds();
+        $next = $this->postJson('/api/v1/sales', $this->input($f['product'], 'global-delivered-sale'))->assertCreated()->json('data.id');
+        $this->mutate($next, 'deliver', ['channel' => 'استلام مباشر', 'reference' => 'Synthetic manual delivery'], 'global-delivered-manual');
+        $this->travel(6)->seconds();
+        $this->postJson('/api/v1/sales', $this->input($f['product'], 'global-after-delivery-sale'))->assertCreated();
+    }
+
     public function test_print_rule_network_caps_cover_descendants_and_conflicting_scopes_are_rejected(): void
     {
         $f = $this->fixture();
@@ -469,7 +752,7 @@ class SalesPrintingTest extends TestCase
     {
         $f = $this->fixture();
         $this->asPortalUser($f['admin']);
-        $data = ['version' => 0, 'layout' => ['header' => 'Server header', 'footer' => 'Server footer', 'color' => '#123456', 'display_order' => ReceiptDesign::BLOCKS], 'idempotency_key' => 'save-system-receipt-layout'];
+        $data = ['version' => 0, 'layout' => ['header' => 'Server header', 'footer' => 'Server footer', 'color' => '#123456', 'display_order' => ReceiptDesign::BLOCKS, 'qr_enabled' => true, 'recharge_template' => '*101*{pin}#'], 'idempotency_key' => 'save-system-receipt-layout'];
         $this->putJson('/api/v1/sales/receipt-layouts/'.$f['product']->id, $data)->assertOk()->assertJsonPath('data.version', 1);
         $data['version'] = 1;
         $data['layout']['display_order'] = array_fill(0, 8, 'company');
@@ -484,7 +767,14 @@ class SalesPrintingTest extends TestCase
         $this->putJson('/api/v1/sales/receipt-layouts/'.$f['product']->id, $personal)->assertUnprocessable();
         $this->asPortalUser($f['seller']);
         $id = $this->postJson('/api/v1/sales', $this->input($f['product']))->assertCreated()->json('data.id');
-        $this->getJson('/api/v1/sales/'.$id.'/receipt')->assertJsonPath('data.design.header', 'Server header')->assertJsonPath('data.design.agent_text', 'Main agent footer');
+        $this->getJson('/api/v1/sales/'.$id.'/receipt')->assertOk()->assertJsonPath('data.design.header', 'Server header')->assertJsonPath('data.design.agent_text', 'Main agent footer')
+            ->assertJsonPath('data.design.qr_enabled', true)->assertJsonPath('data.design.recharge_template', '*101*{pin}#');
+        $storedLayouts = DB::table('sales_receipt_layouts')->pluck('layout')->implode('');
+        $auditDetails = DB::table('audit_logs')->pluck('details')->implode('');
+        foreach ($f['cards'] as $card) {
+            $this->assertStringNotContainsString($card->secret['pin'], $storedLayouts);
+            $this->assertStringNotContainsString($card->secret['pin'], $auditDetails);
+        }
     }
 
     public function test_missing_pin_permission_cannot_issue_or_read_codes_but_can_reserve(): void
@@ -521,7 +811,6 @@ class SalesPrintingTest extends TestCase
         $this->postJson('/api/v1/sales/device-session', ['serial' => 'Approved-Device-Serial', 'app_version' => '1.0.0'])->assertOk();
         $this->postJson('/api/v1/sales', $this->input($f['product'], 'bound-device-valid'))->assertCreated();
         DB::table('users')->where('id', $f['point']->id)->increment('session_version');
-        $this->asPortalUser($f['point']);
         $this->postJson('/api/v1/sales', $this->input($f['product'], 'revoked-device-session'))->assertUnauthorized();
         $this->assertDatabaseCount('sales', 2);
     }

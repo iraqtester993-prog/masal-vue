@@ -57,6 +57,7 @@ export default defineConfig(({ mode }) => {
       manifest: true,
       minify: true,
       sourcemap: false,
+
     },
   };
 });

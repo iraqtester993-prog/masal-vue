@@ -11,3 +11,99 @@
 .sales-workspace .print-policy-header{display:flex;align-items:flex-end;gap:10px;padding:14px 12px;flex-wrap:wrap}.sales-workspace .print-policy-header h3{font-size:15px;margin-bottom:12px}.sales-workspace .print-policy-modes{display:flex;gap:5px;background:var(--raised);border-radius:10px;padding:4px}.sales-workspace .print-policy-modes button{border:0;background:transparent;color:var(--text);padding:7px 12px;border-radius:7px}.sales-workspace .print-policy-modes button.active{background:var(--accent);color:white}.sales-workspace .print-policy-number,.sales-workspace .print-policy-name{display:flex;flex-direction:column;align-items:stretch;gap:6px;flex:1;min-width:110px;margin:0}.sales-workspace .print-policy-name{max-width:210px;min-width:125px}.sales-workspace .print-policy-header label>span{font-size:11px;line-height:1.5;white-space:normal}.sales-workspace .print-policy-header label>input{height:44px;min-height:44px;margin:0;width:100%;min-width:0;flex:none}.sales-workspace .print-policy-inline-actions{display:flex;gap:6px;flex:none}.sales-workspace .print-policy-inline-actions .btn{height:44px;white-space:nowrap;padding:8px 12px}.sales-workspace .print-scope-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:8px;margin:18px 0}.sales-workspace .print-scope-choices label{display:flex;gap:10px;align-items:center;background:var(--raised);padding:10px;border:1px solid var(--line);border-radius:10px}.sales-workspace .print-scope-choices input[type=checkbox]{width:18px;min-height:18px}
 @media(max-width:700px){.sales-workspace .two,.sales-modal .account-fields{grid-template-columns:1fr}.sales-workspace .pos-phone-products{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.sales-workspace .pos-phone-products>button{padding:14px 12px}.sales-workspace .pos-phone-products strong{font-size:14px}.sales-workspace .pos-phone-products b{font-size:21px}.sales-workspace .pos-phone-companies{flex-wrap:nowrap;overflow-x:auto;max-width:100%;padding-bottom:5px}.sales-workspace .pos-phone-companies>button{flex:0 0 auto;padding:10px 14px}.sales-workspace .pos-phone-title h2{font-size:19px}.sales-workspace .simple-card-heading{display:block}.sales-workspace .simple-card-selectors{grid-template-columns:1fr}.sales-workspace .simple-card-heading h3{margin-bottom:14px}.sales-workspace .print-policy-number{flex-basis:100%}}
 @media print{body:has(.sales-receipt-dialog[open])> :not(.sales-receipt-dialog){display:none!important}.sales-receipt-dialog[open]{display:block!important;position:static!important;width:auto!important;max-width:none!important;max-height:none!important;padding:0!important;border:0!important;box-shadow:none!important;overflow:visible!important;background:white!important;margin:0!important}.sales-receipt-dialog::backdrop{display:none!important}.sales-receipt-dialog .no-print,.sales-receipt-dialog .dialog-heading{display:none!important}.sales-receipt-dialog .receipt{page:masal-receipt;width:var(--receipt-width,80mm);max-width:none!important;padding:0!important;border:0!important;margin:0!important}.sales-receipt-dialog .receipt-block{break-inside:avoid}.sales-receipt-dialog *{color-adjust:exact;-webkit-print-color-adjust:exact}}
+
+.sales-workspace .pos-phone-operations article>div{flex-wrap:wrap;min-width:0}.sales-workspace .pos-phone-operations article small{overflow-wrap:anywhere}.print-policy-summary details>summary{cursor:pointer;font-weight:700}.print-policy-summary details>div{font-size:12px;margin-top:8px}.sales-receipt-dialog .formfoot{display:flex;flex-wrap:wrap;gap:8px}.sales-receipt-dialog .formfoot .btn{min-height:44px}
+
+/* PIN and recharge QR stay visible in the preview, browser print and native image blocks. */
+:where(.sales-workspace,.sales-modal) .receipt .receipt-voucher+.receipt-voucher{margin-top:18px;padding-top:12px;border-top:1px dashed #c9d4df}
+:where(.sales-workspace,.sales-modal) .receipt .receipt-pin{margin:6px 0 10px;padding:12px 8px;background:#edf3f7;color:#101c2e;border:1px solid #aebfce;border-radius:8px;box-shadow:0 2px 5px #14263c12;font-size:17px;line-height:1.7;letter-spacing:.5px;overflow-wrap:anywhere}
+:where(.sales-workspace,.sales-modal) .receipt .receipt-pin-label{font-weight:700;color:#34465a;font-size:11px}
+:where(.sales-workspace,.sales-modal) .receipt .receipt-recharge{display:grid;justify-items:center;gap:7px;margin-top:14px;break-inside:avoid}
+:where(.sales-workspace,.sales-modal) .receipt .receipt-recharge img{display:block;width:min(100%,190px);height:auto;max-height:none;object-fit:contain;background:#fff;image-rendering:pixelated}
+:where(.sales-workspace,.sales-modal) .receipt .receipt-recharge-code{display:block;max-width:100%;font:700 12px monospace;line-height:1.6;color:#101c2e;text-decoration:none;overflow-wrap:anywhere}
+.sales-workspace .receipt-qr-controls{display:grid;gap:12px;border-top:1px solid var(--line);padding-top:14px;margin-top:4px}
+.sales-workspace .receipt-qr-controls label{display:grid;gap:7px}
+.sales-workspace .receipt-qr-controls small{font-size:12px;color:var(--muted);line-height:1.7}
+/* Receipt confirmation and history controls for the installed POS web surface. */
+html[data-portal="pos"] .sales-receipt-dialog .receipt-operation-strip{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-block:16px 8px}
+html[data-portal="pos"] .sales-receipt-dialog .receipt-result-panel{display:grid;gap:14px;background:var(--raised);border:1px solid var(--line);border-radius:18px;padding:16px}
+html[data-portal="pos"] .receipt-result-heading{display:grid;gap:5px}
+html[data-portal="pos"] .receipt-result-heading b{font-size:16px}
+html[data-portal="pos"] .receipt-result-heading small,html[data-portal="pos"] .receipt-print-hint{color:var(--muted);font-size:12px;line-height:1.8}
+html[data-portal="pos"] .receipt-result-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+html[data-portal="pos"] .receipt-result-options .btn{min-height:48px;padding:10px 8px;white-space:normal;border-width:2px}
+html[data-portal="pos"] .receipt-result-success.selected{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}
+html[data-portal="pos"] .receipt-result-failure.selected{border-color:#c75151;background:color-mix(in srgb,#c75151 12%,var(--panel));color:var(--ink)}
+html[data-portal="pos"] .receipt-failure-reason{display:grid;gap:7px;font-size:12px}
+html[data-portal="pos"] .receipt-failure-reason textarea{min-height:72px;resize:vertical}
+html[data-portal="pos"] .receipt-result-confirm{width:100%;min-height:48px}
+html[data-portal="pos"] .receipt-primary-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+html[data-portal="pos"] .receipt-primary-actions .btn{white-space:normal;padding:10px}
+html[data-portal="pos"] .receipt-primary-actions .btn.primary{grid-column:1/-1;min-height:50px}
+html[data-portal="pos"] .sale-details-dialog .account-fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:0;margin-block:12px}
+html[data-portal="pos"] .sale-details-dialog .account-fields>div{border-bottom:1px solid var(--line);padding:12px 6px;min-width:0}
+html[data-portal="pos"] .sale-details-dialog .account-fields dd{font-size:13px;line-height:1.7}
+html[data-portal="pos"] .sale-print-details{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:16px}
+html[data-portal="pos"] .sale-print-details summary{cursor:pointer;display:flex;align-items:center;justify-content:space-between;font-weight:700;font-size:13px}
+html[data-portal="pos"] .sale-print-details summary span{color:var(--muted)}
+html[data-portal="pos"] .sale-print-history{margin-bottom:0}
+html[data-portal="pos"] .sale-print-history li{font-size:13px}
+html[data-portal="pos"] .sale-print-history span{font-size:12px}
+html[data-portal="pos"] .pos-history{gap:12px;min-width:0}
+html[data-portal="pos"] .pos-history-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+html[data-portal="pos"] .pos-history-heading h2{font-size:18px;margin:0}
+html[data-portal="pos"] .pos-history-heading>span{font-size:12px;color:var(--muted)}
+html[data-portal="pos"] .pos-history-search{display:flex;gap:8px;align-items:center}
+html[data-portal="pos"] .pos-history-search input{min-width:0;flex:1;min-height:46px}
+html[data-portal="pos"] .pos-history-search .btn{min-height:46px;display:flex;align-items:center;gap:6px;flex:none}
+html[data-portal="pos"] .pos-history-search .btn.active{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+html[data-portal="pos"] .pos-history-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;border:1px solid var(--line);border-radius:16px;background:var(--raised);padding:12px}
+html[data-portal="pos"] .pos-history-filters>label{font-size:11px;display:grid;gap:6px;min-width:0}
+html[data-portal="pos"] .pos-history-filters input,html[data-portal="pos"] .pos-history-filters select{width:100%;min-width:0;min-height:44px;box-sizing:border-box}
+html[data-portal="pos"] .pos-history-filters>.btn{align-self:end;min-height:44px}
+html[data-portal="pos"] .pos-history-loading{color:var(--muted);font-size:12px;margin:0}
+html[data-portal="pos"] .pos-history .pos-history-item{padding:15px;gap:10px;border-radius:18px;min-width:0;max-width:none}
+html[data-portal="pos"] .pos-history-item-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+html[data-portal="pos"] .pos-history-item-heading>div{display:grid;gap:3px;min-width:0;flex:1}
+html[data-portal="pos"] .pos-history-item-heading small{color:var(--muted);font-size:11px}
+html[data-portal="pos"] .pos-history-item-heading strong{font-size:14px;overflow-wrap:anywhere;line-height:1.7}
+html[data-portal="pos"] .pos-history-item-heading .badge{font-size:10px;flex:none;max-width:45%;white-space:normal}
+html[data-portal="pos"] .pos-history-item .pos-history-item-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
+html[data-portal="pos"] .pos-history-item-meta>b{color:var(--ink);font-size:15px;margin-inline-start:auto;white-space:nowrap}
+html[data-portal="pos"] .pos-history-item .pos-history-item-actions{display:flex;justify-content:flex-end;align-items:center;gap:6px;padding-top:10px;border-top:1px solid var(--line)}
+html[data-portal="pos"] .pos-history-item-actions .btn{font-size:11px;min-height:40px;padding:7px 10px}
+html[data-portal="pos"] .pos-history-reference{margin-inline-end:auto;color:var(--muted);font-size:11px}
+html[data-portal="pos"] .pos-history-message{color:var(--muted);font-size:12px;line-height:1.7;margin:0;overflow-wrap:anywhere}
+html[data-portal="pos"] .pos-history-digital-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;background:var(--raised);border-radius:12px;padding:12px;margin:0}
+html[data-portal="pos"] .pos-history-digital-details dt{font-size:10px;color:var(--muted)}
+html[data-portal="pos"] .pos-history-digital-details dd{font-size:12px;overflow-wrap:anywhere;margin:4px 0 0}
+html[data-portal="pos"] .pos-history .sales-pagination{justify-content:space-between;font-size:12px;gap:8px}
+
+/* Label every filter, and keep each print request's identity and decision together. */
+.portal-shell .portal-main .sales-workspace .filter-bar-fields.sales-filters{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(min(100%,145px),1fr));align-items:end!important;gap:10px!important;min-width:0;max-width:100%;overflow:visible!important}
+.portal-main .sales-filters>label{display:grid;gap:5px;min-width:0;max-width:none;margin:0;font-size:11px}
+.portal-main .sales-filters :is(input,select,.account-picker-trigger){width:100%;min-width:0;max-width:100%;height:44px;margin:0}
+.sales-filter-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
+.sales-filter-actions .btn{min-height:44px}
+.print-exceptions .exceptions-card>h3{margin:20px 0 10px;font-size:15px}
+.sales-workspace .print-request-card{padding:16px;background:var(--panel)}
+.print-request-header{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:12px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.print-request-identity{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.print-request-parties{display:grid;gap:3px;min-width:0}
+.print-request-parties :is(strong,small){overflow-wrap:anywhere}
+.print-request-parties small,.print-request-header time{color:var(--muted);font-size:11px}
+.print-request-reason{display:grid;gap:5px;padding-block:12px;overflow-wrap:anywhere}
+.sales-workspace .print-request-reason p{margin:0}
+.print-request-history{padding-bottom:12px;color:var(--text);font-size:12px}
+.print-request-history summary{cursor:pointer;font-weight:700}
+.print-request-decision{display:grid;grid-template-columns:minmax(180px,1fr) auto;align-items:end;gap:12px;padding-top:12px;border-top:1px solid var(--line)}
+.print-request-decision>label{display:grid;gap:6px;min-width:0;font-size:11px}
+.sales-workspace .print-request-decision textarea{width:100%;min-width:0;min-height:72px;margin:0;resize:vertical}
+.portal-main .print-request-actions{display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px;max-width:420px}
+.print-exceptions .own-reprint-sales{padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--raised);margin-block:16px}
+.print-exceptions .own-reprint-sales>.rowline{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-block:12px;border-bottom:1px solid var(--line)}
+.print-exceptions .own-reprint-sales>.rowline>span{flex:1 1 200px;min-width:0;overflow-wrap:anywhere}
+.print-exceptions .own-reprint-sales>.rowline>span small{display:block;color:var(--muted)}
+@media(max-width:800px){.print-request-header{grid-template-columns:minmax(0,1fr) auto}.print-request-parties{grid-row:2;grid-column:1/-1}.print-request-header time{text-align:end}.print-request-decision{grid-template-columns:minmax(0,1fr)}.portal-main .print-request-actions{justify-content:flex-start;max-width:none}}
+@media(max-width:500px){.portal-shell .portal-main .sales-workspace .filter-bar-fields.sales-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.sales-filters>.sales-filter-search,.sales-filter-actions{grid-column:1/-1}.print-request-actions .btn{flex:1 1 130px;white-space:normal;line-height:1.6}.print-exceptions .own-reprint-sales>.rowline>.btn{width:100%;white-space:normal}.sales-workspace .sales-pagination{flex-wrap:wrap;justify-content:space-between;gap:8px}.sales-workspace .sales-pagination>span{font-size:11px}}
+@media(max-width:350px){html[data-portal="pos"] .pos-history .pos-history-item{padding:12px}html[data-portal="pos"] .pos-history-item-actions .btn{padding:7px 8px}html[data-portal="pos"] .pos-history-filters{grid-template-columns:1fr}html[data-portal="pos"] .receipt-primary-actions{grid-template-columns:1fr}}

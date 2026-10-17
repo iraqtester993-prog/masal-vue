@@ -395,3 +395,13 @@ html[data-theme="dark"] .portal-shell .navgroup.active { background: #203b4b; co
 .portal-search{position:relative;min-width:0}.portal-shell .portal-search .search{display:block;width:210px;max-width:100%}.portal-search-results{position:absolute;top:calc(100% + 8px);inset-inline-start:0;min-width:250px;max-width:calc(100vw - 24px);max-height:50dvh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px #0002;z-index:45;padding:6px}.portal-search-results button{display:block;width:100%;text-align:start;padding:10px;border:0;border-radius:8px;background:transparent;color:var(--ink)}.portal-search-results button:hover,.portal-search-results button:focus-visible{background:var(--accent-soft)}.portal-search-results p{padding:10px;color:var(--muted)}.portal-shell .breadcrumb strong{overflow-wrap:anywhere;line-height:1.5}.pos-app-nav{display:none}
 @media(max-width:650px){.portal-search{flex:1 1 140px}.portal-shell .portal-search .search{width:100%}.portal-shell .toptools .location-share-control{font-size:11px;padding:5px 8px;min-height:36px}.portal-shell .portal-search-results{inset-inline-start:auto;inset-inline-end:0}}
 @media print{.pos-app-nav,.portal-search-results{display:none!important}}
+
+/* This header control must work on direct entry without loading the map page. */
+.portal-shell .toptools .location-share-control{display:inline-flex;align-items:center;justify-content:center;gap:7px;flex:0 1 auto;min-width:0;max-width:250px;min-height:44px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--panel);color:var(--text);font:inherit;font-size:12px;font-weight:700;line-height:1.5;white-space:nowrap}
+.portal-shell .location-share-control svg{width:18px;height:18px;flex:none}
+.portal-shell .location-share-control span{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.portal-shell .location-share-control[aria-pressed="true"]{border-color:color-mix(in srgb,var(--cyan) 45%,var(--line));background:var(--blue-bg);color:var(--blue-text)}
+.portal-shell .location-share-control:focus-visible{outline:3px solid #8ab4fc;outline-offset:3px}
+.portal-shell .breadcrumb strong{min-width:0;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:1100px){.portal-shell .toptools .location-share-control{min-height:40px;max-width:220px;padding:7px 10px}}
+@media(max-width:650px){.portal-shell .toptools .location-share-control{flex:1 1 180px;max-width:none;font-size:11px;min-height:40px}}

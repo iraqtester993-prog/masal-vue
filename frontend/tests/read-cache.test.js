@@ -39,3 +39,39 @@ test('leaving one page does not abort another subscriber and failures are never 
   await assert.rejects(cache.read('bad', async () => { throw new Error('offline'); }));
   assert.equal(cache.peek('bad'), null);
 });
+
+test('display data survives revalidation while forced refresh subscribers wait for the new value', async () => {
+  let now = 0, finish;
+  const cache = createReadCache({ now: () => now, ttl: 30000 });
+  await cache.read('a', async () => ({ revision: 1 }));
+  const refreshed = cache.read('a', () => new Promise(resolve => { finish = resolve; }), { force: true });
+  await Promise.resolve();
+  assert.equal(cache.has('a'), false);
+  assert.deepEqual(cache.peek('a', 120000), { revision: 1 });
+  let joined = false;
+  const ordinary = cache.read('a', async () => { throw new Error('Must join refresh'); }).then(value => { joined = true; return value; });
+  await Promise.resolve(); assert.equal(joined, false);
+  finish({ revision: 2 });
+  assert.deepEqual(await refreshed, { revision: 2 });
+  assert.deepEqual(await ordinary, { revision: 2 });
+  assert.equal(cache.has('a'), true);
+  now = 30000;
+  let resolveExpired;
+  const revalidated = cache.read('a', () => new Promise(resolve => { resolveExpired = resolve; }));
+  await Promise.resolve();
+  assert.equal(cache.has('a'), false);
+  assert.deepEqual(cache.peek('a', 120000), { revision: 2 });
+  now = 120000; assert.equal(cache.peek('a', 120000), null);
+  resolveExpired({ revision: 3 }); await revalidated;
+});
+
+test('a newer explicit refresh aborts an older result instead of returning or caching it', async () => {
+  const cache = createReadCache();
+  let finishOld;
+  const older = cache.read('a', () => new Promise(resolve => { finishOld = resolve; }));
+  const rejected = assert.rejects(older, { name: 'AbortError' });
+  await Promise.resolve();
+  assert.deepEqual(await cache.read('a', async () => ({ revision: 2 }), { force: true }), { revision: 2 });
+  finishOld({ revision: 1 }); await rejected;
+  assert.deepEqual(cache.peek('a'), { revision: 2 });
+});

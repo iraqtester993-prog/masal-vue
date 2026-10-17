@@ -14,6 +14,7 @@ class SessionRevoker
             return;
         }
         DB::table('users')->whereIn('id', $userIds)->increment('session_version');
+        DB::table('users')->whereIn('id', $userIds)->update(['remember_token' => null]);
         DB::table('sessions')->whereIn('user_id', $userIds)->delete();
         DB::table('personal_access_tokens')->where('tokenable_type', User::class)->whereIn('tokenable_id', $userIds)->delete();
     }

@@ -1,0 +1,63 @@
+/* Approved touch application shell. Screen-only rules never style receipt paper. */
+@media screen {
+ html[data-portal=pos].pos-menu-open,html[data-portal=pos].pos-menu-open body{overflow:hidden;overscroll-behavior:none}
+ html[data-portal=pos][data-theme=light] .portal-shell.pos-app{--canvas:#f5f7f6;--panel:#fff;--raised:#eef3f2;--ink:#142b2e;--text:#283d40;--muted:#697b7d;--line:#e1e8e6;--soft-line:#e9eeec;--pos-surface:#fff;--accent-soft:#e5f0ed;--pos-accent:var(--pos-link-light,#0d6268);--pos-link:var(--pos-accent)}
+ html[data-portal=pos][data-theme=dark] .portal-shell.pos-app{--canvas:#0d171b;--panel:#142329;--raised:#1b3035;--ink:#ecf5f2;--text:#d5e5e1;--muted:#9db5b6;--line:#294047;--soft-line:#21363d;--pos-surface:#142329;--accent-soft:#1c3b3d;--pos-accent:var(--pos-link-dark,#8cd0c7);--pos-link:var(--pos-accent)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app{--pos-hero:#0e2d31;--pos-hero-card:#173f43;--pos-gold:#bb9450;--pos-gold-soft:#f3ead5;--pos-nav-offset:calc(74px + env(safe-area-inset-bottom,0px));display:block;min-height:100dvh;width:100%;margin:0;padding:0;background:var(--canvas);color:var(--ink);font-family:Cairo,system-ui,sans-serif;font-size:14px;font-weight:400;line-height:1.6;transition:none}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app :where(span,p,small,label,a,td,th,dt,dd):not(:where(.receipt,.receipt *,.digital-receipt-content,.digital-receipt-content *)){font-weight:inherit!important}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app :where(h1,h2,h3,h4,strong,b):not(:where(.receipt,.receipt *,.digital-receipt-content,.digital-receipt-content *)){font-weight:800!important}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app :where(button,input,select,textarea):not(:where(.receipt,.receipt *,.digital-receipt-content,.digital-receipt-content *)){font-family:inherit!important;font-weight:600!important}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .portal-content{display:block;width:100%;min-width:0;max-width:none;margin:0;padding:0 0 calc(86px + env(safe-area-inset-bottom,0px));background:var(--canvas)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .portal-main{width:100%;max-width:1180px;margin:0 auto;padding:18px 18px 28px;min-width:0}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app :is(.pos-desktop-header,.app-footer){display:none}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-mobile-header{display:flex;position:sticky;top:0;z-index:45;align-items:center;gap:10px;min-height:66px;width:100%;margin:0;padding:10px max(18px,env(safe-area-inset-right,0px));padding-top:calc(10px + env(safe-area-inset-top,0px));background:var(--canvas);border:0;color:var(--ink);box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-header-identity{display:flex;align-items:center;gap:10px;min-width:0;margin-inline-end:auto;text-decoration:none;color:inherit;min-height:44px}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-header-avatar{display:grid;place-items:center;flex:none;width:40px;height:40px;border-radius:13px;background:var(--pos-gold-soft);color:#89652c;font-size:20px;font-weight:800!important}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-header-title{display:grid;gap:1px;text-align:start;min-width:0}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-header-title strong{font-size:16px;line-height:1.6;color:inherit;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-header-title small{font-size:10px;color:var(--muted);line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-header-button{position:relative;display:grid;place-items:center;flex:none;width:44px;height:44px;padding:0;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--ink);text-decoration:none}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-header-button svg{width:21px;height:21px}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .notification-count{border:2px solid var(--canvas);background:#b25345;color:#fff;box-shadow:none;font-size:10px}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app [data-page=dashboard]>.pos-mobile-header{background:var(--pos-hero);color:#f1f8f4}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app [data-page=dashboard]>.portal-main{padding-top:8px;background:linear-gradient(var(--pos-hero),var(--pos-hero)) top/100% 112px no-repeat}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app [data-page=dashboard] .pos-header-title small{color:#a5c2c2}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app [data-page=dashboard] .pos-header-avatar{border:2px solid #ecd8a7;background:#d7bc82;color:#2b3430;border-radius:50%}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app [data-page=dashboard] .pos-header-button{background:#ffffff0b;border-color:#ffffff20;color:#f1f8f4}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app [data-page=dashboard] .notification-count{border-color:var(--pos-hero)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-app-nav{position:fixed;inset-inline:0;bottom:0;z-index:45;display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);align-items:start;width:100%;max-width:1180px;margin-inline:auto;gap:0;padding:7px max(7px,env(safe-area-inset-left,0px)) calc(10px + env(safe-area-inset-bottom,0px));border:0;border-top:1px solid var(--line);border-radius:0;background:var(--panel);box-shadow:none;backdrop-filter:none;-webkit-backdrop-filter:none}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-app-nav .pos-tab{display:grid;grid-template-rows:29px 18px;align-items:center;justify-items:center;gap:3px;min-height:52px;min-width:0;padding:0 2px;margin:0;color:var(--muted);background:none;opacity:1;text-decoration:none;border:0;border-radius:0}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-tab-icon{display:grid;place-items:center;width:45px;height:29px;border-radius:10px;background:none;color:inherit}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-tab-icon svg{width:22px;height:22px}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-tab-label{display:block;width:100%;height:18px;font-size:10px;line-height:18px;white-space:nowrap;text-align:center}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-app-nav :is([aria-current=page],.is-more-active){color:var(--pos-accent)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-app-nav :is([aria-current=page],.is-more-active) .pos-tab-icon{background:var(--accent-soft);width:45px;height:29px;border-radius:10px}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-app-nav :is([aria-current=page],.is-more-active) .pos-tab-label{font-weight:800!important}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .portal-sidebar{position:fixed;inset-block:0;inset-inline-end:auto;inset-inline-start:0;z-index:90;width:min(340px,88vw);height:100dvh;margin:0;padding:18px 12px;transform:translateX(105%);transition:transform .16s ease;background:var(--panel);border:0;border-inline-end:1px solid var(--line);box-shadow:0 15px 35px #001c2820}
+ html[dir=ltr][data-portal=pos][data-theme] .portal-shell.pos-app .portal-sidebar{transform:translateX(-105%)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .portal-sidebar.open{transform:translateX(0)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .mobile-shade{display:block;position:fixed;inset:0;z-index:80;border:0;background:#001c2866;padding:0}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app :is(.btn.primary,.pos-sale-print){background:var(--pos-hero)!important;color:#f4f8f5!important;border-color:transparent!important;min-height:46px;border-radius:13px}
+ html[data-portal=pos][data-theme=dark] .portal-shell.pos-app :is(.btn.primary,.pos-sale-print){background:#b8e5d8!important;color:#0d2c30!important}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app :is(input:not([type=checkbox]):not([type=radio]),select,textarea):not(:where(.receipt *,.digital-receipt-content *)){min-height:46px;max-width:100%;background:var(--panel);border:1px solid var(--line);border-radius:12px;color:var(--ink);font-size:14px}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app :is(.card,.digital-config,.digital-confirm,.digital-sale-summary){border-color:var(--line);border-radius:17px;background:var(--panel);color:var(--ink);box-shadow:none}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app :is(.btn,.tabs>button,.pos-service-tabs>button){min-height:44px}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .tabs>button.active{background:var(--pos-hero);border-color:var(--pos-hero);color:#f4f8f5;box-shadow:none}
+ html[data-portal=pos][data-theme=dark] .portal-shell.pos-app .tabs>button.active{background:#b8e5d8;border-color:#b8e5d8;color:#0d2c30}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .notice{font-size:12px;line-height:1.8;border-radius:12px;overflow-wrap:anywhere}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-page{max-width:760px;margin-inline:auto}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-page h1{font-size:25px;margin:0 0 18px}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-list{display:grid;gap:0;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--panel)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-list>a,html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-list>button{display:flex;align-items:center;gap:12px;min-height:58px;margin:0;padding:13px 16px;border:0;border-bottom:1px solid var(--soft-line);border-radius:0;color:var(--ink);background:transparent;font-size:13px;text-decoration:none;width:100%;text-align:start}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-list>*:last-child{border-bottom:0}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-list svg{width:21px;height:21px;color:var(--pos-accent)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-list>*>span:nth-child(2){flex:1}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-list .pos-more-logout,html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-list .pos-more-delete{color:#b25345}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app :is(.pos-tab,.pos-header-button,.pos-more-list>a,button):focus-visible{outline:2px solid var(--pos-accent);outline-offset:3px}
+ @media(min-width:760px){
+  html[data-portal=pos][data-theme] .portal-shell.pos-app .portal-main{padding:22px 24px 32px}
+  html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-mobile-header{padding-inline:max(24px,calc((100% - 1132px)/2));min-height:72px}
+  html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-tab-label{font-size:11px}
+ }
+ @media(prefers-reduced-motion:reduce){html[data-portal=pos][data-theme] .portal-shell.pos-app *,html[data-portal=pos][data-theme] .portal-shell.pos-app *::before,html[data-portal=pos][data-theme] .portal-shell.pos-app *::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+}

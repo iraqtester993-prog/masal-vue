@@ -2,6 +2,9 @@
 import {RouterLink} from "vue-router";
 import {usePreferencesTranslator} from "../preferences/preferences-state.js";
 const uiLabel=usePreferencesTranslator();
+import AccountPicker from '../finance/AccountPicker.vue';
+import {useAccountLookup} from '../../shared/api/account-lookup.js';
+const lookup=useAccountLookup();
 import FilterBar from '../../shared/components/FilterBar.vue';
 import TablePanel from '../../shared/components/TablePanel.vue';
 
@@ -39,7 +42,7 @@ const pages=computed(()=>Math.max(1,Math.ceil(filtered.value.length/25)));
 
 const shown=computed(()=>filtered.value.slice((page.value-1)*25,page.value*25));
 
-const targetAccount=computed(()=>data.value?.targets?.find(row=>String(row.id)===target.value));
+const targetAccount=computed(()=>data.value?.targets?.find(row=>String(row.id)===String(target.value)));
 
 async function load(next=target.value){
 
@@ -47,7 +50,7 @@ async function load(next=target.value){
 
   try{
 
-    const params=new URLSearchParams({...next?{target_account_id:next}:{},...system.value&&connectionId.value?{connection_id:connectionId.value}:{}});
+    const params=new URLSearchParams({compact_targets:1,...next?{target_account_id:next}:{},...system.value&&connectionId.value?{connection_id:connectionId.value}:{}});
     const path=props.available?'/topup/available':'/topup/distribution?'+params;
 
     const result=await session.api.request(path,{signal:controller.signal});
@@ -86,7 +89,7 @@ async function save(){
 
     await session.api.mutate('/topup/distribution/'+id,'PUT',{...payload,idempotency_key:key.for({...payload,target:id})},controller.signal);
 
-    notice.value='تم حفظ تخصيص فئات Topup.';await load(id);
+    notice.value=system.value?'تم حفظ رصيد الوكيل وتخصيص الفئات.':'تم حفظ تخصيص فئات Topup.';await load(id);
 
   }catch(e){if(e.name!=='AbortError')error.value=errorText(e);}
 
@@ -112,31 +115,31 @@ onMounted(()=>load());onBeforeUnmount(()=>{revision++;controller.abort();});
   <section class="card">
 
     <div class="topup-target-toolbar">
-      <template v-if="data&&!available">
+      <div v-if="data&&!available" class="topup-target-fields">
 
-      <label>{{system?'الوكيل الرئيسي':'الحساب التابع مباشرة'}}<select v-model="target" :disabled="busy||loading" @change="notice='';connectionId='';load(target)"><option v-if="!data.targets.length" value="">لا توجد حسابات تابعة</option><option v-for="account in data.targets" :key="account.id" :value="String(account.id)">{{account.name}} · {{labels[account.type]}}{{account.operational?'':' · موقوف'}}</option></select></label>
+      <label>{{system?'الوكيل الرئيسي':'الحساب التابع مباشرة'}}<AccountPicker v-model="target" :vm="lookup" :parameters="{parent_id:session.state.identity.account.id,account_types:system?['main_agent']:['sub_agent','sub_branch','pos']}" label="الحساب المستلم للفئات" :disabled="busy||loading" :clearable="false" @update:model-value="notice='';connectionId='';load(target)"/></label>
 
-      <label v-if="system">توكن التبب<select v-model="connectionId" :disabled="busy" @change="load(target)"><option v-for="row in data.connections" :key="row.id" :value="String(row.id)">{{row.name}} · المتاح: {{row.available===null?'غير معلوم':money(row.available)+' د.ع'}}</option></select></label><label v-if="system">رصيد الوكيل بعد التخصيص · د.ع<input v-model="allocationBalance" inputmode="decimal" :disabled="busy" /></label><label>حالة تخصيص الفئات<select v-model="active" :disabled="busy||!target"><option :value="true">مفعّل</option><option :value="false">موقوف</option></select></label>
+      <label v-if="system">توكن Topup<select v-model="connectionId" :disabled="busy" @change="load(target)"><option v-for="row in data.connections" :key="row.id" :value="String(row.id)">{{row.name}} · المتاح: {{row.available===null?'غير معلوم':money(row.available)+' د.ع'}}</option></select></label><label v-if="system">رصيد الوكيل بعد التخصيص · د.ع<input v-model="allocationBalance" inputmode="decimal" :disabled="busy" /></label><label>حالة تخصيص الفئات<select v-model="active" :disabled="busy||!target"><option :value="true">مفعّل</option><option :value="false">موقوف</option></select></label>
 
-      <button v-if="system&&data.connection?.id" class="btn topup-sync" :disabled="busy||loading||!data.connection.token_present" @click="synchronize">استعلام الرصيد والفئات</button>
-      </template>
-      <div class="topup-heading-actions"><RouterLink v-if="system" class="btn" to="/topup/categories">فئات الشركة</RouterLink><button class="btn" :disabled="busy||loading" @click="load()">تحديث</button></div>
+      
+      </div>
+      <div class="topup-heading-actions"><button v-if="data&&!available" type="button" class="btn primary" :disabled="busy||loading||!target||!targetAccount?.operational" @click="save">{{busy?'جارٍ الحفظ…':system?'حفظ الرصيد والفئات':'حفظ تخصيص الفئات'}}</button><button v-if="system&&data?.connection?.id" class="btn topup-sync" :disabled="busy||loading||!data.connection.token_present" @click="synchronize">استعلام الرصيد والفئات</button><RouterLink v-if="system" class="btn" to="/topup/categories">فئات الشركة</RouterLink><button class="btn" :disabled="busy||loading" @click="load()">تحديث</button></div>
     </div>
 
     <template v-if="data">
 
     <div class="topup-summary-row">
 
-    <div v-if="data.connection" class="digital-status-summary"><span>الوكيل الرئيسي: {{data.connection.main_account_name}}</span><span>{{data.connection.token_present?'توكن الإدارة محفوظ':'لم يخصص توكن بعد'}}</span><span>{{data.connection.active?'الربط مفعّل':'الربط موقوف'}}</span><span v-if="data.connection.company_balance!==undefined">رصيد الشركة: {{data.connection.company_balance===null?'لم يُجلب بعد':money(data.connection.company_balance)+' د.ع'}}</span></div>
+    <div v-if="data.connection" class="digital-status-summary topup-connection-summary"><span>{{data.connection.token_present?'توكن الإدارة محفوظ':'لم يخصص توكن بعد'}}</span><span>{{data.connection.active?'الربط مفعّل':'الربط موقوف'}}</span><span v-if="data.connection.company_balance!==undefined">رصيد الشركة: <b>{{data.connection.company_balance===null?'لم يُجلب بعد':money(data.connection.company_balance)+' د.ع'}}</b></span></div>
 
-    <div v-if="data.allocation?.connection_id" class="digital-status-summary"><span>حصة الوكيل: {{money(data.allocation.balance)}} د.ع</span><span>المتاح: {{money(data.allocation.available)}} د.ع</span><span>المحجوز: {{money(data.allocation.held)}} د.ع</span><span>المصروف: {{money(data.allocation.spent)}} د.ع</span></div><div class="digital-status-summary topup-counts"><span class="badge">الفئات المتاحة: {{data.categories.length}}</span><span v-for="item in counts" :key="item.key" class="badge">{{uiLabel(item.name)}}: {{item.count}}<template v-if="!available"> · المحدد: {{item.selected}}</template></span></div>
+    <dl v-if="data.allocation?.connection_id" class="digital-status-summary topup-balance-summary"><div><dt>حصة الوكيل</dt><dd>{{money(data.allocation.balance)}} <small>د.ع</small></dd></div><div><dt>المتاح</dt><dd>{{money(data.allocation.available)}} <small>د.ع</small></dd></div><div><dt>المحجوز</dt><dd>{{money(data.allocation.held)}} <small>د.ع</small></dd></div><div><dt>المصروف:</dt><dd>{{money(data.allocation.spent)}} <small>د.ع</small></dd></div></dl><div class="digital-status-summary topup-counts"><span class="badge">الفئات المتاحة: {{data.categories.length}}</span><span v-for="item in counts" :key="item.key" class="badge">{{uiLabel(item.name)}}: {{item.count}}<template v-if="!available"> · المحدد: {{item.selected}}</template></span></div>
     </div>
     <p v-if="data.execution_ready===false" class="notice warn">التعبئة غير متاحة حاليًا.</p>
     <FilterBar class="topup-filter-tools"><select v-model="type" aria-label="نوع فئات Topup" @change="page=1"><option value="">كل الأنواع</option><option v-for="item in counts" :key="item.key" :value="item.key">{{uiLabel(item.name)}}</option></select><input v-model="query" aria-label="بحث فئات Topup" placeholder="بحث باسم الفئة أو الباقة" @input="page=1"><span v-if="!available" class="badge">{{selected.length}} فئة محددة</span><button class="btn small" :disabled="busy||loading" @click="downloadCategories(false)">تصدير Excel</button><button class="btn small" :disabled="busy||loading" @click="downloadCategories(true)">PDF / طباعة</button></FilterBar>
 
     <form @submit.prevent="save">
 
-      <TablePanel :start="(page-1)*25+1" class="tablewrap"><table><thead><tr><th v-if="!available">تخصيص</th><th>الفئة / الباقة</th><th>معرف الشركة</th><th>الخدمة</th><th>{{available?'سعر البيع · د.ع':'سعر المدير · د.ع'}}</th><th v-if="!available">سعر الوكيل · د.ع</th><th v-if="available">التعبئة</th></tr></thead><tbody>
+      <div v-if="available" class="topup-mobile-categories"><article v-for="category in shown" :key="category.id" class="topup-mobile-category"><strong dir="auto">{{category.name}}</strong><small>{{uiLabel(labels[category.type])}}</small><b>{{money(category.price)}} د.ع</b><button type="button" class="btn primary" :disabled="!category.offer||!data.execution_ready||!session.can('digital.create')" @click="selling=category.offer">تعبئة رقم الزبون</button></article></div><TablePanel :start="(page-1)*25+1" class="tablewrap" :class="{'topup-available-table':available}"><table><thead><tr><th v-if="!available">تخصيص</th><th>الفئة / الباقة</th><th>معرف الشركة</th><th>الخدمة</th><th>{{available?'سعر البيع · د.ع':'سعر المدير · د.ع'}}</th><th v-if="!available">سعر الوكيل · د.ع</th><th v-if="available">التعبئة</th></tr></thead><tbody>
 
         <tr v-for="category in shown" :key="category.id"><td v-if="!available"><input v-model="selected" type="checkbox" :value="category.id" :aria-label="'منح '+category.name" :disabled="busy||!target||!targetAccount?.operational"></td><td>{{category.name}}</td><td dir="ltr">{{category.remote_id}}</td><td>{{labels[category.type]}}</td><td>{{money(available?category.price:category.admin_price)}}</td><td v-if="!available"><input v-if="data.can_edit_prices" v-model="retailPrices[category.id]" inputmode="decimal" :aria-label="'سعر بيع '+category.name" :disabled="busy"><span v-else>{{money(category.price)}}</span></td><td v-if="available"><button type="button" class="btn primary" :disabled="!category.offer||!data.execution_ready||!session.can('digital.create')" @click="selling=category.offer">تعبئة رقم الزبون</button></td></tr>
 
@@ -162,14 +165,29 @@ onMounted(()=>load());onBeforeUnmount(()=>{revision++;controller.abort();});
 
 
 <style scoped>
-.topup-heading-actions{display:flex;align-items:center;gap:10px;flex-wrap:nowrap;margin:0}.topup-heading-actions .btn{min-height:44px}
-.digital-services.topup-allocation .topup-target-toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
-.topup-target-toolbar label:first-child{flex:0 1 340px}.topup-target-toolbar label:nth-child(2){flex:0 1 190px}
-.digital-services.topup-allocation .topup-target-toolbar label{display:grid;gap:8px;margin:0;min-width:0}.topup-target-toolbar select{width:100%;max-width:none;min-width:0;margin:0;height:44px}.topup-sync{min-height:44px;white-space:nowrap}
-.topup-summary-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px 16px;margin:12px 0}.digital-status-summary{margin:0;gap:12px;align-items:center;justify-content:flex-start}.topup-counts{gap:8px}
-.digital-services.topup-allocation :deep(.topup-filter-tools){display:grid!important;grid-template-columns:180px minmax(200px,1fr) auto auto auto;gap:10px;align-items:center!important;padding:12px!important;border-radius:10px;background:var(--raised);justify-content:initial}
-:deep(.topup-filter-tools>input),:deep(.topup-filter-tools>select){width:100%;max-width:none;min-width:0;margin:0;height:44px}
-:deep(.topup-filter-tools>.btn){min-height:44px;white-space:nowrap;margin:0}:deep(.topup-filter-tools>.badge){white-space:nowrap;margin:0;justify-self:center}
-@media(max-width:1000px){.digital-services.topup-allocation :deep(.topup-filter-tools){grid-template-columns:minmax(140px,.7fr) minmax(180px,1fr) auto auto}:deep(.topup-filter-tools>.badge){grid-column:1/-1;grid-row:2;justify-self:start}}
-@media(max-width:700px){.digital-services.topup-allocation .topup-target-toolbar label{flex:1 1 140px}.topup-sync{flex:1 1 100%}.topup-heading-actions{width:100%}.topup-heading-actions .btn{flex:1}.digital-services.topup-allocation :deep(.topup-filter-tools){grid-template-columns:repeat(2,minmax(0,1fr))}:deep(.topup-filter-tools>input){grid-column:1/-1;grid-row:1}:deep(.topup-filter-tools>select){grid-column:1/-1;grid-row:2}:deep(.topup-filter-tools>.badge){grid-column:1/-1;grid-row:4}:deep(.topup-filter-tools>.btn){width:100%}.digital-status-summary{font-size:11px;gap:8px}}
+.digital-services.topup-allocation .topup-target-toolbar{display:grid;gap:12px;min-width:0}
+.topup-target-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));align-items:end;gap:12px;min-width:0}
+.digital-services.topup-allocation .topup-target-fields>label{display:grid;gap:6px;margin:0;min-width:0;font-size:12px;white-space:normal}
+.topup-target-fields :is(select,input){width:100%;max-width:100%;min-width:0;margin:0;height:44px}
+.topup-target-fields :deep(.account-picker-trigger){min-width:0;height:44px;overflow:hidden;text-overflow:ellipsis}
+.topup-heading-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0;min-width:0}
+.topup-heading-actions .btn{min-height:42px;max-width:100%}
+.topup-summary-row{display:grid;gap:12px;margin:14px 0;min-width:0}
+.topup-connection-summary,.topup-counts{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:8px 16px;margin:0;min-width:0;font-size:12px}
+.topup-connection-summary>span{min-width:0;overflow-wrap:anywhere}
+.topup-connection-summary>span:last-child{margin-inline-start:auto}
+.digital-status-summary.topup-balance-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0;padding:0}
+.topup-balance-summary>div{min-width:0;border:1px solid var(--line);border-radius:12px;background:var(--raised);padding:10px 12px}
+.topup-balance-summary dt{font-size:11px;color:var(--muted)}
+.topup-balance-summary dd{margin:4px 0 0;font-size:17px;font-weight:700;color:var(--ink);overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.topup-balance-summary small{font-size:11px;color:var(--muted)}
+.topup-counts{gap:7px}
+.digital-services.topup-allocation :deep(.topup-filter-tools){display:grid!important;grid-template-columns:minmax(130px,.6fr) minmax(180px,1fr) auto auto auto;gap:8px;align-items:center!important;padding:10px!important;border-radius:12px;background:var(--raised);min-width:0;justify-content:initial}
+:deep(.topup-filter-tools>input),:deep(.topup-filter-tools>select){width:100%!important;max-width:100%!important;min-width:0;margin:0;height:42px}
+:deep(.topup-filter-tools>.btn){min-height:42px;white-space:nowrap;margin:0}:deep(.topup-filter-tools>.badge){white-space:nowrap;margin:0;justify-self:center}
+@media(max-width:1000px){.digital-services.topup-allocation :deep(.topup-filter-tools){grid-template-columns:minmax(130px,.7fr) minmax(150px,1fr) auto auto}:deep(.topup-filter-tools>.badge){grid-column:1/-1;grid-row:2;justify-self:start}}
+@media(max-width:700px){.topup-target-fields{grid-template-columns:repeat(2,minmax(0,1fr))}.topup-heading-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.topup-heading-actions .btn{width:100%;white-space:normal;padding-inline:8px}.topup-heading-actions>.primary{grid-column:1/-1}.digital-status-summary.topup-balance-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.topup-connection-summary{font-size:11px;gap:6px 12px}.topup-connection-summary>span:last-child{flex-basis:100%;margin:0}.digital-services.topup-allocation :deep(.topup-filter-tools){grid-template-columns:repeat(2,minmax(0,1fr))}:deep(.topup-filter-tools>input){grid-column:1/-1;grid-row:1}:deep(.topup-filter-tools>select){grid-column:1/-1;grid-row:2}:deep(.topup-filter-tools>.badge){grid-column:1/-1;grid-row:4}:deep(.topup-filter-tools>.btn){width:100%}}
+@media(max-width:380px){.topup-target-fields{grid-template-columns:1fr}.topup-balance-summary dd{font-size:15px}}
 </style>
+
+

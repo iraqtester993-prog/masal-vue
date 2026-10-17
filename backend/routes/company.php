@@ -11,6 +11,8 @@ Route::prefix('company')->group(function (): void {
     Route::post('inquiries/followup', [CompanyPublicController::class, 'followup'])->middleware('throttle:5,1,company-followup:');
     Route::post('inquiries', [CompanyPublicController::class, 'inquiry'])->middleware('throttle:5,1,company-inquiries:');
     Route::middleware(['auth:sanctum', 'portal.member'])->group(function (): void {
+        Route::get('app-config', [CompanyController::class, 'appConfig']);
+        Route::put('app-config', [CompanyController::class, 'saveAppConfig']);
         Route::get('profile', [CompanyController::class, 'profile']);
         Route::put('profile', [CompanyController::class, 'save']);
         Route::post('assets', [CompanyController::class, 'upload'])->middleware('throttle:20,1,company-upload:');

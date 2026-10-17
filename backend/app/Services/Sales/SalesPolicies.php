@@ -14,6 +14,7 @@ use App\Services\AuditLogger;
 use App\Services\Finance\FinanceOperations;
 use App\Services\Finance\Money;
 use App\Services\ManagementAuthority;
+use App\Support\RequestReadCache;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -25,14 +26,15 @@ class SalesPolicies
 
     public function context(Account $account, ?int $productId = null): array
     {
-        $base = PrintPolicy::findOrFail(1);
+        $base = RequestReadCache::remember('SalesPolicies.base', fn (): PrintPolicy => (DB::transactionLevel() > 0 ? PrintPolicy::sharedLock() : PrintPolicy::query())->findOrFail(1));
         $policy = $base->policy;
         $main = $this->access->main($account);
         $networkId = $main->id;
         $best = -1.0;
         $selected = null;
-        $distances = DB::table('account_closure')->where('descendant_id', $account->id)->pluck('depth', 'ancestor_id');
-        foreach (PrintRule::where('active', true)->orderBy('id')->get() as $rule) {
+        $distances = RequestReadCache::remember('SalesPolicies.distances:'.$account->id, fn () => DB::table('account_closure')->where('descendant_id', $account->id)->pluck('depth', 'ancestor_id'));
+        $rules = RequestReadCache::remember('SalesPolicies.rules', fn () => (DB::transactionLevel() > 0 ? PrintRule::sharedLock() : PrintRule::query())->where('active', true)->orderBy('id')->get());
+        foreach ($rules as $rule) {
             $specific = $rule->policy['daily_product_mode'] === 'selected';
             if ($specific && ! in_array($productId, $rule->policy['daily_products'], true)) {
                 continue;
@@ -69,21 +71,33 @@ class SalesPolicies
         return [$start, $start->addDay()];
     }
 
+    public function requiresNetworkLock(array $context): bool
+    {
+        return $context['policy']['daily_mode'] === 'network' && $context['policy']['daily_cards'] > 0;
+    }
+
     public function members(Account $account, array $context): array
     {
         return $context['policy']['daily_mode'] === 'network'
-            ? DB::table('account_closure')->where('ancestor_id', $context['network_id'])->pluck('descendant_id')->map(fn ($id): int => (int) $id)->all() : [$account->id];
+            ? RequestReadCache::remember('SalesPolicies.members:'.$context['network_id'], fn (): array => DB::table('account_closure')->where('ancestor_id', $context['network_id'])->pluck('descendant_id')->map(fn ($id): int => (int) $id)->all()) : [$account->id];
     }
 
     public function usage(Account $account, array $context): array
     {
         [$start, $end] = $this->day();
-        $query = Sale::whereIn('account_id', $this->members($account, $context));
-        if ($context['product_id']) {
-            $query->where('product_id', $context['product_id']);
-        }
-        $used = (int) (clone $query)->where('first_printed_at', '>=', $start)->where('first_printed_at', '<', $end)->sum('quantity');
-        $pending = (int) (clone $query)->whereNull('first_printed_at')->where('print_pending', true)->sum('quantity');
+        $members = $this->members($account, $context);
+        $cacheKey = 'SalesPolicies.usage:'.implode(',', $members).':'.($context['product_id'] ?? 'all').':'.$start->toDateString();
+        [$used, $pending] = RequestReadCache::remember($cacheKey, function () use ($members, $context, $start, $end): array {
+            $query = Sale::whereIn('account_id', $members);
+            if (DB::transactionLevel() > 0) {
+                $query->sharedLock();
+            }
+            if ($context['product_id']) {
+                $query->where('product_id', $context['product_id']);
+            }
+
+            return [(int) (clone $query)->where('first_printed_at', '>=', $start)->where('first_printed_at', '<', $end)->sum('quantity'), (int) (clone $query)->whereNull('first_printed_at')->where('print_pending', true)->sum('quantity')];
+        });
         $limit = $context['policy']['daily_cards'];
 
         return ['limit' => $limit, 'used' => $used, 'pending' => $pending, 'remaining' => $limit ? max(0, $limit - $used - $pending) : null, 'day' => $start->setTimezone('Asia/Baghdad')->toDateString(), 'mode' => $context['policy']['daily_mode']];
@@ -91,7 +105,7 @@ class SalesPolicies
 
     public function wait(Account $account, array $context): int
     {
-        $last = Sale::where('account_id', $account->id)->max('print_started_at');
+        $last = RequestReadCache::remember('SalesPolicies.lastPrint:'.$account->id, fn () => Sale::where('account_id', $account->id)->max('print_started_at'));
 
         return $last ? max(0, (int) ceil(CarbonImmutable::parse($last)->addSeconds($context['policy']['interval_seconds'])->getTimestamp() - now()->getTimestamp())) : 0;
     }
@@ -110,6 +124,9 @@ class SalesPolicies
         abort_unless($quantity <= $maximum, 422, 'عدد البطاقات يتجاوز الحد المسموح للطلب.');
         [$start, $end] = $this->day();
         $recent = Sale::where('account_id', $account->id)->where('issued_at', '>=', $start)->where('issued_at', '<', $end);
+        if (DB::transactionLevel() > 0) {
+            $recent->sharedLock();
+        }
         $last = (clone $recent)->max('issued_at');
         abort_if($last && CarbonImmutable::parse($last)->addSeconds($context['settings']['velocity_seconds'])->isFuture(), 429, 'انتظر الفاصل المحدد بين العمليات.');
         $dailyQuantity = $product->daily_quantity;
@@ -122,13 +139,22 @@ class SalesPolicies
                 $dailyAmount = $dailyAmount === null ? $limit->daily_amount_minor : min($dailyAmount, $limit->daily_amount_minor);
             }
         }
+        if ($policy['daily_cards'] > 0) {
+            $printUsage = $this->usage($account, $context);
+            $waiting = Sale::whereIn('account_id', $this->members($account, $context))
+                ->whereNotNull('issued_at')->whereNull('first_printed_at')->whereIn('status', ['Print Requested', 'Reprint Requested'])
+                ->when($context['product_id'], fn ($query) => $query->where('product_id', $context['product_id']))->sharedLock()
+                ->sum('quantity');
+            abort_if($policy['daily_cards'] < $printUsage['used'] + (int) $waiting + $quantity, 422, 'تم بلوغ الحد اليومي للبطاقات؛ أكمل طباعة العمليات المصدرة قبل بيع جديد.');
+        }
         if ($context['custom'] && $policy['daily_cards'] > 0) {
-            $network = Sale::whereIn('account_id', $this->members($account, $context))->where('issued_at', '>=', $start)->where('issued_at', '<', $end);
+            $network = Sale::whereIn('account_id', $this->members($account, $context))->where('issued_at', '>=', $start)->where('issued_at', '<', $end)->sharedLock();
             if ($context['product_id']) {
                 $network->where('product_id', $context['product_id']);
             }
             abort_if((int) $network->sum('quantity') + $quantity > $policy['daily_cards'], 422, 'تم بلوغ الحد اليومي المخصص للبطاقات.');
-        } elseif ($dailyQuantity !== null) {
+        }
+        if ($dailyQuantity !== null) {
             abort_if((int) (clone $recent)->where('product_id', $product->id)->sum('quantity') + $quantity > $dailyQuantity, 422, 'تم بلوغ الحد اليومي لكمية الفئة.');
         }
         if ($dailyAmount !== null) {

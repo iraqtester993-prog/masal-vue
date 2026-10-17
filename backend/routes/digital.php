@@ -27,6 +27,7 @@ Route::prefix('digital')->group(function (): void {
     Route::post('orders/{id}/acknowledge', [$controller, 'acknowledge'])->whereNumber('id');
     Route::post('orders/{id}/verify', [$controller, 'verify'])->whereNumber('id');
     Route::post('orders/{id}/refund-status', [$controller, 'refundStatus'])->whereNumber('id');
+    Route::post('orders/{id}/review-note', [$controller, 'recordReview'])->whereNumber('id')->middleware('throttle:6,1,digital-review:');
     Route::get('orders/{id}/receipt', [$controller, 'receipt'])->whereNumber('id');
     Route::get('orders/{id}/print-authorization', [$controller, 'printAuthorization'])->whereNumber('id');
 });
@@ -38,4 +39,6 @@ Route::prefix('topup')->group(function (): void {
     Route::put('prices', [TopupDistributionController::class, 'prices']);
     $controller = TopupCategoryController::class;
     Route::get('categories', [$controller, 'index']);
+    Route::post('categories/{id}/image', [$controller, 'image'])->whereNumber('id');
+    Route::get('offers/{id}/image', [DigitalController::class, 'offerImage'])->whereNumber('id');
 });
