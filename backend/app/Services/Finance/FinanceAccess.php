@@ -20,7 +20,6 @@ class FinanceAccess
     public function require(User $actor, string $permission, bool $system = false): void
     {
         $this->authority->require($actor, $permission);
-        $this->authority->require($actor, 'account.view');
         $module = explode('.', $permission)[0];
         if (in_array($module, ['wallets', 'invoices', 'prices'], true) && $permission !== $module.'.view') {
             $this->authority->require($actor, $module.'.view');

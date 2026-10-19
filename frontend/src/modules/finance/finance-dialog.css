@@ -1,0 +1,41 @@
+@media screen {
+  .finance-modal.funding-preview-dialog[open] {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .finance-modal.funding-preview-dialog > :is(.support-section-heading, .dialog-heading, .finance-dialog-footer) {
+    flex: none;
+    min-width: 0;
+  }
+  .finance-modal.funding-preview-dialog > .finance-dialog-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding: 3px;
+    margin: -3px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted) var(--raised);
+  }
+  .finance-modal.funding-preview-dialog > .finance-dialog-body :is(.tablewrap, .account-picker-results, .app-select-options, .funding-amount-options) {
+    max-height: none;
+  }
+  .finance-modal.funding-preview-dialog > .finance-dialog-body .tablewrap {
+    overflow-x: auto;
+    overflow-y: visible;
+  }
+  .finance-modal.funding-preview-dialog > .finance-dialog-body :is(.account-picker-results, .app-select-options, .funding-amount-options) {
+    overflow: visible;
+  }
+  .finance-modal.funding-preview-dialog > .finance-dialog-footer {
+    padding-top: 16px;
+    margin-top: 16px;
+    border-top: 1px solid var(--line);
+    background: var(--panel);
+  }
+  .finance-modal.funding-preview-dialog > .finance-dialog-footer > .actions {
+    margin-top: 0;
+  }
+}

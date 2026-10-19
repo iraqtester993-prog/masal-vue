@@ -17,14 +17,13 @@ class ReferenceAccess
     public function require(User $actor, string $permission, bool $global = false): void
     {
         $this->authority->require($actor, $permission);
-        $this->authority->require($actor, 'account.view');
         $module = explode('.', $permission)[0];
         if ($permission !== $module.'.view') {
             $this->authority->require($actor, $module.'.view');
         }
         abort_if($actor->membership->account->type === AccountType::Pos, 403);
         if ($module === 'governorates') {
-            abort_unless($actor->membership->account->type === AccountType::System && $actor->membership->kind === 'owner', 403);
+            $this->authority->systemAccess($actor, $permission);
         }
         if ($global) {
             abort_unless($actor->membership->account->type === AccountType::System && $this->scope->query($actor)->whereKey($actor->membership->account_id)->exists(), 403);

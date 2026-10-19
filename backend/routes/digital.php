@@ -11,6 +11,7 @@ Route::prefix('digital')->group(function (): void {
     Route::get('connections', [$controller, 'connections']);
     Route::post('connections', [$controller, 'storeConnection']);
     Route::put('connections/{id}', [$controller, 'updateConnection'])->whereNumber('id');
+    Route::patch('connections/{id}/credential', [$controller, 'credential'])->whereNumber('id')->middleware('throttle:10,1');
     Route::post('connections/{id}/catalog', [$controller, 'catalog'])->whereNumber('id');
     Route::post('connections/{id}/sync', [$controller, 'synchronize'])->whereNumber('id');
     Route::post('connections/{id}/balance', [$controller, 'balance'])->whereNumber('id');

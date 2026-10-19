@@ -5,6 +5,10 @@ import {passwordChangeRequired,passwordResetState} from './password-reset.js';
 
 export const portalContextKey = Symbol('masal.portal');
 
+export function identityScope(identity) {
+  return JSON.stringify([identity?.portal, identity?.user?.id, identity?.account?.id, identity?.membership, identity?.permissions, identity?.capabilities, identity?.password_reset]);
+}
+
 export function loginErrorMessage(failure) {
   if (['POS_LOGIN_DEVICE_MISMATCH','POS_LOGIN_PROOF_REQUIRED'].includes(failure.code)) return failure.message;
   return failure.status === 401 || failure.status === 422 ? 'تحقق من اسم الدخول وكلمة المرور.'
@@ -28,7 +32,7 @@ export function createSession(portal, api = createApiClient(), deviceProof = {})
     if(previous?.user.id===identity.user.id&&previous?.account.id===identity.account.id&&previousReset
       &&(!nextReset||nextReset.version<previousReset.version||(previousReset.required&&nextReset.version===previousReset.version&&!nextReset.required)))
       identity={...identity,password_reset:previousReset};
-    const scope = value => JSON.stringify([value?.user?.id, value?.account?.id, value?.membership, value?.permissions, value?.password_reset]);
+    const scope = value => JSON.stringify([value?.user?.id, value?.account?.id, value?.membership, value?.permissions, value?.capabilities, value?.password_reset]);
     if (state.identity && scope(state.identity) !== scope(identity)) api.clearReadCache?.();
     api.setReadScope?.(JSON.stringify([portal, scope(identity)]));
     state.identity = identity;
@@ -75,10 +79,11 @@ export function createSession(portal, api = createApiClient(), deviceProof = {})
     } finally { state.busy = false; }
   }
 
-  async function refresh() {
-    if (pendingCheck?.revision === revision) return pendingCheck.promise;
+  async function refresh({background=false}={}) {
+    if (pendingCheck?.revision === revision) { if(!background)state.accessConfirmed=false; return pendingCheck.promise; }
     const expectedRevision = revision;
-    state.accessConfirmed = false;
+    const backgroundCheck=background&&!!state.identity&&state.accessConfirmed;
+    if(!backgroundCheck)state.accessConfirmed = false;
     state.checking = true;
     const check = { revision: expectedRevision, promise: null };
     check.promise = (async () => {
@@ -109,7 +114,7 @@ export function createSession(portal, api = createApiClient(), deviceProof = {})
           return state.identity;
         }
         if ([401, 403].includes(error.status) || ['POS_LOGIN_DEVICE_MISMATCH','POS_LOGIN_PROOF_REQUIRED'].includes(error.code)) clear();
-        else {
+        else if(!(backgroundCheck&&state.identity&&state.accessConfirmed)) {
           // Keep the account caption during an outage, but no permission is
           // usable until a fresh server check confirms this identity again.
           api.clearReadCache?.();

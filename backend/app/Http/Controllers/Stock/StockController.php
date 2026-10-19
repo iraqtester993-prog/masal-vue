@@ -16,6 +16,7 @@ use App\Models\Stock\StockClaim;
 use App\Models\Stock\StockOrder;
 use App\Models\Stock\StockWithdrawal;
 use App\Services\CatalogAccess;
+use App\Services\Finance\FinanceServiceIdentity;
 use App\Services\Finance\Money;
 use App\Services\Stock\StockAccess;
 use App\Services\Stock\StockActions;
@@ -36,7 +37,7 @@ class StockController extends Controller
         abort_if(max($accounts->count(), $sources->count(), $products->count()) > 10000, 422, 'عدد خيارات الطلبية يتجاوز الحد؛ استخدم الفلاتر.');
         $permissions = $request->user()->membership->permissions();
         $prices = in_array('data.cost', $permissions, true) && count(array_intersect(['import.view', 'prices.view'], $permissions)) ? DB::table('finance_prices')->whereIn('account_id', $accounts->pluck('id'))->whereIn('product_id', $products->pluck('id'))->limit(10001)->get(['account_id', 'product_id', 'currency', 'price_minor', 'version']) : collect();
-        $providers = CatalogProvider::where('status', 'active')->orderBy('id')->limit(10001)->get(['id', 'name']);
+        $providers = CatalogProvider::where('status', 'active')->orderBy('id')->limit(10001)->get(['id', 'name'])->map(fn ($provider): array => array_replace($provider->toArray(), ['name' => app(FinanceServiceIdentity::class)->providerName($provider)]));
         abort_if(max($prices->count(), $providers->count()) > 10000, 422, 'عدد خيارات الطلبية يتجاوز الحد؛ استخدم الفلاتر.');
         $prices = $prices->map(fn ($row): array => ['account_id' => (int) $row->account_id, 'product_id' => (int) $row->product_id, 'currency' => $row->currency, 'price' => Money::decimal($row->price_minor), 'version' => (int) $row->version]);
 

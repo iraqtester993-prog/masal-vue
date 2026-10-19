@@ -36,13 +36,13 @@ $backendRelease = is_link($backendCurrent) ? readlink($backendCurrent) : false;
 $backendEntry = is_string($backendRelease) ? $backendRelease.'/public/index.php' : '';
 $backendValid = is_string($backendRelease)
     && preg_match('~\A/home/dananiriq/masal-backend/releases/[A-Za-z0-9][A-Za-z0-9._-]{0,95}\z~D', $backendRelease)
-    && !is_link($backendRelease)
+    && ! is_link($backendRelease)
     && realpath($backendRelease) === $backendRelease
-    && !is_link($backendEntry)
+    && ! is_link($backendEntry)
     && is_file($backendEntry)
     && realpath($backendEntry) === $backendEntry;
 
-if (!$backendValid) {
+if (! $backendValid) {
     http_response_code(503);
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store, private');

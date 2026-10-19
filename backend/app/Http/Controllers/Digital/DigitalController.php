@@ -13,16 +13,20 @@ use App\Models\Digital\DigitalConnection;
 use App\Models\Digital\DigitalOffer;
 use App\Models\Digital\DigitalOrder;
 use App\Models\Sales\Sale;
+use App\Services\AccountPrivacy;
 use App\Services\AuditLogger;
 use App\Services\Digital\DigitalAccess;
 use App\Services\Digital\DigitalConfiguration;
 use App\Services\Digital\DigitalOperations;
+use App\Services\Digital\DigitalReadiness;
 use App\Services\Digital\DigitalTotals;
+use App\Services\Digital\PosHistoryCursor;
 use App\Services\Digital\ProviderGateway;
 use App\Services\Digital\TopupAccounting;
 use App\Services\Digital\TopupCatalog;
 use App\Services\Digital\TopupDistribution;
 use App\Services\Digital\TopupWallets;
+use App\Services\Finance\FinanceServiceIdentity;
 use App\Services\Finance\Money;
 use App\Services\Operations\MutationGuard;
 use App\Support\RequestReadCache;
@@ -67,25 +71,26 @@ class DigitalController extends Controller
         $accounts = $this->access->accounts($actor)->when($request->boolean('compact'), fn ($query) => $query->whereKey($actor->membership->account_id))->get(['id', 'name', 'type', 'parent_id', 'status']);
         $productQuery = $this->access->catalog->products($actor)->where('status', 'active')->where('currency', 'IQD')->whereHas('provider', fn ($query) => $query->where('status', 'active'));
         if ($request->filled('main_account_id')) {
-            $this->access->owner($actor);
+            $this->access->system($actor, 'integrations.view');
             $main = $this->access->accounts($actor)->where('type', AccountType::MainAgent)->findOrFail($request->integer('main_account_id'));
             $productQuery->whereIn('catalog_products.id', $this->access->catalog->forAccount($main->id)->select('catalog_products.id'));
         }
         $products = $productQuery->orderBy('display_order')->get(['id', 'name', 'provider_id', 'currency', 'minimum_price']);
 
-        return $this->response(['accounts' => $accounts->map(fn ($a): array => ['id' => $a->id, 'name' => $a->name, 'type' => $a->type->value, 'parent_id' => $a->parent_id, 'status' => $a->status])->all(), 'products' => $products->toArray(), 'providers' => CatalogProvider::where('status', 'active')->get(['id', 'name', 'connection'])->toArray(), 'own_account_id' => $actor->membership->account_id, 'gateway' => $this->gateway->status(), 'gateways' => ['rabiaa' => $this->gateway->status(new DigitalConnection(['provider' => 'rabiaa']), false), 'topup' => $this->gateway->status(new DigitalConnection(['provider' => 'topup']), false)], 'financial_policy' => 'provider_only', 'provider_names' => ['rabiaa' => 'الرابعة', 'topup' => 'Topup']]);
+        return $this->response(['accounts' => $accounts->map(fn ($a): array => ['id' => $a->id, 'name' => app(AccountPrivacy::class)->accountName($a), 'type' => $a->type->value, 'parent_id' => $a->parent_id, 'status' => $a->status])->all(), 'products' => $products->toArray(), 'providers' => CatalogProvider::where('status', 'active')->get(['id', 'name', 'connection'])->map(fn ($provider): array => array_replace($provider->toArray(), ['name' => app(FinanceServiceIdentity::class)->providerName($provider)]))->toArray(), 'own_account_id' => $actor->membership->account_id, 'gateway' => $this->gateway->status(), 'gateways' => ['rabiaa' => $this->gateway->status(new DigitalConnection(['provider' => 'rabiaa']), false), 'topup' => $this->gateway->status(new DigitalConnection(['provider' => 'topup']), false)], 'financial_policy' => 'provider_only', 'provider_names' => ['rabiaa' => 'الرابعة', 'topup' => 'Topup']]);
     }
 
     public function connections(DigitalRequest $request): JsonResponse
     {
         $actor = $request->user();
         $this->access->require($actor, in_array('digital.view', $actor->membership->permissions(), true) ? 'digital.view' : 'integrations.view');
-        $query = $this->access->connections($actor)->with(['account', 'company', 'offers.product', 'grants.target']);
+        $query = $this->access->connections($actor)->with(['account', 'company', 'offers.product.provider', 'grants.target']);
         if ($request->filled('provider')) {
             $query->where('provider', $request->input('provider'));
         }
+        $main = null;
         if ($request->filled('main_account_id')) {
-            $this->access->accounts($actor)->where('type', AccountType::MainAgent)->findOrFail($request->integer('main_account_id'));
+            $main = $this->access->accounts($actor)->where('type', AccountType::MainAgent)->findOrFail($request->integer('main_account_id'));
             $query->where(fn ($q) => $q->where('account_id', $request->integer('main_account_id'))->orWhereIn('id', DB::table('topup_grants')->where('target_account_id', $request->integer('main_account_id'))->select('connection_id')));
         }
         $perPage = $request->integer('per_page', 25);
@@ -93,6 +98,11 @@ class DigitalController extends Controller
         if ($actor->membership->account->type === AccountType::System) {
             $balances = (clone $query)->where('provider', 'topup')->toBase()->selectRaw('COUNT(*) AS total, COUNT(company_balance_minor) AS known, SUM(company_balance_minor) AS amount, MIN(balance_updated_at) AS oldest_balance')->first();
             $balance = ['updated_at' => $balances->oldest_balance ? CarbonImmutable::parse($balances->oldest_balance)->toISOString() : null, 'total' => (int) $balances->total, 'known' => (int) $balances->known, 'amount' => $balances->total && $balances->total === $balances->known ? $this->aggregate($balances->amount) : null];
+            if ($main && $request->input('provider') !== 'rabiaa' && ($grant = app(TopupAccounting::class)->grant($main)) && (clone $query)->whereKey($grant->connection_id)->exists()) {
+                $wallets = app(TopupWallets::class);
+                $known = $wallets->initialized($grant);
+                $balance = ['scope' => 'account_available', 'account_id' => $main->id, 'as_of' => now()->toISOString(), 'updated_at' => null, 'total' => 1, 'known' => $known ? 1 : 0, 'amount' => $known ? Money::decimal($wallets->balance($main)['available']) : null];
+            }
             $rows = $query->orderBy('id')->paginate($perPage);
         } else {
             // Only the two provider connections at this account's main ancestor can exist.
@@ -102,14 +112,17 @@ class DigitalController extends Controller
                 $balances = $visible->where('provider', 'topup');
                 $known = $balances->filter(fn ($row): bool => $row->company_balance_minor !== null);
                 $balance = ['updated_at' => $known->min('balance_updated_at')?->toISOString(), 'total' => $balances->count(), 'known' => $known->count(), 'amount' => $balances->isNotEmpty() && $balances->count() === $known->count() ? $this->aggregate($known->sum('company_balance_minor')) : null];
-                if ($grant = app(TopupAccounting::class)->grant($actor->membership->account)) {
-                    $wallet = app(TopupWallets::class)->balance($actor->membership->account);
-                    $balance = ['updated_at' => $balance['updated_at'], 'total' => 1, 'known' => 1, 'amount' => Money::decimal($wallet['available'])];
+                if ($request->input('provider') !== 'rabiaa' && ($grant = app(TopupAccounting::class)->grant($actor->membership->account))) {
+                    $wallets = app(TopupWallets::class);
+                    $known = $wallets->initialized($grant);
+                    $balance = ['scope' => 'account_available', 'account_id' => $actor->membership->account_id, 'as_of' => now()->toISOString(), 'updated_at' => null, 'total' => 1, 'known' => $known ? 1 : 0, 'amount' => $known ? Money::decimal($wallets->balance($actor->membership->account)['available']) : null];
                 }
             } elseif ($actor->membership->account->type !== AccountType::Pos) {
                 $balance = ['updated_at' => null, 'total' => 0, 'known' => 0, 'amount' => null];
             }
         }
+        app(DigitalReadiness::class)->prime($rows->getCollection()->filter(fn ($connection): bool => $actor->membership->account->type === AccountType::System || $connection->account_id === $actor->membership->account_id));
+        app(TopupAccounting::class)->primeFree($rows->getCollection());
         $data = $rows->getCollection()->map(fn ($c): array => $this->configuration->dto($c, $actor))->values()->all();
 
         return response()->json(['data' => $data, 'meta' => ['current_page' => $rows->currentPage(), 'last_page' => $rows->lastPage(), 'total' => $rows->total()], ...($balance ? ['balance' => $balance] : [])], 200, ['Cache-Control' => 'private, no-store']);
@@ -123,7 +136,7 @@ class DigitalController extends Controller
         $productIds = $this->access->catalog->products($actor)->pluck('catalog_products.id')->all();
         $ancestors = DB::table('account_closure')->where('descendant_id', $own->id)->select('ancestor_id');
         $data = $this->access->connections($actor)->with(['account', 'company', 'offers.product.provider', 'grants' => fn ($query) => $query->whereIn('target_account_id', $ancestors)])->get()->flatMap(function ($connection) use ($actor, $own, $productIds): array {
-            return $this->access->offers($connection, $own)->filter(fn ($offer): bool => $offer->topup_category_id !== null || in_array($offer->product_id, $productIds, true))->map(fn ($offer): array => $this->configuration->offerDto($offer, $actor) + ['connection_id' => $connection->id, 'provider' => $connection->provider, 'provider_id' => $connection->provider_id, 'company_name' => $connection->company?->name ?? ($connection->provider === 'rabiaa' ? 'الرابعة' : 'Topup'), 'main_account_name' => $connection->account->name, 'bein_provinces' => $connection->bein_provinces ?? [], 'gateway' => $this->gateway->status($connection)])->values()->all();
+            return $this->access->offers($connection, $own)->filter(fn ($offer): bool => $offer->topup_category_id !== null || in_array($offer->product_id, $productIds, true))->map(fn ($offer): array => $this->configuration->offerDto($offer, $actor) + ['connection_id' => $connection->id, 'provider' => $connection->provider, 'provider_id' => $connection->provider_id, 'company_name' => $connection->provider === 'topup' ? 'Topup' : ($connection->company?->name ?? 'الرابعة'), 'main_account_name' => app(AccountPrivacy::class)->accountName($connection->account), 'bein_provinces' => $connection->bein_provinces ?? [], 'gateway' => $this->gateway->status($connection)])->values()->all();
         })->values()->all();
 
         return $this->response($data);
@@ -159,7 +172,7 @@ class DigitalController extends Controller
         if ($request->filled('q')) {
             $term = '%'.$request->input('q').'%';
             $query->where(function ($q) use ($term): void {
-                $q->where('request_id', 'like', $term)->orWhere('company_transaction_id', 'like', $term)->orWhere('mobile', 'like', $term)->orWhereHas('creator', fn ($user) => $user->where('name', 'like', $term))->orWhereHas('product', fn ($product) => $product->where('name', 'like', $term))->orWhereHas('account', fn ($account) => $account->where('name', 'like', $term));
+                $q->where('request_id', 'like', $term)->orWhere('company_transaction_id', 'like', $term)->orWhere('mobile', 'like', $term)->orWhereHas('creator', fn ($user) => app(AccountPrivacy::class)->excludeOwner($user, 'users.id')->where('name', 'like', $term))->orWhereHas('product', fn ($product) => $product->where('name', 'like', $term))->orWhereHas('account', fn ($account) => $account->whereIn('id', DB::query()->fromSub(app(AccountPrivacy::class)->accounts(), 'public_account')->where('name', 'like', $term)->select('id')));
             });
         }
 
@@ -240,21 +253,22 @@ class DigitalController extends Controller
     {
         $this->access->require($request->user(), 'digital.export');
         $query = $this->query($request);
-        $prices = $request->user()->membership->account->type !== AccountType::Pos;
-        $costs = $prices && in_array('data.cost', $request->user()->membership->permissions(), true);
+        $prices = $request->user()->membership->account->type !== AccountType::Pos && in_array('data.cost', $request->user()->membership->permissions(), true);
+        $costs = $prices;
+        $profits = $prices && in_array('data.profit', $request->user()->membership->permissions(), true);
         $this->audit->record('digital.export', $request, $request->user(), $request->user()->membership->account_id, ['filters' => $request->validated()]);
 
-        return response()->streamDownload(function () use ($query, $costs, $prices): void {
+        return response()->streamDownload(function () use ($query, $costs, $prices, $profits): void {
             $file = fopen('php://output', 'w');
             fwrite($file, "\xEF\xBB\xBF");
             $write = function (array $row) use ($file): void {
                 $row = array_map(fn ($value): string => preg_match('/^[=+@\-]/u', (string) $value) ? "'".$value : (string) ($value ?? ''), $row);
                 fputcsv($file, $row, ',', '"', '');
             };
-            $write(['العملية', 'الخدمة', 'الوكيل', 'النقطة', 'الموظف', 'الفئة', 'رقم الزبون', 'التاريخ', 'الحالة', ...($costs ? ['الكلفة', 'مصدر الكلفة'] : []), ...($prices ? ['سعر المدير', 'زيادة الوكيل'] : []), 'مبلغ البيع', 'مرجع الشركة']);
-            $query->orderBy('id')->chunkById(200, function ($rows) use ($write, $costs, $prices): void {
+            $write(['العملية', 'الخدمة', 'الوكيل', 'النقطة', 'الموظف', 'الفئة', 'رقم الزبون', 'التاريخ', 'الحالة', ...($costs ? ['الكلفة', 'مصدر الكلفة'] : []), ...($prices ? ['سعر المدير'] : []), ...($profits ? ['زيادة الوكيل'] : []), 'مبلغ البيع', 'مرجع الشركة']);
+            $query->orderBy('id')->chunkById(200, function ($rows) use ($write, $costs, $prices, $profits): void {
                 foreach ($rows as $row) {
-                    $write([$row->request_id, $row->provider === 'topup' ? 'Topup' : 'الرابعة', $row->mainAccount->name, $row->account->name, $row->creator->name, $row->product->name, $row->mobile, $row->created_at->toISOString(), $row->status, ...($costs ? [$row->actual_cost_minor === null ? '' : Money::decimal($row->actual_cost_minor), $row->cost_basis === 'catalog_snapshot' ? ($row->manual_category_name ? 'سعر الفئة اليدوي · تقديري' : 'قائمة الشركة وقت الطلب') : ($row->cost_basis === 'provider_response' ? 'رد الشركة' : '')] : []), ...($prices ? [$row->admin_price_minor === null ? '' : Money::decimal((int) $row->admin_price_minor), $row->admin_price_minor === null ? '' : Money::decimal($row->quoted_retail_minor - (int) $row->admin_price_minor)] : []), Money::decimal($row->actual_retail_minor ?? $row->quoted_retail_minor), $row->company_transaction_id]);
+                    $write([$row->request_id, $row->provider === 'topup' ? 'Topup' : 'الرابعة', app(AccountPrivacy::class)->accountName($row->mainAccount), app(AccountPrivacy::class)->accountName($row->account), app(AccountPrivacy::class)->userName($row->creator), $row->product->name, $row->mobile, $row->created_at->toISOString(), $row->status, ...($costs ? [$row->actual_cost_minor === null ? '' : Money::decimal($row->actual_cost_minor), $row->cost_basis === 'catalog_snapshot' ? ($row->manual_category_name ? 'سعر الفئة اليدوي · تقديري' : 'قائمة الشركة وقت الطلب') : ($row->cost_basis === 'provider_response' ? 'رد الشركة' : '')] : []), ...($prices ? [$row->admin_price_minor === null ? '' : Money::decimal((int) $row->admin_price_minor)] : []), ...($profits ? [$row->admin_price_minor === null ? '' : Money::decimal($row->quoted_retail_minor - (int) $row->admin_price_minor)] : []), Money::decimal($row->actual_retail_minor ?? $row->quoted_retail_minor), $row->company_transaction_id]);
                 }
             });
             fclose($file);
@@ -269,6 +283,14 @@ class DigitalController extends Controller
     public function updateConnection(DigitalRequest $request, int $id): JsonResponse
     {
         return $this->response($this->configuration->save($request->user(), $id, $request->validated(), $request));
+    }
+
+    public function credential(Request $request, int $id): JsonResponse
+    {
+        abort_if(array_diff(array_keys($request->except('_token')), ['version', 'credential', 'reason']), 422);
+        $data = $request->validate(['version' => ['required', 'integer', 'min:1'], 'credential' => ['required', 'string', 'min:8', 'max:8000'], 'reason' => ['required', 'string', 'min:3', 'max:500']]);
+
+        return $this->response($this->configuration->credential($request->user(), $id, $data, $request));
     }
 
     public function catalog(DigitalRequest $request, int $id): JsonResponse
@@ -360,10 +382,12 @@ class DigitalController extends Controller
     public function history(DigitalHistoryRequest $request): JsonResponse
     {
         $actor = $request->user();
-        $this->access->authority->require($actor, 'account.view');
         $own = $this->access->accounts($actor)->findOrFail($actor->membership->account_id);
         abort_unless($own->type === AccountType::Pos, 403);
         $permissions = $actor->membership->permissions();
+        $cursorMode = $request->input('pagination') === 'cursor';
+        $perPage = $request->integer('per_page', $cursorMode ? 10 : 25);
+        $cursor = $cursorMode ? app(PosHistoryCursor::class)->decode($request, $own->id) : null;
         $queries = [];
         foreach (['stock' => 'sales.view', 'digital' => 'digital.view'] as $kind => $permission) {
             if (! in_array($permission, $permissions, true) || $kind === 'stock' && $request->input('kind') === 'topup') {
@@ -372,6 +396,10 @@ class DigitalController extends Controller
             $table = $kind === 'stock' ? 'sales' : 'digital_orders';
             $time = $kind === 'stock' ? 'COALESCE(sales.issued_at,sales.created_at)' : 'digital_orders.created_at';
             $query = DB::table($table)->where($table.'.account_id', $own->id)->selectRaw($table.".id AS operation_id, {$time} AS occurred_at, '{$kind}' AS operation_type");
+            if ($cursor) {
+                $operator = strcmp($kind, $cursor['type']) > 0 ? '<=' : '<';
+                $query->where(fn ($after) => $after->whereRaw($time.' < ?', [$cursor['time']])->orWhere(fn ($tie) => $tie->whereRaw($time.' = ?', [$cursor['time']])->where($table.'.id', $operator, $cursor['id'])));
+            }
             if ($kind === 'digital' && in_array($request->input('kind'), ['topup', 'card'], true)) {
                 $query->where('provider', $request->input('kind') === 'topup' ? 'topup' : 'rabiaa');
             }
@@ -382,7 +410,7 @@ class DigitalController extends Controller
                 $query->whereRaw($time.' < ?', [CarbonImmutable::parse($request->input('to'), 'Asia/Baghdad')->startOfDay()->addDay()->utc()]);
             }
             if ($request->filled('q')) {
-                $query->join('catalog_products as product', 'product.id', '=', $table.'.product_id')->join('users as creator', 'creator.id', '=', $table.'.creator_id');
+                $query->join('catalog_products as product', 'product.id', '=', $table.'.product_id')->leftJoinSub(app(AccountPrivacy::class)->users(), 'creator', 'creator.id', '=', $table.'.creator_id');
                 $term = '%'.$request->input('q').'%';
                 $query->where(function ($q) use ($term, $table, $kind): void {
                     $q->where($table.'.id', 'like', $term)->orWhere('product.name', 'like', $term)->orWhere('creator.name', 'like', $term);
@@ -391,19 +419,28 @@ class DigitalController extends Controller
                     }
                 });
             }
-            $queries[] = $query;
+            $queries[] = $cursorMode ? DB::query()->fromSub($query->orderByDesc('occurred_at')->orderByDesc('operation_id')->limit($perPage + 1), 'cursor_'.$kind) : $query;
         }
         abort_unless($queries, 403);
         $union = array_shift($queries);
         foreach ($queries as $query) {
             $union->unionAll($query);
         }
-        $page = DB::query()->fromSub($union, 'history')->orderByDesc('occurred_at')->orderByDesc('operation_id')->orderBy('operation_type')->paginate($request->integer('per_page', 25));
-        $rows = $page->getCollection();
+        $history = DB::query()->fromSub($union, 'history')->orderByDesc('occurred_at')->orderByDesc('operation_id')->orderBy('operation_type');
+        if ($cursorMode) {
+            $batch = $history->limit($perPage + 1)->get();
+            $more = $batch->count() > $perPage;
+            $rows = $batch->take($perPage);
+            $meta = ['pagination' => 'cursor', 'per_page' => $perPage, 'has_more' => $more, 'next_cursor' => $more ? app(PosHistoryCursor::class)->encode($request, $own->id, $rows->last()) : null];
+        } else {
+            $page = $history->paginate($perPage);
+            $rows = $page->getCollection();
+            $meta = ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'total' => $page->total()];
+        }
         $stock = Sale::whereIn('id', $rows->where('operation_type', 'stock')->pluck('operation_id'))->with(['account', 'mainAccount', 'creator', 'product', 'provider'])->get()->keyBy('id');
         $digital = DigitalOrder::whereIn('id', $rows->where('operation_type', 'digital')->pluck('operation_id'))->with(['account', 'mainAccount', 'creator', 'product'])->get()->keyBy('id');
         $data = $rows->map(fn ($row): array => ['kind' => $row->operation_type, 'record' => $row->operation_type === 'stock' ? (new SaleResource($stock[$row->operation_id]))->resolve($request) : (new DigitalResource($digital[$row->operation_id]))->resolve($request)])->all();
 
-        return response()->json(['data' => $data, 'meta' => ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'total' => $page->total()]], 200, ['Cache-Control' => 'private, no-store']);
+        return response()->json(['data' => $data, 'meta' => $meta], 200, ['Cache-Control' => 'private, no-store']);
     }
 }

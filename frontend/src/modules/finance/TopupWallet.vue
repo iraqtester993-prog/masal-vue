@@ -9,29 +9,37 @@ import DigitalLog from '../digital/DigitalLog.vue';
 import DigitalCategoryDetails from '../digital/DigitalCategoryDetails.vue';
 import DigitalReceipt from '../digital/DigitalReceipt.vue';
 import '../digital/digital.css';
+import {topupCatalogRoute,topupHistoryRoute} from '../digital/pos-topup-context.js';
 const finance=inject(financeKey),vm=useDigitalRuntime(),details=ref(null),log=ref(null);
 const uiLabel=usePreferencesTranslator();
+const pos=computed(()=>finance.identity.value?.account.type==='pos');
 const metrics=computed(()=>topupWalletMetrics(finance.options.wallet_summary,finance.options.topup_summary,{own:!finance.admin.value&&finance.ownVisible?.value!==false&&!finance.filtersActive?.value,group:['system','main_agent'].includes(finance.identity.value?.account.type),costs:finance.can('data.cost'),profits:finance.can('data.profit')&&finance.can('data.cost')}));
 let reader,revision=0;
+let connectionPage=1;
+function hydrate(page){const cached=vm.api.peekConnections?.({provider:'topup',page,per_page:25});if(cached){vm.state.connections=cached.data;vm.state.connectionsMeta=cached.meta;}return cached;}
+// This surface has a narrower provider query than the generic digital page.
+vm.state.connections=[];vm.state.connectionsMeta={current_page:1,last_page:1,total:0};hydrate(1);
 async function load(page=vm.state.connectionsMeta.current_page){
- if(!vm.can('digital.view'))return;
- reader?.abort();reader=new AbortController();const expected=++revision;vm.state.loading=true;vm.state.error='';
- try{const result=await vm.api.connections({provider:'topup',page,per_page:25},reader.signal);if(expected!==revision)return;vm.state.connections=result.data;vm.state.connectionsMeta=result.meta;vm.state.options.accounts=finance.options.accounts;vm.state.options.products=[...new Map(result.data.flatMap(row=>row.offers||[]).map(row=>[row.product_id,{id:row.product_id,name:row.name}])).values()];}
+ if(!vm.can('digital.view')||pos.value)return;
+ reader?.abort();reader=new AbortController();const expected=++revision,cached=hydrate(page);if(!cached&&page!==connectionPage){vm.state.connections=[];vm.state.connectionsMeta={current_page:page,last_page:page,total:0};}connectionPage=page;vm.state.loading=!cached;vm.state.error='';
+ try{const result=await vm.api.connections({provider:'topup',page,per_page:25},reader.signal,{fresh:true});if(expected!==revision)return;vm.state.connections=result.data;vm.state.connectionsMeta=result.meta;vm.state.options.accounts=finance.options.accounts;vm.state.options.products=[...new Map(result.data.flatMap(row=>row.offers||[]).map(row=>[row.product_id,{id:row.product_id,name:row.name}])).values()];}
  catch(error){if(error.name!=='AbortError'&&expected===revision)vm.state.error=await vm.failure(error);}
  finally{if(expected===revision)vm.state.loading=false;}
 }
 onBeforeUnmount(()=>{revision++;reader?.abort();});
 vm.load=load;
+const unregisterRefresh=finance.registerRefresh?.(()=>Promise.all([load(),log.value?.refresh?.()]));onBeforeUnmount(()=>unregisterRefresh?.());
 onMounted(load);
 </script>
 <template>
  <section class="topup-wallet">
   <p v-if="vm.state.error" class="notice warn" role="alert">{{vm.state.error}}</p>
+  <div v-if="pos&&vm.can('digital.view')" class="pos-topup-actions"><RouterLink class="btn" :to="topupCatalogRoute({type:'topup'})">تعبئة رصيد</RouterLink><RouterLink class="btn" :to="topupCatalogRoute({type:'bundle'})">باقات</RouterLink><RouterLink class="btn" :to="topupHistoryRoute()">سجل Topup</RouterLink></div>
   <section v-if="finance.can('wallets.view')" class="card topup-funded-balances">
    <h3>رصيد Topup الممول</h3>
    <dl class="topup-wallet-metrics"><div v-for="metric in metrics" :key="metric.id" :data-topup-metric="metric.id"><dt>{{uiLabel(metric.label)}}</dt><dd>{{money(metric.value)}} <small v-if="metric.value!=null">د.ع</small></dd></div></dl>
   </section>
-  <section v-if="vm.can('digital.view')" class="card topup-wallet-balances" :aria-busy="vm.state.loading">
+  <section v-if="!pos&&vm.can('digital.view')" class="card topup-wallet-balances" :aria-busy="vm.state.loading">
    <h3>فئات Topup الممنوحة</h3>
    <p v-if="vm.state.loading" class="caption" role="status">جارٍ تحميل الأرصدة…</p>
    <article v-for="row in vm.state.connections" :key="row.id" class="topup-wallet-account">
@@ -46,8 +54,8 @@ onMounted(load);
    <p v-if="!vm.state.loading&&!vm.state.connections.length" class="empty">لا يوجد ربط Topup متاح ضمن نطاقك.</p>
    <FinancePagination :meta="vm.state.connectionsMeta" :busy="vm.state.loading" @page="load"/>
   </section>
-  <DigitalCategoryDetails v-if="details" :connection="details" @close="details=null"/>
-  <DigitalLog v-if="vm.can('digital.view')" ref="log" wallet-filters class="topup-wallet-log" :vm="vm" :route-filters="{provider:'topup',main_account_id:finance.filters.network,account_id:finance.filters.account,from:finance.filters.from,to:finance.filters.to,q:finance.filters.reference}"/>
+  <DigitalCategoryDetails v-if="details" :compact="pos" :connection="details" @close="details=null"/>
+  <DigitalLog v-if="vm.can('digital.view')&&!pos" ref="log" wallet-filters class="topup-wallet-log" :vm="vm" :route-filters="{provider:'topup',main_account_id:finance.filters.network,account_id:finance.filters.account,from:finance.filters.from,to:finance.filters.to,q:finance.filters.reference}"/>
   <DigitalReceipt v-if="vm.receipt.value" :vm="vm" :receipt="vm.receipt.value" @close="vm.clearReceipt"/>
  </section>
 </template>

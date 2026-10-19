@@ -29,5 +29,5 @@ export function moveCompanyItem(items,index,offset) {
 export function companyTime(time) {
   if (!time) return '—';
   const date = new Date(time);
-  return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('ar-IQ',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Baghdad'}).format(date);
+  return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('ar-IQ', {numberingSystem:'latn',dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Baghdad'}).format(date);
 }

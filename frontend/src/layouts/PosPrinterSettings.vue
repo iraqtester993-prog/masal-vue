@@ -1,19 +1,28 @@
 <script setup>
+import AppSelect from '../shared/components/AppSelect.vue';
 import {computed,onBeforeUnmount,onMounted,ref} from 'vue';
 import {usePortal} from '../modules/auth/session.js';
 import CatalogModal from '../modules/catalog/CatalogModal.vue';
 import {nativeRequest,getNativePrinterCapabilities,openNativePrinterTest,selectPrinterChoice,scanNativePrinters,pairNativePrinter} from '../shared/native-print.js';
-import {enabledPrinters,printerChoices,mergePrinterDevices} from '../shared/printer-registry.js';
+import {enabledPrinters,printerChoices,mergePrinterDevices,directPrinterDefinitions,resolveDirectPrinterChoice} from '../shared/printer-registry.js';
 import './pos-about.css';
 
 const emit=defineEmits(['close']);
-const {session}=usePortal(),printers=ref([]),devices=ref([]),capability=ref(null),busy=ref(false),error=ref(''),notice=ref(''),selected=ref(''),deviceNotice=ref(''),discovering=ref(false),pairingAddress=ref('');
+const {session}=usePortal(),printers=ref([]),devices=ref([]),capability=ref(null),busy=ref(false),error=ref(''),notice=ref(''),selected=ref(''),selectedAddress=ref(''),deviceNotice=ref(''),discovering=ref(false),pairingAddress=ref('');
 let alive=true,controller;
 const choices=computed(()=>printerChoices(capability.value||{},devices.value,printers.value));
-const directChoices=computed(()=>choices.value.filter(row=>row.route==='direct'));
+const directChoices=computed(()=>directPrinterDefinitions(choices.value,printers.value));
 const browserChoices=computed(()=>choices.value.filter(row=>row.route==='browser'));
 const directSelection=computed(()=>directChoices.value.some(row=>row.key===selected.value)?selected.value:'');
 const browserSelection=computed(()=>browserChoices.value.some(row=>row.key===selected.value)?selected.value:'');
+const selectionBinding=computed(()=>{
+ const definition=directChoices.value.find(row=>row.key===selected.value);
+ if(definition)return resolveDirectPrinterChoice(definition,selectedAddress.value);
+ const choice=browserChoices.value.find(row=>row.key===selected.value&&!row.unavailable)||null;
+ return {choice,status:choice?'ready':'unavailable',ambiguous:false};
+});
+const selectedDeviceAddress=computed(()=>selectionBinding.value.choice?.address||selectedAddress.value);
+const selectionHelp=computed(()=>selectionBinding.value.status==='ambiguous'?'توجد أكثر من طابعة مقترنة لهذا التعريف. اختر الجهاز من أجهزة البلوتوث ثم احفظ الاختيار.':selectionBinding.value.status==='stale'?'الجهاز المختار لم يعد متاحًا. اختر الطابعة من أجهزة البلوتوث من جديد.':'');
 const discoverySupported=computed(()=>capability.value?.bluetoothDiscoveryVersion===1);
 const radioBusy=computed(()=>discovering.value||!!pairingAddress.value);
 async function perform(work){
@@ -34,16 +43,30 @@ async function readDevices(){
  }catch(e){if(alive)deviceNotice.value=e.message;}
 }
 function restoreSelection(){
+ selectedAddress.value='';
  if(capability.value?.printRoute==='browser')selected.value='browser';
- else if(capability.value?.printerMode!=='bluetooth'&&choices.value.some(row=>row.kind==='internal'))selected.value='internal';
- else{const matches=choices.value.filter(row=>row.kind==='bluetooth'&&row.name===capability.value?.printerName);selected.value=matches.length===1?matches[0].key:'';}
+ else if(capability.value?.printerMode!=='bluetooth'&&directChoices.value.some(row=>row.kind==='internal'))selected.value='internal';
+ else{
+  const matches=choices.value.filter(row=>row.kind==='bluetooth'&&row.route==='direct'&&!row.unavailable&&row.name===capability.value?.printerName);
+  const definitions=directChoices.value.filter(row=>row.deviceChoices.some(choice=>matches.some(match=>match.key===choice.key)));
+  selected.value=definitions.length===1?definitions[0].key:'';
+  if(definitions.length===1&&matches.length===1)selectedAddress.value=matches[0].address;
+ }
 }
+function selectChoice(key){if(selected.value!==key)selectedAddress.value='';selected.value=key;error.value='';notice.value='';}
 async function initialize(){await readCapability();try{await readRegistry();await readCapability();}catch(e){if(alive)error.value=e.message;}await readDevices();if(alive)restoreSelection();}
 function refresh(){if(document.visibilityState==='visible'&&!radioBusy.value)perform(initialize);}
 async function save(){
  await perform(async()=>{
-  const choice=choices.value.find(row=>row.key===selected.value);if(!choice||choice.unavailable)throw Error('اختر طابعة مقترنة ومتاحة أولًا.');
-  if(choice.kind!=='browser'){await readRegistry();await readCapability();const current=choices.value.find(row=>row.key===choice.key);if(!current||current.unavailable)throw Error('هذه الطابعة لم تعد متاحة.');notice.value=await selectPrinterChoice(current);}
+  const choice=selectionBinding.value.choice,expectedSelection=selected.value;if(!choice)throw Error(selectionHelp.value||'اختر طابعة مقترنة ومتاحة أولًا.');
+  if(choice.kind!=='browser'){
+   await readRegistry();await readCapability();if(!alive)return;
+   const definition=directChoices.value.find(row=>row.key===expectedSelection);
+   const current=choice.route==='direct'?(definition?resolveDirectPrinterChoice(definition,choice.address||'').choice:null):browserChoices.value.find(row=>row.key===choice.key&&!row.unavailable);
+   if(selected.value!==expectedSelection||!current||current.key!==choice.key||current.route!==choice.route)throw Error('هذه الطابعة لم تعد متاحة.');
+   notice.value=await selectPrinterChoice(current);
+   selectedAddress.value=current.route==='direct'&&current.kind==='bluetooth'?current.address:'';
+  }
   else notice.value=await selectPrinterChoice(choice);
   await readCapability();window.dispatchEvent(new Event('dananeer:printer-change'));
  });
@@ -65,7 +88,7 @@ async function pair(device){
  try{await perform(async()=>{const result=await pairNativePrinter(device.address,{signal:controller.signal,onProgress:discoveryProgress});discoveryProgress(result);await readDevices();if(alive)notice.value=result.message;});}
  finally{if(alive)pairingAddress.value='';controller=null;}
 }
-function selectDevice(device){if(busy.value||!device.bonded)return;const choice=choices.value.find(row=>row.address===device.address);if(choice&&!choice.unavailable){selected.value=choice.key;notice.value=choice.route==='direct'?'تم اختيار الطابعة؛ اضغط حفظ الاختيار.':'هذا الجهاز يستخدم نافذة طباعة النظام؛ اضغط حفظ الاختيار.';error.value='';}}
+function selectDevice(device){if(busy.value||!device.bonded)return;const choice=choices.value.find(row=>row.address===device.address);if(choice&&!choice.unavailable){if(choice.route==='direct'){const definition=directChoices.value.find(row=>row.deviceChoices.some(candidate=>candidate.key===choice.key));if(!definition)return;selected.value=definition.key;selectedAddress.value=choice.address;}else{selected.value=choice.key;selectedAddress.value='';}notice.value=choice.route==='direct'?'تم اختيار الطابعة؛ اضغط حفظ الاختيار.':'هذا الجهاز يستخدم نافذة طباعة النظام؛ اضغط حفظ الاختيار.';error.value='';}}
 function cancelDiscovery(){controller?.abort();}
 function close(){cancelDiscovery();emit('close');}
 async function testPrinter(){await perform(async()=>{await readCapability();if(capability.value.printRoute!=='browser'){await readRegistry();await readCapability();}if(capability.value.printRoute==='browser'){await nativeRequest({action:'browserPrint',jobId:'digital-printer-test-'+crypto.randomUUID(),blocks:[{text:'دنانير — اختبار الطابعة'},{text:'اختبار فقط — لا توجد عملية بيع أو خصم'},{text:'نهاية الاختبار — END'}]});notice.value='فُتحت نافذة الطباعة؛ اختر الطابعة وتحقق من الورقة.';}else await openNativePrinterTest();});}
@@ -84,13 +107,14 @@ onBeforeUnmount(()=>{alive=false;cancelDiscovery();document.removeEventListener(
    </div>
    <section class="pos-printer-section">
     <h3>الطباعة المباشرة</h3>
-    <label class="pos-printer-picker"><span class="pos-printer-sr">اسم الطابعة</span><select :value="directSelection" :disabled="busy" aria-label="طابعات الطباعة المباشرة" @change="selected=$event.target.value"><option value="" disabled>اختر الطابعة</option><option v-for="row in directChoices" :key="row.key" :value="row.key" :disabled="row.unavailable">{{row.registryName||row.name}}</option></select></label>
+    <label class="pos-printer-picker"><span class="pos-printer-sr">اسم الطابعة</span><AppSelect :value="directSelection" :disabled="busy" aria-label="طابعات الطباعة المباشرة" @change="selectChoice($event.target.value)"><option value="" disabled>اختر الطابعة</option><option v-for="row in directChoices" :key="row.key" :value="row.key" :disabled="row.unavailable">{{row.name}}</option></AppSelect></label>
+    <p v-if="selectionHelp" class="help" role="status">{{selectionHelp}}</p>
    </section>
    <section class="pos-printer-section">
     <h3>طباعة المتصفح والنظام</h3>
-    <label class="pos-printer-picker"><span class="pos-printer-sr">اسم الطابعة</span><select :value="browserSelection" :disabled="busy" aria-label="طابعات المتصفح والنظام" @change="selected=$event.target.value"><option value="" disabled>اختر الطباعة بالمتصفح</option><option v-for="row in browserChoices" :key="row.key" :value="row.key" :disabled="row.unavailable">{{row.name}}</option></select></label>
+    <label class="pos-printer-picker"><span class="pos-printer-sr">اسم الطابعة</span><AppSelect :value="browserSelection" :disabled="busy" aria-label="طابعات المتصفح والنظام" @change="selectChoice($event.target.value)"><option value="" disabled>اختر الطباعة بالمتصفح</option><option v-for="row in browserChoices" :key="row.key" :value="row.key" :disabled="row.unavailable">{{row.name}}</option></AppSelect></label>
    </section>
-   <div class="pos-printer-simple-actions"><button type="button" class="btn primary" :disabled="busy||!selected||choices.find(row=>row.key===selected)?.unavailable" @click="save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>حفظ الاختيار</button><button type="button" class="btn" :disabled="busy||!capability" @click="testPrinter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M6 8V3h12v5M6 17H3V9h18v8h-3M6 14h12v7H6Z"/></svg>اختبار الطابعة</button></div>
+   <div class="pos-printer-simple-actions"><button type="button" class="btn primary" :disabled="busy||!selectionBinding.choice" @click="save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>حفظ الاختيار</button><button type="button" class="btn" :disabled="busy||!capability" @click="testPrinter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M6 8V3h12v5M6 17H3V9h18v8h-3M6 14h12v7H6Z"/></svg>اختبار الطابعة</button></div>
    <section class="pos-printer-section pos-printer-bluetooth">
     <div class="pos-printer-section-heading"><h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m7 7 10 10-5 4V3l5 4L7 17"/></svg>أجهزة البلوتوث</h3><button v-if="radioBusy" type="button" class="btn small" @click="cancelDiscovery">إيقاف</button><button v-else type="button" class="btn pos-printer-search" :disabled="busy||!discoverySupported" @click="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10" cy="10" r="6"/><path d="m15 15 5 5"/></svg>{{discovering?'جارٍ البحث…':'تشغيل البلوتوث والبحث'}}</button></div>
     <p v-if="capability&&!discoverySupported" class="notice warn" role="status">البحث والإقران داخل التطبيق يحتاجان تحديث تطبيق دنانير إلى 1.4.2 أو أحدث. تبقى الأجهزة المقترنة والطباعة بالمتصفح متاحة.</p>
@@ -100,7 +124,7 @@ onBeforeUnmount(()=>{alive=false;cancelDiscovery();document.removeEventListener(
       <span class="pos-printer-device-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 8V3h12v5M6 17H3V9h18v8h-3M6 14h12v7H6Z"/></svg></span>
       <div><strong dir="auto">{{device.name}}</strong><small :title="device.address"><i v-if="device.bonded" aria-hidden="true"></i>{{device.bonded?'مقترن':device.bonding?'بانتظار الإقران':'غير مقترن'}} · {{choices.find(row=>row.address===device.address)?.route==='direct'?'طباعة مباشرة':'طباعة النظام'}}</small></div>
       <button v-if="!device.bonded" type="button" class="btn small" :disabled="busy||!discoverySupported" :aria-label="'إقران '+device.name" @click="pair(device)">{{pairingAddress===device.address?'جارٍ الإقران…':'إقران'}}</button>
-      <button v-else type="button" class="btn small" :class="{primary:selected==='bluetooth:'+device.address}" :disabled="busy" :aria-label="'اختيار '+device.name" @click="selectDevice(device)">اختيار</button>
+      <button v-else type="button" class="btn small" :class="{primary:selectedDeviceAddress===device.address}" :disabled="busy" :aria-label="'اختيار '+device.name" @click="selectDevice(device)">اختيار</button>
      </li>
     </ul>
    </section>
@@ -127,7 +151,6 @@ onBeforeUnmount(()=>{alive=false;cancelDiscovery();document.removeEventListener(
 .pos-printer-section-heading h3{display:flex;align-items:center;gap:7px;margin:0}
 .pos-printer-section-heading h3 svg{width:19px;height:19px;color:var(--info-accent);flex:none}
 .pos-printer-picker{display:block;position:relative;margin:0;min-width:0;color:var(--ink)}
-.pos-printer-picker::after{content:"";position:absolute;inset-inline-end:16px;top:20px;width:6px;height:6px;border-right:1px solid var(--muted);border-bottom:1px solid var(--muted);transform:rotate(45deg);pointer-events:none}
 .pos-printer-picker select{appearance:none;width:100%;min-width:0;min-height:49px;font-family:inherit;font-size:14px;background-color:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:13px;padding:10px 14px;padding-inline-end:40px}
 .pos-printer-body .pos-printer-simple-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:0}
 .pos-printer-simple-actions>.btn{display:flex;align-items:center;justify-content:center;gap:7px;min-width:0;min-height:46px;padding:8px;font-size:12px;border-radius:13px}

@@ -2,7 +2,6 @@
 
 namespace App\Services\Backups;
 
-use App\Enums\AccountType;
 use App\Models\User;
 use App\Services\ManagementAuthority;
 
@@ -12,7 +11,10 @@ class BackupAccess
 
     public function require(User $actor, string $permission): void
     {
-        $this->authority->require($actor, $permission);
-        abort_unless($actor->membership->kind === 'owner' && $actor->membership->account->type === AccountType::System, 403);
+        $this->authority->systemAccess($actor, $permission);
+        abort_unless($this->authority->hasFullSystemScope($actor), 403);
+        if ($permission !== 'backup.view') {
+            $this->authority->require($actor, 'backup.view');
+        }
     }
 }

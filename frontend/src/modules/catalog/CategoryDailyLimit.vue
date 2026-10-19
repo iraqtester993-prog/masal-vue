@@ -1,5 +1,6 @@
 <!-- Template retained from the original component; runtime is API-backed. -->
 <script setup>
+import AppSelect from '../../shared/components/AppSelect.vue';
 import { inject, computed, ref } from "vue";
 import { catalogKey, tr } from "./catalog-model.js";
 const vm = inject(catalogKey);
@@ -12,7 +13,7 @@ const p = computed(() => vm.editForm);
     <div class="formgrid">
       <label
         >{{ vm.tr("نوع الحد اليومي")
-        }}<select
+        }}<AppSelect
           v-model="p.dailyLimitType"
           required=""
           :aria-label="tr('نوع الحد اليومي')"
@@ -20,10 +21,10 @@ const p = computed(() => vm.editForm);
           <option value="" disabled="">{{ tr("اختر نوع الحد") }}</option>
           <option value="quantity">{{ tr("حد الكمية اليومي") }}</option>
           <option value="amount">{{ tr("الحد المالي اليومي") }}</option>
-        </select></label
+        </AppSelect></label
       ><label v-if="p.dailyLimitType === 'quantity'"
         >{{ tr("حد الكمية اليومي")
-        }}<input
+        }}<input lang="en"
           type="number"
           min="1"
           step="1"

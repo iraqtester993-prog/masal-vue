@@ -26,8 +26,14 @@ class DigitalAccess
     public function require(User $actor, string $permission): void
     {
         $this->authority->require($actor, $permission);
-        $this->authority->require($actor, 'account.view');
-        $this->authority->require($actor, str_starts_with($permission, 'integrations.') ? 'integrations.view' : 'digital.view');
+        $view = str_starts_with($permission, 'topup.') ? 'topup.view' : (str_starts_with($permission, 'integrations.') && $permission !== 'integrations.balance' ? 'integrations.view' : 'digital.view');
+        $this->authority->require($actor, $view);
+    }
+
+    public function system(User $actor, string $permission): void
+    {
+        $this->require($actor, $permission);
+        abort_unless($actor->membership->account->type === AccountType::System, 403);
     }
 
     public function accounts(User $actor): Builder
@@ -38,7 +44,7 @@ class DigitalAccess
     public function owner(User $actor): void
     {
         $this->require($actor, 'integrations.edit');
-        abort_unless($actor->membership->kind === 'owner' && $actor->membership->account->type === AccountType::System && $this->accounts($actor)->whereKey($actor->membership->account_id)->exists(), 403, 'إعداد الربط لإدارة النظام المالكة فقط.');
+        $this->authority->systemAccess($actor, 'integrations.edit');
     }
 
     public function own(User $actor, string $permission, bool $lock = false): Account
@@ -109,11 +115,12 @@ class DigitalAccess
         if (! $target->isOperational() || ! $connection->account->isOperational() || $connection->provider_id !== null && $connection->company?->status !== 'active' || ! $connection->active && ! $includePaused) {
             return collect();
         }
-        $snapshots = CatalogSnapshot::where('connection_id', $connection->id)->where('credential_hash', DigitalConfiguration::credentialHash($connection->credential))->pluck('id')->all();
+        $offeredSnapshots = $connection->offers->pluck('catalog_snapshot_id')->filter()->unique()->all();
+        $verifiedSnapshots = CatalogSnapshot::where('connection_id', $connection->id)->where('credential_hash', DigitalConfiguration::credentialHash($connection->credential))->whereIn('id', $offeredSnapshots)->pluck('id')->flip();
         $effective = $connection->provider === 'topup' ? app(TopupDistribution::class)->effective($target)->keyBy('id') : collect();
-        $offers = $connection->offers->filter(function ($offer) use ($snapshots, $effective, $connection): bool {
+        $offers = $connection->offers->filter(function ($offer) use ($verifiedSnapshots, $effective, $connection): bool {
             $category = $effective->get($offer->topup_category_id);
-            $verified = $offer->manual_category_version === null && in_array($offer->catalog_snapshot_id, $snapshots, true);
+            $verified = $offer->manual_category_version === null && $verifiedSnapshots->has($offer->catalog_snapshot_id);
             if ($connection->provider === 'topup' && $offer->topup_category_id !== null) {
                 $verified = $verified && $category && $category->connection_id === $connection->id && $category->catalog_snapshot_id === $offer->catalog_snapshot_id && $category->remote_id === $offer->remote_id && $category->type === $offer->type;
             }

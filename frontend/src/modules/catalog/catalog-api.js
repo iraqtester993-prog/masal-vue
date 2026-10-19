@@ -7,10 +7,10 @@ export function createCatalogApi(api) {
     ).toString();
   return {
     options: (signal,options={}) => api.request("/catalog/options", { signal,...options }),
-    peekOptions: () => api.peekRequest?.('/catalog/options',120000) ?? null,
+    peekOptions: () => api.peekRequest?.('/catalog/options') ?? null,
     list: (kind, filters, signal,options={}) =>
       api.request(`/catalog/${kind}?${query(filters)}`, { signal,...options }),
-    peekList: (kind,filters) => api.peekRequest?.(`/catalog/${kind}?${query(filters)}`,120000) ?? null,
+    peekList: (kind,filters) => api.peekRequest?.(`/catalog/${kind}?${query(filters)}`) ?? null,
     hasFreshList: (kind,filters) => api.hasFreshRequest?.(`/catalog/${kind}?${query(filters)}`) ?? false,
     save: (kind, id, payload, file, removeImage, signal) => {
       const body = new FormData();
@@ -51,7 +51,7 @@ export function createCatalogApi(api) {
     saveCategories: (id, payload, signal) =>
       api.mutate(`/accounts/${id}/categories`, "PUT", payload, signal),
     preferences: (signal) => api.request("/catalog/preferences", { signal }),
-    peekPreferences: () => api.peekRequest?.('/catalog/preferences',120000) ?? null,
+    peekPreferences: () => api.peekRequest?.('/catalog/preferences') ?? null,
     savePreferences: (hidden_columns, signal) =>
       api.mutate("/catalog/preferences", "PUT", { hidden_columns }, signal),
   };

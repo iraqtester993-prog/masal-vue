@@ -1,5 +1,16 @@
 export function createNotificationCounts({ api, identity, allowed, publish, now = Date.now }) {
   let reader, revision = 0, disposed = false, lastSuccess = -Infinity, lastActor;
+  const marking = new Map();
+  function readPage(page) {
+    const actor = identity();
+    if (disposed || !actor || !allowed()) return Promise.resolve();
+    if (marking.has(page)) return marking.get(page);
+    const pending = api.mutate('/notifications/read-page', 'POST', {page}).then(async response => {
+      if (!disposed && identity() === actor && allowed() && response?.data?.count > 0) await refresh({force:true});
+    }).finally(() => { if (marking.get(page) === pending) marking.delete(page); });
+    marking.set(page, pending);
+    return pending;
+  }
   async function refresh({ force = true } = {}) {
     if (disposed) return;
     const actor = identity();
@@ -27,7 +38,7 @@ export function createNotificationCounts({ api, identity, allowed, publish, now 
       if (reader === controller) reader = null;
     }
   }
-  function clear() { revision += 1; reader?.abort(); reader = null; lastSuccess = -Infinity; lastActor = null; publish(null); }
+  function clear() { revision += 1; reader?.abort(); reader = null; marking.clear(); lastSuccess = -Infinity; lastActor = null; publish(null); }
   function dispose() { disposed = true; clear(); }
-  return { refresh, clear, dispose };
+  return { refresh, readPage, clear, dispose };
 }

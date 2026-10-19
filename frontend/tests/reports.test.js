@@ -7,7 +7,8 @@ import {systemLabel, auditActionLabel} from '../src/modules/preferences/system-l
 
 test('system values are Arabic while customer names and provider identifiers remain unchanged',()=>{
   assert.equal(reportCell('auth.login',{label_type:'action'}),'تسجيل الدخول');
-  assert.equal(reportCell('topup.categories.assigned',{label_type:'action'}),'توزيع فئات التعبئة');
+  assert.equal(reportCell('topup.categories.assigned',{label_type:'action'}),'توزيع فئات Topup');
+  assert.equal(reportCell('wallets.reconcile-test',{label_type:'action'}),'تسوية الرصيد التجريبي');
   assert.equal(reportCell('admin',{label_type:'portal'}),'بوابة مدير النظام');
   assert.equal(reportCell('parent_id',{label_type:'field'}),'الوكيل الأعلى');
   assert.equal(reportCell('velocity_seconds',{label_type:'setting'}),'الفاصل بين العمليات');
@@ -37,12 +38,13 @@ test('print report statuses use their exact context in cells and exports without
   for(const [,label] of states)assert.ok(printableReport(data).includes(label));
 });
 
-test('52 original sections and all 8 original additional group tiles preserve ordering and unavailable null counts',()=>{
+test('49 supported sections and all 8 additional group tiles preserve ordering and unavailable null counts',()=>{
   const schemas=JSON.parse(fs.readFileSync(new URL('../../backend/app/Services/Reports/schemas.json',import.meta.url)));
-  assert.equal(schemas.length,52);assert.equal(new Set(schemas.map(s=>s.id)).size,52);
+  assert.equal(schemas.length,49);assert.equal(new Set(schemas.map(s=>s.id)).size,49);
+  for(const id of ['wallets-legacy','wallets-holds','prices-policies'])assert.ok(!schemas.some(section=>section.id===id));
   const all=schemas.map(s=>({...s,available:true,count:0,subcounts:{main:2,branch:3,nested:4,active:5,inactive:6,available:7,issued:8,held:9}}));
   const groups=[{prefixes:['sales','prices']},{prefixes:['wallets']},{prefixes:['inventory','claims']},{prefixes:['network']},{prefixes:['users','audit','support','operations']}];
-  assert.equal(groups.flatMap(g=>groupCards(g,all)).length,60);
+  assert.equal(groups.flatMap(g=>groupCards(g,all)).length,57);
   const missing=groupCards(groups[0],[{id:'sales-services',available:false,count:null}]);assert.equal(missing[0].count,null);
   assert.equal(groupCards(groups[3],all).find(s=>s.filter==='nested').count,4);
 });

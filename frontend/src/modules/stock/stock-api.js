@@ -3,13 +3,13 @@ export function createStockApi(api) {
   const post = (path, payload, signal) => api.mutate(`/stock/${path}`, 'POST', payload, signal, {timeoutMs:120000});
   return {
     options: (signal,options={}) => api.request('/stock/options', {signal,...options}),
-    peekOptions: () => api.peekRequest?.('/stock/options',120000) ?? null,
+    peekOptions: () => api.peekRequest?.('/stock/options') ?? null,
     hasFreshOptions: () => api.hasFreshRequest?.('/stock/options') ?? false,
     summary: (filters, signal,options={}) => api.request(`/stock/summary?${query(filters)}`, {signal,...options}),
-    peekSummary: filters => api.peekRequest?.(`/stock/summary?${query(filters)}`,120000) ?? null,
+    peekSummary: filters => api.peekRequest?.(`/stock/summary?${query(filters)}`) ?? null,
     hasFreshSummary: filters => api.hasFreshRequest?.(`/stock/summary?${query(filters)}`) ?? false,
     list: (kind, filters = {}, signal,options={}) => api.request(`/stock/${kind}?${query(filters)}`, {signal,...options}),
-    peekList: (kind,filters={}) => api.peekRequest?.(`/stock/${kind}?${query(filters)}`,120000) ?? null,
+    peekList: (kind,filters={}) => api.peekRequest?.(`/stock/${kind}?${query(filters)}`) ?? null,
     hasFreshList: (kind,filters={}) => api.hasFreshRequest?.(`/stock/${kind}?${query(filters)}`) ?? false,
     get: (kind, id, signal) => api.request(`/stock/${kind}/${id}`, {signal}),
     cards: (id, filters, signal) => api.request(`/stock/batches/${id}/cards?${query(filters)}`, {signal}),

@@ -6,6 +6,7 @@ use App\Enums\AccountType;
 use App\Models\Account;
 use App\Models\Notifications\Notice;
 use App\Models\User;
+use App\Services\AccountPrivacy;
 use App\Services\AccountScope;
 use App\Services\Finance\Money;
 use App\Services\Support\SupportAccess;
@@ -72,7 +73,7 @@ class ActivityNotifications
             }
             $recipients[] = $user->id;
         }
-        $this->notices->create($actor, $title, $actor->name.' · '.$title.' · '.$entity, $recipients, ['page' => $page, 'entity_id' => $entity, 'entity_type' => $type, 'event_key' => $eventKey]);
+        $this->notices->create($actor, $title, app(AccountPrivacy::class)->userName($actor).' · '.$title.' · '.$entity, $recipients, ['page' => $page, 'entity_id' => $entity, 'entity_type' => $type, 'event_key' => $eventKey]);
     }
 
     private function publishBulk(User $actor, int $auditId, int $funderId, array $details): void
@@ -90,7 +91,7 @@ class ActivityNotifications
             ->join('finance_entries as debit', fn ($q) => $q->on('debit.transaction_id', '=', 't.id')->where('debit.amount_minor', '<', 0))
             ->join('finance_entries as credit', fn ($q) => $q->on('credit.transaction_id', '=', 't.id')->where('credit.amount_minor', '>', 0))
             ->join('finance_wallets as sender', 'sender.id', '=', 'debit.wallet_id')->join('finance_wallets as recipient', 'recipient.id', '=', 'credit.wallet_id')
-            ->join('accounts as source', 'source.id', '=', 'sender.account_id')->join('accounts as target', 'target.id', '=', 'recipient.account_id')
+            ->joinSub(app(AccountPrivacy::class)->accounts(), 'source', 'source.id', '=', 'sender.account_id')->joinSub(app(AccountPrivacy::class)->accounts(), 'target', 'target.id', '=', 'recipient.account_id')
             ->whereIn('t.id', array_keys($expected))->where('t.actor_id', $actor->id)->where('t.posted', true)->where('t.kind', 'transfer')
             ->where('sender.kind', 'account')->where('recipient.kind', 'account')->where('sender.account_id', $funderId)
             ->get(['t.id', 't.service', 'sender.account_id as from_account_id', 'recipient.account_id as to_account_id', 'credit.amount_minor', 'source.name as from_name', 'target.name as to_name']);
@@ -112,7 +113,7 @@ class ActivityNotifications
             $service = match ($transfer->service) {
                 'voucher' => 'الكارتات', 'topup' => 'Topup', 'cash' => 'النقد', default => 'الخدمات الإلكترونية',
             };
-            $body = $actor->name.' · تم تحويل '.Money::decimal((int) $transfer->amount_minor).' د.ع من '.$transfer->from_name.' إلى '.$transfer->to_name.' · '.$service.' · العملية #'.$transfer->id;
+            $body = app(AccountPrivacy::class)->userName($actor).' · تم تحويل '.Money::decimal((int) $transfer->amount_minor).' د.ع من '.$transfer->from_name.' إلى '.$transfer->to_name.' · '.$service.' · العملية #'.$transfer->id;
             $recipientId = (int) $transfer->to_account_id;
             $recipients = array_column(array_filter($audience, fn ($member): bool => in_array($member['account_id'], [$funderId, $recipientId], true) && (isset($member['visible'][$funderId]) || isset($member['visible'][$recipientId]))), 'id');
             $this->notices->create($actor, 'تم تحويل الرصيد', $body, $recipients, ['page' => 'wallets', 'entity_id' => (int) $transfer->id, 'entity_type' => 'transaction', 'event_key' => 'audit:'.$auditId.':bulk:'.$transfer->id]);

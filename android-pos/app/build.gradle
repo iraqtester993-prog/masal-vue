@@ -7,7 +7,7 @@ if (gradle.startParameter.taskNames.any { it.toLowerCase().contains('release') }
 android {
     namespace 'iq.dananir.pos'
     compileSdk 35
-    defaultConfig { applicationId 'iq.dananir.pos'; minSdk 24; targetSdk 35; versionCode 21; versionName '1.4.7'; testInstrumentationRunner (project.findProperty('dananeerTestRunner') ?: 'iq.dananir.pos.PrinterBindingInstrumentation') }
+    defaultConfig { applicationId 'iq.dananir.pos'; minSdk 24; targetSdk 35; versionCode 26; versionName '1.4.12'; testInstrumentationRunner (project.findProperty('dananeerTestRunner') ?: 'iq.dananir.pos.PrinterBindingInstrumentation') }
     signingConfigs {
         managedRelease {
             if (hasManagedSigning) {
@@ -21,7 +21,7 @@ android {
     buildTypes {
         release { debuggable false; signingConfig signingConfigs.managedRelease; minifyEnabled false }
     }
-    buildFeatures { aidl true }
+    buildFeatures { aidl true; buildConfig true }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }
 dependencies {

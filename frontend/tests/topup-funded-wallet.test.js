@@ -1,3 +1,4 @@
+import {topupKind,topupKinds} from '../src/modules/digital/pos-topup-context.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -20,6 +21,7 @@ const offer=(extra={})=>({id:9,connection_id:2,product_id:4,provider:'topup',nam
 async function handlers(file,context,names){
  context.usePreferencesTranslator??=()=>value=>value;
  context.onBeforeUnmount??=()=>{};context.registerPosBackLayer??=()=>()=>{};
+ context.useRouteRefresh??=()=>{};context.topupKind??=topupKind;context.topupKinds??=topupKinds;
  const source=await readFile(new URL(`../src/modules/${file}.vue`,import.meta.url),'utf8');
  const script=parse(source).descriptor.scriptSetup.content.replace(/^import .*;\r?$/gm,'');
  runInNewContext(script+`\nglobalThis.controls={${names.join(',')}};`,context);
@@ -72,7 +74,7 @@ test('fresh zero/insufficient/removed/unknown offers and network failure cannot 
 async function funding({available='2500.00',freshFailed=false,executeSuccess=true,admin=false}={}){
  const scope=effectScope(),writes=[],reads=[],resources=()=>({state:reactive({rows:[],meta:{current_page:1,last_page:1}}),load:async()=>{},dispose(){}});
  const vm={service:ref('topup'),currency:ref('IQD'),filters:reactive({}),ownId:ref(2),admin:ref(admin),ownVisible:ref(true),hasChildren:ref(1),children:ref([{id:3,parent_id:2,type:'pos'}]),identity:ref({account:{type:admin?'system':'main_agent'}}),options:reactive({parent_account_id:1,parent_account_type:'system',accounts:[{id:3,parent_id:2,type:'pos'}],services:[]}),can:()=>true,busy:ref(false),error:ref(''),key:()=>moneyModel.createMutationKey(()=> 'funding-stable'),resource:resources,walletAmount:()=>available,emptyScope:()=>false,recordParameters:extra=>extra,refresh:async()=>{},loadWallets:async(...args)=>{reads.push(args);return freshFailed?false:[{account_id:2,service:'topup',currency:'IQD',available}];},execute:async(payload,key)=>{writes.push({...payload,idempotency_key:key.for(payload)});return executeSuccess?{data:{id:1}}:null;},api:{create:()=>assert.fail('execute stub owns writes')}};
- let control;await scope.run(async()=>{control=await handlers('finance/SimpleWallets',{...moneyModel,computed,reactive,ref,watch,inject:()=>vm,defineProps:()=>({}),onMounted(){}},['value','to','reference','direct','directConfirm','deposit','requestFunding','decide','tabs','funderName']);});
+ let control;await scope.run(async()=>{control=await handlers('finance/SimpleWallets',{...moneyModel,computed,reactive,ref,watch,inject:()=>vm,defineProps:()=>({}),onMounted(){}},['value','to','reference','direct','directConfirm','requestFunding','decide','tabs','funderName']);});
  control.value.value='1000';control.to.value='3';control.reference.value='QA-ref';await nextTick();
  return {vm,control,writes,reads,stop:()=>scope.stop()};
 }
@@ -83,7 +85,7 @@ test('direct Topup funding previews both wallets fresh, then reuses the exact pa
 
 test('direct Topup funding requires known own available funds and admin deposit/allocation shortcuts never write',async()=>{
  for(const options of [{available:'0.00'},{freshFailed:true},{admin:true}]){const page=await funding(options);try{await page.control.direct();assert.equal(page.control.directConfirm.value,false);assert.equal(page.writes.length,0);assert.ok(page.vm.error.value);}finally{page.stop();}}
- const page=await funding({admin:true});try{assert.ok(!page.control.tabs.value.some(row=>row.id==='deposit'));await page.control.deposit();await page.control.requestFunding();await page.control.decide({id:17,service:'topup'},'approve');assert.equal(page.writes.length,0);assert.match(page.vm.error.value,/تخصيص الإدارة/);}finally{page.stop();}
+ const page=await funding({admin:true});try{assert.ok(!page.control.tabs.value.some(row=>row.id==='deposit'));await page.control.requestFunding();await page.control.decide({id:17,service:'topup'},'approve');assert.equal(page.writes.length,0);assert.match(page.vm.error.value,/تخصيص الإدارة/);}finally{page.stop();}
 });
 
 test('actual funded Topup wallet cards render scoped values and never expose group margin to a POS',async()=>{

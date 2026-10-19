@@ -3,6 +3,7 @@
 namespace App\Services\Reports;
 
 use App\Models\User;
+use App\Services\AccountPrivacy;
 use App\Services\AccountScope;
 use App\Services\CatalogAccess;
 use App\Services\ManagementAuthority;
@@ -16,7 +17,6 @@ class ReportAccess
     public function require(User $actor, string $permission = 'reports.view'): void
     {
         $this->authority->require($actor, $permission);
-        $this->authority->require($actor, 'account.view');
     }
 
     public function allows(User $actor, string $permission): bool
@@ -95,7 +95,7 @@ class ReportAccess
     {
         $visible = $this->scope->query($actor)->select('accounts.id');
 
-        return DB::table('account_memberships as member')->whereIn('member.account_id', $this->accounts($actor, $filters)->select('accounts.id'))->where(function ($members) use ($visible): void {
+        return DB::table('account_memberships as member')->whereNotIn('member.user_id', app(AccountPrivacy::class)->ownerIds())->whereIn('member.account_id', $this->accounts($actor, $filters)->select('accounts.id'))->where(function ($members) use ($visible): void {
             $members->where('member.kind', 'owner')->orWhere(function ($employees) use ($visible): void {
                 $employees->where('member.kind', 'employee')->whereExists(function ($roots): void {
                     $roots->selectRaw('1')->from('membership_scope_roots')->whereColumn('membership_id', 'member.id');

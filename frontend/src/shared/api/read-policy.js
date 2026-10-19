@@ -1,7 +1,7 @@
 // Only sanitized list/summary responses belong in the navigation cache.
 // Receipts, card secrets, exports, authentication, and dynamic detail routes stay live.
 export const READ_FRESH_MS = 30000;
-export const READ_DISPLAY_MS = 120000;
+export const READ_DISPLAY_MS = 600000;
 
 const paths = new Set([
   '/dashboard/summary', '/dashboard/activity', '/accounts', '/account-options', '/permission-catalog',
@@ -11,7 +11,8 @@ const paths = new Set([
   '/finance/options', '/finance/accounts', '/finance/wallets', '/finance/ledger', '/finance/invoices', '/finance/prices', '/finance/transfers', '/finance/recoveries', '/finance/funding-requests', '/finance/price-requests',
   '/stock/options', '/stock/configuration-options', '/stock/batches', '/stock/claims', '/stock/withdrawals', '/stock/summary',
   '/sales', '/sales/options', '/sales/configuration-options', '/sales/products', '/sales/summary',
-  '/digital/options', '/digital/configuration-options', '/digital/history', '/digital/orders', '/digital/orders/summary', '/digital/offers',
+  '/digital/options', '/digital/configuration-options', '/digital/connections', '/digital/history', '/digital/orders', '/digital/orders/summary', '/digital/offers',
+  '/topup/categories', '/topup/distribution', '/topup/available',
   '/notifications/options', '/notifications/configuration-options', '/support/options', '/support/configuration-options',
 ]);
 

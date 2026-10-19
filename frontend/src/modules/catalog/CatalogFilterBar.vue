@@ -1,5 +1,6 @@
 <!-- Template retained from the original component; runtime is API-backed. -->
 <script setup>
+import AppSelect from '../../shared/components/AppSelect.vue';
 import { inject, computed, ref } from "vue";
 import { catalogKey, tr } from "./catalog-model.js";
 const vm = inject(catalogKey);
@@ -58,7 +59,7 @@ function clearActive() {
         class="table-pagination-tools table-pagination-inline"
       >
         <label
-          ><select
+          ><AppSelect
             v-model.number="vm.perPage"
             aria-label="عدد الصفوف في الصفحة"
             @change="vm.load(1)"
@@ -70,7 +71,7 @@ function clearActive() {
             >
               {{ size || "الكل" }}
             </option>
-          </select></label
+          </AppSelect></label
         ><span
           >{{ (vm.meta.current_page - 1) * vm.meta.per_page + 1 }}–{{
             Math.min(vm.meta.current_page * vm.meta.per_page, vm.meta.total)
@@ -97,23 +98,23 @@ function clearActive() {
       ><template v-if="page === 'inventory'"
         ><label
           >{{ tr("الوكيل")
-          }}<select v-model="draft.agent">
+          }}<AppSelect v-model="draft.agent">
             <option value="">{{ tr("كل المخازن") }}</option>
             <option v-for="a in agents" :key="a.id" :value="a.id">
               {{ tr(a.name) }}
             </option>
-          </select></label
+          </AppSelect></label
         ><label
           >{{ tr("الفئة")
-          }}<select v-model="draft.product">
+          }}<AppSelect v-model="draft.product">
             <option value="">{{ tr("كل الفئات") }}</option>
             <option v-for="p in products" :key="p.id" :value="p.id">
               {{ tr(p.name) }}
             </option>
-          </select></label
+          </AppSelect></label
         ><label
           >{{ tr("الحالة")
-          }}<select v-model="draft.status">
+          }}<AppSelect v-model="draft.status">
             <option value="">{{ tr("كل الحالات") }}</option>
             <option
               v-for="s in [
@@ -129,109 +130,109 @@ function clearActive() {
             >
               {{ tr(vm.status(s)) }}
             </option>
-          </select></label
+          </AppSelect></label
         ><label
           >{{ tr("نوع الدفعة")
-          }}<select v-model="draft.tab">
+          }}<AppSelect v-model="draft.tab">
             <option value="all">{{ tr("كل الدفعات") }}</option>
             <option value="active">{{ tr("النشطة") }}</option>
             <option value="stopped">{{ tr("الموقوفة") }}</option>
             <option value="cancelled">{{ tr("الملغاة") }}</option>
-          </select></label
+          </AppSelect></label
         ></template
       ><template v-else-if="page === 'products'"
         ><label
           >{{ tr("الشركة")
-          }}<select v-model="draft.provider">
+          }}<AppSelect v-model="draft.provider">
             <option value="">{{ tr("كل الشركات") }}</option>
             <option v-for="p in providers" :key="p.id" :value="p.id">
               {{ tr(p.name) }}
             </option>
-          </select></label
+          </AppSelect></label
         ><label
           >{{ tr("نوع الفئة")
-          }}<select v-model="draft.kind">
+          }}<AppSelect v-model="draft.kind">
             <option value="">{{ tr("كل الأنواع") }}</option>
             <option v-for="x in kinds" :key="x" :value="x">
               {{ tr(x) }}
             </option>
-          </select></label
+          </AppSelect></label
         ><label
           >{{ tr("الحالة")
-          }}<select v-model="draft.state">
+          }}<AppSelect v-model="draft.state">
             <option value="">{{ tr("كل الحالات") }}</option>
             <option value="active">{{ tr("مفعلة") }}</option>
             <option value="inactive">{{ tr("معطلة") }}</option>
-          </select></label
+          </AppSelect></label
         ></template
       ><template v-else-if="page === 'providers'"
         ><label
           >{{ tr("المجهز")
-          }}<select v-model="draft.supplier">
+          }}<AppSelect v-model="draft.supplier">
             <option value="">{{ tr("كل المجهزين") }}</option>
             <option v-for="x in suppliers" :key="x" :value="x">
               {{ tr(x) }}
             </option>
-          </select></label
+          </AppSelect></label
         ><label
           >{{ tr("نوع الربط")
-          }}<select v-model="draft.connection">
+          }}<AppSelect v-model="draft.connection">
             <option value="">{{ tr("كل أنواع الربط") }}</option>
             <option v-for="x in connections" :key="x" :value="x">
               {{ tr(x) }}
             </option>
-          </select></label
+          </AppSelect></label
         ><label
           >{{ tr("الحالة")
-          }}<select v-model="draft.state">
+          }}<AppSelect v-model="draft.state">
             <option value="">{{ tr("كل الحالات") }}</option>
             <option value="active">{{ tr("مفعلة") }}</option>
             <option value="inactive">{{ tr("معطلة") }}</option>
-          </select></label
+          </AppSelect></label
         ></template
       ><template v-else=""
         ><label
           >{{ tr("قائمة أسعار الوكيل")
-          }}<select v-model="draft.agent">
+          }}<AppSelect v-model="draft.agent">
             <option v-for="a in priceAgents" :key="a.id" :value="a.id">
               {{ tr(a.name) }}
             </option>
-          </select></label
+          </AppSelect></label
         ><label
           >{{ tr("الفئة")
-          }}<select v-model="draft.product">
+          }}<AppSelect v-model="draft.product">
             <option value="">{{ tr("كل الفئات") }}</option>
             <option v-for="p in products" :key="p.id" :value="p.id">
               {{ tr(p.name) }}
             </option>
-          </select></label
+          </AppSelect></label
         ><label
           >{{ tr("الشركة")
-          }}<select v-model="draft.provider">
+          }}<AppSelect v-model="draft.provider">
             <option value="">{{ tr("كل الشركات") }}</option>
             <option v-for="p in providers" :key="p.id" :value="p.id">
               {{ tr(p.name) }}
             </option>
-          </select></label
+          </AppSelect></label
         ><label
           >{{ tr("السعر")
-          }}<select v-model="draft.state">
+          }}<AppSelect v-model="draft.state">
             <option value="">{{ tr("الكل") }}</option>
             <option value="active">{{ tr("الفئات المفعلة") }}</option>
             <option value="inactive">{{ tr("الفئات المعطلة") }}</option>
             <option value="priced">{{ tr("لها سعر") }}</option>
             <option value="unpriced">{{ tr("بلا سعر") }}</option>
-          </select></label
+          </AppSelect></label
         ></template
       ><label
         >{{ tr("من تاريخ")
-        }}<input
+        }}<input lang="en"
           type="date"
           v-model="draft.from"
           :max="draft.to || undefined" /></label
       ><label
         >{{ tr("إلى تاريخ")
-        }}<input type="date" v-model="draft.to" :min="draft.from || undefined"
+        }}<input lang="en" type="date" v-model="draft.to" :min="draft.from || undefined"
       /></label>
       <div class="catalog-filter-actions">
         <button type="button" class="btn" @click="clear">

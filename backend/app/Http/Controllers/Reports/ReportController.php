@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Reports;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Reports\ReportRequest;
+use App\Services\Finance\FinanceServiceIdentity;
 use App\Services\Reports\BoundedReportExport;
 use App\Services\Reports\DashboardSummary;
 use App\Services\Reports\ReportAccess;
@@ -33,13 +34,32 @@ class ReportController extends Controller
     {
         $this->filters($request);
         $actor = $request->user();
-        $products = $this->access->products($actor)->with('provider')->orderBy('display_order')->get(['id', 'name', 'provider_id', 'currency']);
-        $scope = $this->access->accounts($actor);
-        $cities = (clone $scope)->whereNotNull('city')->where('city', '<>', '')->distinct()->orderBy('city')->pluck('city');
-        $kinds = (clone $scope)->selectRaw('type, COUNT(*) AS total')->groupBy('type')->pluck('total', 'type');
-        $accounts = (clone $scope)->when($request->boolean('compact'), fn ($query) => $query->whereKey($actor->membership->account_id))->orderBy('name')->get(['id', 'name', 'type', 'parent_id', 'city']);
+        $sections = $this->catalog->allowed($actor);
+        $ids = array_column($sections, 'id');
+        $prefixes = array_unique(array_map(fn (array $section): string => explode('-', $section['id'])[0], $sections));
+        $filters = [
+            'products' => (bool) array_intersect(['sales', 'inventory', 'claims', 'prices'], $prefixes),
+            'providers' => (bool) array_intersect(['sales', 'inventory', 'claims', 'prices'], $prefixes),
+            'accounts' => $sections !== [], 'cities' => $sections !== [],
+            'status' => (bool) array_filter($ids, fn (string $id): bool => str_starts_with($id, 'sales') && $id !== 'sales-services'),
+        ];
+        $products = $filters['products'] ? $this->access->products($actor)->with('provider')->orderBy('display_order')->get(['id', 'name', 'provider_id', 'currency']) : collect();
+        $scope = $this->access->accounts($actor)->where('type', '<>', 'system');
+        $cities = $filters['cities'] ? (clone $scope)->whereNotNull('city')->where('city', '<>', '')->distinct()->orderBy('city')->pluck('city') : collect();
+        $kinds = $filters['accounts'] ? (clone $scope)->selectRaw('type, COUNT(*) AS total')->groupBy('type')->pluck('total', 'type') : collect();
+        $accounts = $filters['accounts'] ? (clone $scope)->when($request->boolean('compact'), fn ($query) => $query->whereKey($actor->membership->account_id))->orderBy('name')->get(['id', 'name', 'type', 'parent_id', 'city']) : collect();
 
-        return response()->json(['data' => ['accounts' => $accounts, 'products' => $products->map(fn ($p): array => ['id' => $p->id, 'name' => $p->name, 'provider_id' => $p->provider_id, 'currency' => $p->currency]), 'providers' => $products->map(fn ($p): array => ['id' => $p->provider_id, 'name' => $p->provider->name])->unique('id')->values(), 'cities' => $cities, 'account_kinds' => $kinds, 'currencies' => ['IQD'], 'groups' => ReportCatalog::GROUPS, 'sections' => $this->catalog->allowed($actor), 'timezone' => 'Asia/Baghdad']]);
+        $groups = array_values(array_filter(ReportCatalog::GROUPS, fn (array $group): bool => (bool) array_intersect($group['prefixes'], $prefixes)));
+        $groups = array_map(function (array $group) use ($prefixes): array {
+            if (array_diff($group['prefixes'], $prefixes)) {
+                $group['note'] = '';
+            }
+            $group['prefixes'] = array_values(array_intersect($group['prefixes'], $prefixes));
+
+            return $group;
+        }, $groups);
+
+        return response()->json(['data' => ['accounts' => $accounts, 'products' => $products->map(fn ($p): array => ['id' => $p->id, 'name' => $p->name, 'provider_id' => $p->provider_id, 'currency' => $p->currency]), 'providers' => $products->map(fn ($p): array => ['id' => $p->provider_id, 'name' => app(FinanceServiceIdentity::class)->providerName($p->provider)])->unique('id')->values(), 'cities' => $cities, 'account_kinds' => $kinds, 'currencies' => ['IQD'], 'groups' => $groups, 'sections' => $sections, 'filters' => $filters, 'timezone' => 'Asia/Baghdad']]);
     }
 
     public function summary(ReportRequest $request): JsonResponse
@@ -143,7 +163,7 @@ class ReportController extends Controller
         $cursor = null;
         if ($request->filled('cursor')) {
             $cursor = json_decode(base64_decode(strtr($request->input('cursor'), '-_', '+/'), true) ?: '', true);
-            if (! is_array($cursor) || ! is_string($cursor['time'] ?? null) || ! preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $cursor['time']) || ! is_int($cursor['id'] ?? null) || $cursor['id'] < 1 || ! in_array($cursor['source'] ?? null, ['audit', 'stock', 'digital'], true)) {
+            if (! is_array($cursor) || ! is_string($cursor['time'] ?? null) || ! preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $cursor['time']) || ! is_int($cursor['id'] ?? null) || $cursor['id'] < 1 || ! in_array($cursor['source'] ?? null, ['audit', 'stock', 'digital', 'refund', 'ledger'], true)) {
                 throw ValidationException::withMessages(['cursor' => 'مرجع صفحة العمليات غير صالح.']);
             }
         }

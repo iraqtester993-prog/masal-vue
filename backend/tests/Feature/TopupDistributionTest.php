@@ -117,7 +117,7 @@ class TopupDistributionTest extends TestCase
             $this->getJson('/api/v1/topup/distribution')->assertForbidden();
             $this->putJson('/api/v1/topup/distribution/'.$f['main']->id, $payload)->assertForbidden();
         }
-        $this->asPortalUser($this->supportEmployee($f['main'], $f['pos'], ['account.view', 'digital.view', 'digital.assign']));
+        $this->asPortalUser($this->supportEmployee($f['main'], $f['pos'], ['account.view', 'digital.view', 'digital.assign', 'topup.view', 'topup.assign']));
         $this->getJson('/api/v1/topup/distribution')->assertNotFound();
         $this->assertDatabaseCount('topup_grants', 0);
         $this->assertDatabaseCount('digital_connections', 1);
@@ -138,5 +138,16 @@ class TopupDistributionTest extends TestCase
         $this->getJson('/api/v1/topup/distribution?target_account_id='.$f['main']->id)->assertOk()->assertJsonPath('data.connection.token_present', true)->assertJsonPath('data.grant.category_ids.0', $category->id);
         $this->putJson('/api/v1/topup/distribution/'.$f['main']->id, $p + ['credential' => 'must-not-be-accepted'])->assertUnprocessable();
         $this->assertDatabaseHas('topup_grants', ['main_account_id' => $f['main']->id, 'target_account_id' => $f['main']->id, 'version' => 1]);
+    }
+
+    public function test_legacy_digital_grants_cannot_bypass_topup_assignment_permission(): void
+    {
+        $f = $this->supportFixture();
+        $category = $this->category($f);
+        $employee = $this->supportEmployee($f['main'], $f['main'], ['account.view', 'digital.view', 'digital.assign']);
+        $this->asPortalUser($employee);
+        $this->putJson('/api/v1/digital/connections/'.$category->connection_id.'/grants/'.$f['sub']->id, ['version' => 0, 'offer_ids' => [], 'active' => true, 'idempotency_key' => 'legacy-topup-permission-boundary'])->assertForbidden();
+        $this->assertDatabaseCount('digital_grants', 0);
+        $this->assertDatabaseCount('topup_grants', 0);
     }
 }

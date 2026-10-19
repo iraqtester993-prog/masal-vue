@@ -31,11 +31,13 @@ import {dashboardSummaryPath,dashboardReadScope,dashboardCatalogSnapshot,dashboa
 import {useBalancePrivacy} from '../../shared/composables/balance-privacy.js';
 import {requiresNativePrinter} from '../../shared/native-print.js';
 import './home-adopted.css';
+import {useRouteRefresh} from '../../shared/route-refresh.js';
+import {topupCatalogRoute} from '../digital/pos-topup-context.js';
 
 const {session}=usePortal(),api=createReportApi(session.api);
 
 const emptySummary=()=>({cards:[],chart:[],regions:[],currency:'IQD'});
-const data=ref(session.api.peekRequest?.(dashboardSummaryPath(),120000)?.data ?? emptySummary()),currency=ref('IQD'),busy=ref(false),error=ref(''),detail=ref(null);
+const data=ref(session.api.peekRequest?.(dashboardSummaryPath())?.data ?? emptySummary()),currency=ref('IQD'),busy=ref(false),error=ref(''),detail=ref(null);
 
 const tr=usePreferencesTranslator();
 const isPos=computed(()=>session.state.identity?.account.type==='pos');
@@ -49,12 +51,12 @@ const companies=computed(()=>dashboardCompanies(session.can('sell.create')?catal
 const balance=computed(()=>data.value.cards.find(row=>row.key==='balance'));
 const dailySales=computed(()=>data.value.cards.find(row=>row.key==='sales'));
 let catalogController,catalogRevision=0;
-async function loadCompanies(){
+async function loadCompanies(fresh=false){
  if(!isPos.value)return;
  catalogController?.abort();catalogController=new AbortController();const own=catalogController,expected=++catalogRevision;companiesLoading.value=true;companyError.value='';
  const result=await Promise.allSettled([
-  session.can('sell.create')?createSalesApi(session.api).products(own.signal):Promise.resolve({data:[]}),
-  session.can('digital.view')?createDigitalApi(session.api).offers(own.signal):Promise.resolve({data:[]})
+  session.can('sell.create')?createSalesApi(session.api).products(own.signal,{fresh}):Promise.resolve({data:[]}),
+  session.can('digital.view')?createDigitalApi(session.api).offers(own.signal,{fresh}):Promise.resolve({data:[]})
  ]);
  if(!alive||expected!==catalogRevision||own.signal.aborted)return;
  if(result[0].status==='fulfilled')catalogProducts.value=result[0].value.data;
@@ -83,16 +85,17 @@ async function load(fresh=false){controller?.abort();controller=new AbortControl
 function closeDetails(){detailRevision++;detailController?.abort();detail.value=null;}
 async function openDetails(item){
   closeDetails();detailController=new AbortController();const expected=++detailRevision;
-  const cached=session.api.peekRequest?.(dashboardSummaryPath(currency.value,'full'),120000)?.data?.cards?.find(row=>row.key===item.key);
+  const cached=session.api.peekRequest?.(dashboardSummaryPath(currency.value,'full'))?.data?.cards?.find(row=>row.key===item.key);
   detail.value=cached??{...item,loading:true};
   try{const response=await api.dashboard(currency.value,detailController.signal,false,'full');if(alive&&expected===detailRevision)detail.value=response.data.cards.find(row=>row.key===item.key)??null;}
   catch(failure){if(alive&&expected===detailRevision&&failure.name!=='AbortError'){error.value=errorText(failure);if(!cached)closeDetails();}}
 }
 watch(()=>dashboardReadScope(session.state.identity),()=>{
- const cached=dashboardCatalogSnapshot(session.api,session.can);catalogProducts.value=cached.products;catalogOffers.value=cached.offers;data.value=session.api.peekRequest?.(dashboardSummaryPath(currency.value),120000)?.data??emptySummary();showAllCompanies.value=false;brokenImages.value=new Set();printerOpen.value=false;closeDetails();
+ const cached=dashboardCatalogSnapshot(session.api,session.can);catalogProducts.value=cached.products;catalogOffers.value=cached.offers;data.value=session.api.peekRequest?.(dashboardSummaryPath(currency.value))?.data??emptySummary();showAllCompanies.value=false;brokenImages.value=new Set();printerOpen.value=false;closeDetails();
  if(!session.state.identity){revision++;catalogRevision++;controller?.abort();catalogController?.abort();busy.value=false;companiesLoading.value=false;return;}
  load();loadCompanies();
 });
+useRouteRefresh(async()=>{await Promise.all([load(true),loadCompanies(true)]);return !error.value&&!companyError.value;},{canRefresh:()=>!printerOpen.value&&!detail.value});
 onMounted(()=>{nativePrinter.value=requiresNativePrinter();load();loadCompanies();});onServerPrefetch(load);onBeforeUnmount(()=>{alive=false;revision++;controller?.abort();detailController?.abort();catalogController?.abort();detailRevision++;catalogRevision++;});
 
 </script>
@@ -115,12 +118,12 @@ onMounted(()=>{nativePrinter.value=requiresNativePrinter();load();loadCompanies(
      <RouterLink v-if="session.can('wallets.view')" :to="{name:'wallets',query:{quick:'funding'}}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path :d="navIconPath('wallets')"/></svg>{{uiLabel('طلب تمويل')}}</RouterLink>
     </div>
    </section>
-   <div class="pos-home-quickkeys"><RouterLink v-for="item in shortcuts" :key="item[0]" :to="{name:item[0],query:item[0]==='support'?{quick:'support'}:{}}"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path :d="navIconPath(item[2])"/></svg></span><b>{{uiLabel(item[1])}}</b></RouterLink><button v-if="nativePrinter" type="button" @click="printerOpen=true"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 8V3h12v5M6 17H3V9h18v8h-3M6 14h12v7H6Z"/></svg></span><b>{{uiLabel('الطابعة')}}</b></button></div>
+   <div class="pos-home-quickkeys"><RouterLink v-for="item in shortcuts" :key="item[0]" :to="item[0]==='topupAvailable'?topupCatalogRoute():{name:item[0],query:item[0]==='support'?{quick:'support'}:{}}"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path :d="navIconPath(item[2])"/></svg></span><b>{{uiLabel(item[1])}}</b></RouterLink><button v-if="nativePrinter" type="button" @click="printerOpen=true"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M6 8V3h12v5M6 17H3V9h18v8h-3M6 14h12v7H6Z"/></svg></span><b>{{uiLabel('الطابعة')}}</b></button></div>
    <section v-if="session.can('sell.create')||session.can('digital.view')" class="pos-home-companies">
     <header><h2>{{uiLabel('الشركات')}}</h2><button v-if="companies.length" type="button" class="pos-text-action" :aria-expanded="showAllCompanies" @click="showAllCompanies=!showAllCompanies">{{uiLabel(showAllCompanies?'عرض أقل':'عرض الكل')}}</button></header>
     <p v-if="companyError" class="help" role="status">{{uiLabel(companyError)}}</p>
     <div class="pos-company-strip" :class="{'is-expanded':showAllCompanies}" :aria-label="uiLabel('الشركات')">
-     <RouterLink v-for="company in companies" :key="company.key" :to="{name:session.can('sell.create')?'sell':'digital',query:session.can('sell.create')?{company:company.key}:{provider:company.provider}}" class="pos-home-company" :aria-label="company.name" :title="company.name"><span class="pos-company-circle"><img v-if="company.image&&!brokenImages.has(company.image)" :src="company.image" alt="" loading="lazy" @error="brokenCompanyImage(company.image)"><span v-else aria-hidden="true">{{Array.from(company.name||'')[0]||'•'}}</span></span><span class="pos-company-name">{{company.name}}</span></RouterLink>
+     <RouterLink v-for="company in companies" :key="company.key" :to="company.provider==='topup'?topupCatalogRoute():{name:session.can('sell.create')?'sell':'digital',query:session.can('sell.create')?{company:company.key}:{provider:company.provider}}" class="pos-home-company" :aria-label="company.name" :title="company.name"><span class="pos-company-circle"><img v-if="company.image&&!brokenImages.has(company.image)" :src="company.image" alt="" loading="lazy" @error="brokenCompanyImage(company.image)"><span v-else aria-hidden="true">{{Array.from(company.name||'')[0]||'•'}}</span></span><span class="pos-company-name">{{company.name}}</span></RouterLink>
     </div>
     <p v-if="!companies.length" class="help" role="status">{{uiLabel(companiesLoading?'جارٍ تحميل الشركات…':'لا توجد فئات متاحة للبيع')}}</p>
    </section>

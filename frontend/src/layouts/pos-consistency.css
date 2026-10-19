@@ -39,4 +39,6 @@
  html[data-portal=pos][data-theme] .portal-shell.pos-app .support-chat-item.unread{border-inline-start-color:var(--pos-accent);background:var(--accent-soft)}
  html[data-portal=pos][data-theme] .portal-shell.pos-app .support-chat-item.selected{outline-color:var(--pos-accent)}
  html[data-portal=pos][data-theme] .portal-shell.pos-app .support-unread-dot{background:var(--pos-action-bg);color:var(--pos-action-ink)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app :is(.tabs,.account-tabs,.report-nav){gap:6px;border-radius:12px;scroll-padding-inline:6px}
+ html[data-portal=pos][data-theme] :is(.portal-shell.pos-app,dialog) :is(.tabs,.account-tabs,.report-nav)>button{min-height:44px;padding:9px 13px;border-radius:10px;font-size:12px;line-height:1.6;text-align:center}
 }

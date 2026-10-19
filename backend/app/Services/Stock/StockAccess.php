@@ -19,7 +19,6 @@ class StockAccess
     public function require(User $actor, string $permission, bool $system = false): void
     {
         $this->authority->require($actor, $permission);
-        $this->authority->require($actor, 'account.view');
         $module = explode('.', $permission)[0];
         if ($permission !== $module.'.view' && in_array($module, ['inventory', 'claims', 'exports', 'import'], true)) {
             $this->authority->require($actor, $module.'.view');

@@ -1,6 +1,7 @@
 <script setup>
 import { computed,nextTick,onBeforeUnmount,ref,watch } from 'vue';
 import CatalogModal from '../catalog/CatalogModal.vue';
+import AppSelect from '../../shared/components/AppSelect.vue';
 import ReceiptCard from './ReceiptCard.vue';
 import {rechargeContent} from './recharge-qr.js';
 import PrintPolicySummary from './PrintPolicySummary.vue';
@@ -46,10 +47,10 @@ async function copyPin(card){
  const openedReceipt=receipt.value,index=copyablePins.value.indexOf(card)+1;
  pinCopyBusy.value=true;pinCopyNotice.value='';
  try{
-  if(typeof navigator==='undefined'||!navigator.clipboard?.writeText)throw Error('النسخ غير متاح على هذا الجهاز. يمكنك تحديد PIN من الوصل ونسخه.');
+  if(typeof navigator==='undefined'||!navigator.clipboard?.writeText)throw Error('النسخ غير متاح على هذا الجهاز.');
   await navigator.clipboard.writeText(card.fields.pin);
   if(receipt.value===openedReceipt)pinCopyNotice.value=`تم نسخ PIN للبطاقة ${index} كنص.`;
- }catch{if(receipt.value===openedReceipt)pinCopyNotice.value='تعذر نسخ PIN. يمكنك تحديد الرقم من الوصل ونسخه.';}
+ }catch{if(receipt.value===openedReceipt)pinCopyNotice.value='تعذر النسخ. حاول مرة أخرى.';}
  finally{pinCopyBusy.value=false;}
 }
 function merge(data) {
@@ -172,6 +173,6 @@ onBeforeUnmount(()=>{clearInterval(interval);document.getElementById('sales-pape
       <button v-if="canDeliver" type="button" class="btn" :disabled="busy" @click="delivery=!delivery">تسجيل التسليم</button>
       <button v-if="!pos" type="button" class="btn" :disabled="busy" @click="close">إغلاق الوصل</button>
     </div>
-    <form v-if="delivery" class="no-print" @submit.prevent="deliver"><div class="formgrid"><label>طريقة التسليم<select v-model="channel"><option>استلام مباشر</option><option>ملف مشفر</option></select></label><label>مرجع التسليم<input v-model="reference" required maxlength="200"></label><label v-if="channel === 'ملف مشفر'">كلمة مرور الملف<input v-model="password" type="password" minlength="12" autocomplete="new-password" required></label></div><div class="formfoot"><button class="btn primary" :disabled="busy || !reference.trim()">{{channel === 'ملف مشفر' ? 'تنزيل الملف المشفر وتسجيل التسليم':'تأكيد التسليم'}}</button></div></form>
+    <form v-if="delivery" class="no-print" @submit.prevent="deliver"><div class="formgrid"><label>طريقة التسليم<AppSelect v-model="channel"><option>استلام مباشر</option><option>ملف مشفر</option></AppSelect></label><label>مرجع التسليم<input v-model="reference" required maxlength="200"></label><label v-if="channel === 'ملف مشفر'">كلمة مرور الملف<input v-model="password" type="password" minlength="12" autocomplete="new-password" required></label></div><div class="formfoot"><button class="btn primary" :disabled="busy || !reference.trim()">{{channel === 'ملف مشفر' ? 'تنزيل الملف المشفر وتسجيل التسليم':'تأكيد التسليم'}}</button></div></form>
   </CatalogModal>
 </template>

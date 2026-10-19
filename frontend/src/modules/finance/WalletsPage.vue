@@ -1,4 +1,5 @@
 <script setup>
+import AppSelect from '../../shared/components/AppSelect.vue';
 import {usePreferencesTranslator} from "../preferences/preferences-state.js";
 const uiLabel=usePreferencesTranslator();
 import AccountPicker from './AccountPicker.vue';
@@ -9,6 +10,8 @@ import {posWalletValues} from './pos-wallet-summary.js';
 import {useBalancePrivacy} from '../../shared/composables/balance-privacy.js';
 import {navIconPath} from '../../layouts/navigation.js';
 import TablePanel from '../../shared/components/TablePanel.vue';
+import {useRouteRefresh} from '../../shared/route-refresh.js';
+import {topupCatalogRoute} from '../digital/pos-topup-context.js';
 
 
 import {useRoute} from 'vue-router';
@@ -39,9 +42,11 @@ import './finance-parity.css';
 import './wallet-layout.css';
 import './pos-wallet.css';
 
-const vm = useFinanceRuntime({balances:true}), service = ref('voucher'), currency = ref('IQD'), tab = ref('balances'), account = ref(''), showFilters = ref(false);
+const vm = useFinanceRuntime({balances:true}), service = ref(route?.query.service==='topup'?'topup':'voucher'), currency = ref('IQD'), tab = ref('balances'), account = ref(''), showFilters = ref(false);
 
 const filters = reactive(emptyFilters()), ledger = vm.resource('ledger');
+const panelRefreshers=new Set();
+function registerRefresh(callback){panelRefreshers.add(callback);return()=>panelRefreshers.delete(callback);}
 const isPos=computed(()=>vm.identity.value?.account.type==='pos'),movementPanel=ref(null),posSummaries=reactive({}),{hidden:balancesHidden}=useBalancePrivacy();
 const posSummaryScope=computed(()=>JSON.stringify([vm.ownId.value,currency.value,filters,vm.identity.value?.membership,vm.identity.value?.permissions]));
 function summaryParameters(selected=service.value){return {service:selected,currency:currency.value,...accountParameters(filters),per_page:1,summary:1};}
@@ -52,7 +57,7 @@ const otherPosServices=computed(()=>vm.options.services.some(item=>!['voucher','
 async function showMovements(){tab.value='balances';await nextTick();movementPanel.value?.scrollIntoView?.({behavior:'smooth',block:'start'});}
 function movementAmount(value){return balancesHidden.value&&value!==null&&value!==undefined?'••••••':money(value);}
 
-const stockError=ref(''),stockLoading=ref(false);let stockController,stockRevision=0;
+const stockError=ref(''),stockLoading=ref(false);let stockController,stockRevision=0,summaryDisplayKey;
 
 const filtersActive = computed(() => Object.values(filters).some(Boolean));
 
@@ -89,39 +94,47 @@ function recordParameters(extra = {}) {
 
 function emptyScope() { return false; }
 
-async function loadLedger(page = 1) {
+async function loadLedger(page = 1, {fresh=false} = {}) {
 
   if (!vm.can('ledger.view')) return;
 
   if (emptyScope()) { ledger.dispose(); ledger.state.meta={current_page:1,last_page:1,total:0}; return; }
 
-  await ledger.load(recordParameters({ account_id: account.value || filters.account, per_page:25, page }));
+  await ledger.load(recordParameters({ account_id: account.value || filters.account, per_page:25, page }),{fresh});
 
 }
 
 async function loadStockMetrics(){
 
-  stockController?.abort();const expected=++stockRevision;vm.options.stock_metrics=null;vm.options.wallet_summary=null;vm.options.topup_summary=null;stockError.value='';stockLoading.value=false;
+  stockController?.abort();const expected=++stockRevision,parameters=summaryParameters(),displayKey=JSON.stringify(parameters),cached=vm.api.peekList('wallets',parameters);
+  if(cached){applySummary(cached);summaryDisplayKey=displayKey;}
+  else if(summaryDisplayKey!==displayKey){vm.options.stock_metrics=null;vm.options.wallet_summary=null;vm.options.topup_summary=null;}
+  summaryDisplayKey=displayKey;stockError.value='';stockLoading.value=false;
 
   if(!vm.can('wallets.view') || emptyScope())return;
 
-  stockController=new AbortController();stockLoading.value=true;
+  stockController=new AbortController();stockLoading.value=!cached;
 
 
 
   const selected=service.value,scope=posSummaryScope.value;
-  try{const result=await vm.api.list('wallets',summaryParameters(selected),stockController.signal);if(expected===stockRevision){vm.options.stock_metrics=result.stock_metrics ?? null;vm.options.wallet_summary=result.summary ?? null;vm.options.topup_summary=result.topup_summary ?? null;if(isPos.value&&scope===posSummaryScope.value&&['voucher','topup'].includes(selected))posSummaries[selected]={scope,summary:result.summary ?? null};}}
+  try{const result=await vm.api.list('wallets',parameters,stockController.signal,{fresh:true});if(expected===stockRevision){applySummary(result);if(isPos.value&&scope===posSummaryScope.value&&['voucher','topup'].includes(selected))posSummaries[selected]={scope,summary:result.summary ?? null};}}
 
-  catch(failed){if(failed.name!=='AbortError' && expected===stockRevision){if(isPos.value)delete posSummaries[selected];stockError.value=await vm.failure(failed);}}
+  catch(failed){if(failed.name!=='AbortError' && expected===stockRevision){if(isPos.value&&[401,403,404].includes(failed.status))delete posSummaries[selected];stockError.value=await vm.failure(failed);}}
   finally{if(expected===stockRevision)stockLoading.value=false;}
 
 }
 
-async function refresh(fresh = true) { if (fresh) {vm.session.api.clearReadCache?.();Object.keys(posSummaries).forEach(id=>delete posSummaries[id]);}else hydratePosSummaries(); if(filtersActive.value){await vm.loadOptions();await Promise.all([loadLedger(),loadStockMetrics()]);}else{await Promise.all([vm.loadOptions(),loadLedger(),loadStockMetrics()]);} }
+function applySummary(result){vm.options.stock_metrics=result.stock_metrics??null;vm.options.wallet_summary=result.summary??null;vm.options.topup_summary=result.topup_summary??null;vm.options.legacy_topup_summary=result.legacy_topup_summary??null;}
+const initialSummary=vm.api.peekList('wallets',summaryParameters());if(initialSummary){applySummary(initialSummary);summaryDisplayKey=JSON.stringify(summaryParameters());}
+
+async function refresh(fresh = true, {preserve=false} = {}) { if(!fresh)hydratePosSummaries();const page=preserve?ledger.state.meta.current_page:1;if(filtersActive.value){await vm.loadOptions({fresh});await Promise.all([loadLedger(page,{fresh}),loadStockMetrics()]);}else{await Promise.all([vm.loadOptions({fresh}),loadLedger(page,{fresh}),loadStockMetrics()]);} }
+async function refreshPage(){await refresh(true,{preserve:true});await Promise.all([...panelRefreshers].map(callback=>callback()));}
+useRouteRefresh(refreshPage,{canRefresh:()=>!vm.busy.value&&!vm.loading.value&&!showFilters.value});
 
 function clearFilters() { Object.assign(filters,emptyFilters()); account.value=''; }
 
-const context = { ...vm, service, currency, filters, filtersActive, accounts, showFilters, recordParameters, emptyScope, refresh, clearFilters };
+const context = { ...vm, service, currency, filters, filtersActive, accounts, showFilters, recordParameters, emptyScope, refresh, registerRefresh, clearFilters };
 
 provide(financeKey, context);
 
@@ -130,11 +143,11 @@ watch([service,currency], () => {loadLedger();loadStockMetrics();});watch(accoun
 watch(filters, () => {account.value='';loadLedger();loadStockMetrics();}, {deep:true});
 watch(posSummaryScope,()=>{Object.keys(posSummaries).forEach(id=>delete posSummaries[id]);hydratePosSummaries();},{immediate:true});
 
-function quickDeposit(){if(route.query.quick==='funding'||route.query.quick==='deposit' && vm.admin.value && vm.can('wallets.deposit'))tab.value='fundingRequests';}
+function quickFunding(){if(isPos.value&&['voucher','topup'].includes(route.query.service))service.value=route.query.service;if(route.query.quick==='funding')tab.value='fundingRequests';}
 
-watch(()=>route.query.quick,quickDeposit);
+watch(()=>[route.query.quick,route.query.service],quickFunding);
 
-onMounted(async()=>{await refresh(false);quickDeposit();});
+onMounted(async()=>{await refresh(false);quickFunding();});
 
 onBeforeUnmount(()=>{stockRevision++;stockController?.abort();});
 
@@ -146,29 +159,30 @@ onBeforeUnmount(()=>{stockRevision++;stockController?.abort();});
 
     <p v-if="vm.error.value" class="notice warn" role="alert">{{vm.error.value}}</p><p v-if="vm.notice.value" class="notice" role="status">{{vm.notice.value}}</p><p v-if="vm.loading.value" class="read-loading caption" role="status">جارٍ تحميل المحافظ…</p>
 
-    <PosWalletSummary v-if="isPos&&vm.can('wallets.view')" :services="vm.options.services" :summaries="posWalletSummaries" :selected="service" :loading="vm.loading.value||stockLoading" :filtered="filtersActive" @select="service=$event"/>
-    <div v-if="isPos" class="pos-wallet-context-actions"><button v-if="canPosFunding" type="button" class="btn primary" @click="tab='fundingRequests'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>{{uiLabel(service==='topup'?'طلب تمويل Topup':'طلب تمويل البطاقات')}}</button><button v-if="vm.can('ledger.view')" type="button" class="btn" @click="showMovements"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path :d="navIconPath('wallets')"/></svg>{{uiLabel('الحركات')}}</button></div>
+    <p v-if="isPos&&stockError" class="notice warn" role="alert">{{stockError}}</p><PosWalletSummary v-if="isPos&&vm.can('wallets.view')" :services="vm.options.services" :summaries="posWalletSummaries" :selected="service" :loading="vm.loading.value||stockLoading" :filtered="filtersActive" @select="service=$event"/>
+    <dl v-if="service==='topup'&&positive(vm.options.legacy_topup_summary?.amount)" class="wallet-legacy-topup-summary"><div><dt>{{uiLabel('رصيد سابق قيد المطابقة')}}</dt><dd class="mono">{{movementAmount(isPos?vm.options.legacy_topup_summary.own_amount:vm.options.legacy_topup_summary.amount)}} <small>{{vm.currencyLabel(currency)}}</small></dd></div></dl>
+    <div v-if="isPos" class="pos-wallet-context-actions"><button v-if="canPosFunding" type="button" class="btn primary" @click="tab='fundingRequests'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>{{uiLabel(service==='topup'?'طلب تمويل Topup':'طلب تمويل البطاقات')}}</button><RouterLink v-if="service==='topup'&&vm.can('digital.view')" class="btn" :to="topupCatalogRoute()">فئات Topup</RouterLink><button v-if="vm.can('ledger.view')" type="button" class="btn" @click="showMovements"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path :d="navIconPath('wallets')"/></svg>{{uiLabel('الحركات')}}</button></div>
     <section class="wallet-advanced"><div class="card"><div class="wallet-filter-toolbar">
-        <div class="tabs wallet-navigation-tabs"><button v-for="item in tabs" :key="item.id" :class="{active:tab===item.id}" :aria-pressed="tab===item.id" @click="tab=item.id">{{uiLabel(item.name)}}<span v-if="item.id==='fundingRequests' && vm.options.counts?.pending_incoming" class="badge wallet-funding-count">{{vm.options.counts.pending_incoming}}</span></button></div>
+        <div class="tabs wallet-navigation-tabs" :style="{'--wallet-tab-columns':tabs.length>3?2:tabs.length}"><button v-for="item in tabs" :key="item.id" :class="{active:tab===item.id}" :aria-pressed="tab===item.id" @click="tab=item.id">{{uiLabel(item.name)}}<span v-if="item.id==='fundingRequests' && vm.options.counts?.pending_incoming" class="badge wallet-funding-count">{{vm.options.counts.pending_incoming}}</span></button></div>
         <div class="wallet-control-row">
           <div v-if="!isPos" class="wallet-service-cards" role="group" aria-label="نوع المحفظة">
             <button type="button" :aria-pressed="!service" :class="{active:!service}" @click="service=''">إجمالي كل الأرصدة</button>
             <button v-for="item in vm.options.services" :key="item.id" type="button" :aria-pressed="service===item.id" :class="{active:service===item.id}" @click="service=item.id">{{item.id==='voucher'?'البطاقات • رصيد تشغيلي':item.id==='topup'?'Topup':item.name}}</button>
           </div>
-          <label v-else-if="otherPosServices" class="pos-wallet-other-services">{{uiLabel('نوع المحفظة')}}<select v-model="service" aria-label="نوع المحفظة"><option value="">إجمالي كل الأرصدة</option><option v-for="item in vm.options.services" :key="item.id" :value="item.id">{{item.id==='voucher'?'محفظة البطاقات':item.id==='topup'?'محفظة Topup':item.name}}</option></select></label>
+          <label v-else-if="otherPosServices" class="pos-wallet-other-services">{{uiLabel('نوع المحفظة')}}<AppSelect v-model="service" aria-label="نوع المحفظة"><option value="">إجمالي كل الأرصدة</option><option v-for="item in vm.options.services" :key="item.id" :value="item.id">{{item.id==='voucher'?'محفظة البطاقات':item.id==='topup'?'محفظة Topup':item.name}}</option></AppSelect></label>
           <div class="actions wallet-page-actions">
             <button class="btn" @click="showFilters=true">فلترة وبحث<span v-if="filtersActive"> •</span></button>
             <button v-if="filtersActive" class="btn small" @click="clearFilters">مسح الفلاتر</button>
-            <button class="btn small" :disabled="vm.loading.value || vm.busy.value" @click="refresh">تحديث</button>
+            <button class="btn small" :disabled="vm.loading.value || vm.busy.value" @click="refreshPage">تحديث</button>
           </div>
         </div>
       </div>
 
       <div v-if="tab==='balances' && service!=='topup' && (!isPos||!['voucher','topup'].includes(service))" class="ops-stats wallet-summary-cards"><div data-wallet-metric="current"><span>{{ownTotals?'رصيدي الحالي':'الرصيد الحالي للحسابات المعروضة'}}</span><strong>{{money(totals.current)}} {{vm.currencyLabel(currency)}}</strong></div><div data-wallet-metric="available"><span>{{ownTotals?'رصيدي المتاح':'الرصيد المتاح للحسابات المعروضة'}}</span><strong>{{money(totals.available)}} {{vm.currencyLabel(currency)}}</strong></div><div data-wallet-metric="held"><span>{{ownTotals?'رصيدي المحجوز':'الرصيد المحجوز للحسابات المعروضة'}}</span><strong>{{money(totals.held)}} {{vm.currencyLabel(currency)}}</strong></div><div v-if="ownTotals && vm.identity.value?.account.type!=='pos' && accounts.some(row=>row.id!==vm.ownId.value)" data-wallet-metric="children"><span>أرصدة التابعين المعروضين</span><strong>{{money(totals.children)}} {{vm.currencyLabel(currency)}}</strong></div><div><span>طلبات بانتظار التمويل</span><strong>{{vm.options.counts?.pending_incoming ?? '—'}}</strong></div><div><span>تحويلات منفذة</span><strong>{{vm.options.counts?.transfer_count ?? '—'}}</strong></div><template v-if="vm.options.stock_metrics && (!service || service==='voucher') && ['system','main_agent'].includes(vm.identity.value?.account.type)"><div data-wallet-metric="stock-count"><span>عدد بطاقات مخزون الوكيل الرئيسي</span><strong>{{vm.options.stock_metrics.count}}</strong></div><div v-if="vm.can('data.cost') && vm.options.stock_metrics.cost!==null" data-wallet-metric="stock-cost"><span>تكلفة مخزون الوكيل الرئيسي</span><strong>{{money(vm.options.stock_metrics.cost)}} {{vm.currencyLabel(currency)}}</strong></div><div data-wallet-metric="stock-value"><span>قيمة مخزون البطاقات</span><strong>{{money(vm.options.stock_metrics.value)}} {{vm.currencyLabel(currency)}}</strong></div></template></div><p v-if="vm.balancesError.value" class="notice warn" role="alert">{{vm.balancesError.value}}</p><p v-if="stockError" class="notice warn" role="alert">{{stockError}}</p></div>
 
-      <template v-if="tab==='balances'"><TopupWallet v-if="service==='topup' && (vm.can('digital.view') || vm.can('wallets.view'))"/><WalletAccountsTable v-if="service!=='topup'&&(!isPos||filtersActive||accounts.some(row=>Number(row.id)!==vm.ownId.value)||!vm.ownVisible.value)" @movements="account=String($event)" /><div v-if="vm.can('ledger.view')" ref="movementPanel" class="card wallet-movements"><h3 v-if="isPos">{{uiLabel('حركات المحفظة')}}</h3><label>حركات الحساب<AccountPicker v-model="account" :vm="vm" :parameters="accountParameters(filters)" label="حركات الحساب"/></label><p v-if="ledger.state.error" class="notice warn" role="alert">{{ledger.state.error}}</p><p v-if="ledger.state.loading" class="read-loading caption" role="status">جارٍ تحميل الحركات…</p><div v-if="isPos" class="pos-wallet-movement-list"><article v-for="row in ledger.state.rows" :key="row.id" class="pos-wallet-movement"><span class="pos-wallet-movement-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path :d="String(row.amount).startsWith('-')?'M7 17 17 7M7 7h10v10':'M17 7 7 17M7 7v10h10'"/></svg></span><div class="pos-wallet-movement-text"><b>{{uiLabel(movementKinds[row.kind]||row.kind)}}</b><small>{{time(row.created_at)}} · {{row.reference||'#'+row.transaction_id}}</small><small v-if="row.account_name&&Number(row.account_id)!==vm.ownId.value">{{row.account_name}}</small></div><strong class="pos-wallet-movement-amount mono">{{movementAmount(row.amount)}}<small>{{vm.currencyLabel(row.currency)}}</small></strong></article><p v-if="!ledger.state.rows.length&&!ledger.state.loading" class="empty">{{uiLabel('لا توجد حركات مطابقة')}}</p></div><TablePanel v-else :start="(ledger.state.meta.current_page-1)*25+1" class="tablewrap"><table><thead><tr><th>الوقت</th><th>الحساب</th><th>الحركة</th><th>المبلغ</th><th>المرجع</th></tr></thead><tbody><tr v-for="row in ledger.state.rows" :key="row.id"><td>{{time(row.created_at)}}</td><td>{{row.account_name || vm.name(row.account_id)}}</td><td>{{movementKinds[row.kind] || row.kind}}</td><td :class="{'ops-negative':String(row.amount).startsWith('-')}">{{money(row.amount)}} {{vm.currencyLabel(row.currency)}}</td><td>{{row.reference || '#'+row.transaction_id}}</td></tr><tr v-if="!ledger.state.rows.length && !ledger.state.loading"><td colspan="5" class="empty">لا توجد حركات مطابقة</td></tr></tbody></table></TablePanel><FinancePagination :meta="ledger.state.meta" :busy="ledger.state.loading" @page="loadLedger" /></div></template>
+      <template v-if="tab==='balances'"><TopupWallet v-if="service==='topup' && (vm.can('digital.view') || vm.can('wallets.view'))"/><WalletAccountsTable v-if="service!=='topup'&&(!isPos||filtersActive||accounts.some(row=>Number(row.id)!==vm.ownId.value)||!vm.ownVisible.value)" @movements="account=String($event)" /><div v-if="vm.can('ledger.view')" ref="movementPanel" class="card wallet-movements"><h3 v-if="isPos">{{uiLabel('حركات المحفظة')}}</h3><label>حركات الحساب<AccountPicker v-model="account" :vm="vm" :parameters="accountParameters(filters)" label="حركات الحساب"/></label><p v-if="ledger.state.error" class="notice warn" role="alert">{{ledger.state.error}}</p><p v-if="ledger.state.loading" class="read-loading caption" role="status">جارٍ تحميل الحركات…</p><div v-if="isPos" class="pos-wallet-movement-list"><article v-for="row in ledger.state.rows" :key="row.id" class="pos-wallet-movement"><span class="pos-wallet-movement-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path :d="String(row.amount).startsWith('-')?'M7 17 17 7M7 7h10v10':'M17 7 7 17M7 7v10h10'"/></svg></span><div class="pos-wallet-movement-text"><b>{{uiLabel(movementKinds[row.kind]||row.kind)}}</b><small v-if="row.legacy_service">{{uiLabel(row.source_label||'رصيد سابق قيد المطابقة')}}</small><small>{{time(row.created_at)}} · {{row.reference||'#'+row.transaction_id}}</small><small v-if="row.account_name&&Number(row.account_id)!==vm.ownId.value">{{row.account_name}}</small></div><strong class="pos-wallet-movement-amount mono">{{movementAmount(row.amount)}}<small>{{vm.currencyLabel(row.currency)}}</small></strong></article><p v-if="!ledger.state.rows.length&&!ledger.state.loading" class="empty">{{uiLabel('لا توجد حركات مطابقة')}}</p></div><TablePanel v-else :start="(ledger.state.meta.current_page-1)*25+1" class="tablewrap"><table><thead><tr><th>الوقت</th><th>الحساب</th><th>الحركة</th><th>المبلغ</th><th>المرجع</th></tr></thead><tbody><tr v-for="row in ledger.state.rows" :key="row.id"><td>{{time(row.created_at)}}</td><td>{{row.account_name || vm.name(row.account_id)}}</td><td>{{movementKinds[row.kind] || row.kind}}<small v-if="row.legacy_service">{{uiLabel(row.source_label||'رصيد سابق قيد المطابقة')}}</small></td><td :class="{'ops-negative':String(row.amount).startsWith('-')}">{{money(row.amount)}} {{vm.currencyLabel(row.currency)}}</td><td>{{row.reference || '#'+row.transaction_id}}</td></tr><tr v-if="!ledger.state.rows.length && !ledger.state.loading"><td colspan="5" class="empty">لا توجد حركات مطابقة</td></tr></tbody></table></TablePanel><FinancePagination :meta="ledger.state.meta" :busy="ledger.state.loading" @page="loadLedger" /></div></template>
 
-      <SimpleWallets v-if="tab==='fundingRequests'" :quick-deposit="route.query.quick==='deposit'" /><WalletBulk v-if="tab==='bulk'" /><WalletRecovery v-if="tab==='recovery'" /><WalletInvoices v-if="tab==='invoice'" />
+      <SimpleWallets v-if="tab==='fundingRequests'" /><WalletBulk v-if="tab==='bulk'" /><WalletRecovery v-if="tab==='recovery'" /><WalletInvoices v-if="tab==='invoice'" />
 
     </section><WalletFilterDialog :open="showFilters" @close="showFilters=false" />
 

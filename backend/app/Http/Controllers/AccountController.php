@@ -40,9 +40,10 @@ class AccountController extends Controller
         }
         if (! empty($validated['q'])) {
             $q = $validated['q'];
+            $query->where('type', '<>', 'system');
             $query->where(fn ($builder) => $builder->where('name', 'like', '%'.$q.'%')->orWhere('phone', 'like', '%'.$q.'%')->orWhere('serial', 'like', '%'.$q.'%')
                 ->orWhere('city', 'like', '%'.$q.'%')->orWhere('owner_name', 'like', '%'.$q.'%')
-                ->orWhereIn('parent_id', (clone $base)->where('name', 'like', '%'.$q.'%')->select('accounts.id')));
+                ->orWhereIn('parent_id', (clone $base)->where('type', '<>', 'system')->where('name', 'like', '%'.$q.'%')->select('accounts.id')));
         }
         $page = $query->orderBy('id')->paginate($validated['per_page'] ?? 25)->withQueryString();
         $ids = $page->getCollection()->modelKeys();

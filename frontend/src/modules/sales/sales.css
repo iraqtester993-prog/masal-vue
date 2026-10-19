@@ -107,3 +107,9 @@ html[data-portal="pos"] .pos-history .sales-pagination{justify-content:space-bet
 @media(max-width:800px){.print-request-header{grid-template-columns:minmax(0,1fr) auto}.print-request-parties{grid-row:2;grid-column:1/-1}.print-request-header time{text-align:end}.print-request-decision{grid-template-columns:minmax(0,1fr)}.portal-main .print-request-actions{justify-content:flex-start;max-width:none}}
 @media(max-width:500px){.portal-shell .portal-main .sales-workspace .filter-bar-fields.sales-filters{grid-template-columns:repeat(2,minmax(0,1fr))}.sales-filters>.sales-filter-search,.sales-filter-actions{grid-column:1/-1}.print-request-actions .btn{flex:1 1 130px;white-space:normal;line-height:1.6}.print-exceptions .own-reprint-sales>.rowline>.btn{width:100%;white-space:normal}.sales-workspace .sales-pagination{flex-wrap:wrap;justify-content:space-between;gap:8px}.sales-workspace .sales-pagination>span{font-size:11px}}
 @media(max-width:350px){html[data-portal="pos"] .pos-history .pos-history-item{padding:12px}html[data-portal="pos"] .pos-history-item-actions .btn{padding:7px 8px}html[data-portal="pos"] .pos-history-filters{grid-template-columns:1fr}html[data-portal="pos"] .receipt-primary-actions{grid-template-columns:1fr}}
+
+.portal-main .sales-workspace>.sales-main-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;width:100%}
+.portal-main .sales-workspace>.sales-main-tabs>button{flex:1 1 0!important;width:100%;min-width:0;min-height:48px;white-space:normal;text-align:center;line-height:1.6;padding:9px 8px;display:flex;align-items:center;justify-content:center}
+.history-load-more{display:grid;place-items:center;gap:8px;min-height:52px;padding:12px;color:var(--muted);font-size:12px}
+.history-load-more>p{margin:0}
+.pos-history-item{content-visibility:auto;contain-intrinsic-size:auto 190px}

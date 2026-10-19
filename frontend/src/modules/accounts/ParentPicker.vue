@@ -1,4 +1,5 @@
 <script setup>
+import AppSelect from '../../shared/components/AppSelect.vue';
 import { onBeforeUnmount, onMounted, ref, useId, watch } from 'vue';
 import { useAccountAccess } from './use-account-access.js';
 import { childTypes } from './child-types.js';
@@ -25,4 +26,4 @@ watch(()=>props.ancestorId,()=>load());
 onMounted(()=>load());
 onBeforeUnmount(()=>{clearTimeout(timer);controller?.abort();});
 </script>
-<template><div class="parent-picker"><label :for="selectId">{{ label }}</label><input v-model="query" type="search" :disabled="disabled" :aria-label="'بحث · '+label" :placeholder="allAccounts?'بحث باسم الحساب أو الهاتف…':'بحث باسم الوكيل أو المحافظة…'"/><select :id="selectId" :value="String(modelValue.id)" :disabled="disabled || loading" @change="choose"><option :value="String(modelValue.id)">{{ modelValue.name }}</option><option v-for="row in rows" :key="row.id" :value="String(row.id)">{{ row.name }} · {{ row.city || '—' }}</option></select><p v-if="error" role="alert" class="field-error">{{error}}</p><div v-if="lastPage>1" class="picker-tools"><button type="button" class="btn" :disabled="disabled || loading || page<=1" @click="load(page-1)">السابق</button><small>{{page}} / {{lastPage}}</small><button type="button" class="btn" :disabled="disabled || loading || page>=lastPage" @click="load(page+1)">التالي</button></div></div></template>
+<template><div class="parent-picker"><label :for="selectId">{{ label }}</label><input v-model="query" type="search" :disabled="disabled" :aria-label="'بحث · '+label" :placeholder="allAccounts?'بحث باسم الحساب أو الهاتف…':'بحث باسم الوكيل أو المحافظة…'"/><AppSelect :id="selectId" :value="String(modelValue.id)" :disabled="disabled || loading" @change="choose"><option :value="String(modelValue.id)">{{ modelValue.name }}</option><option v-for="row in rows" :key="row.id" :value="String(row.id)">{{ row.name }} · {{ row.city || '—' }}</option></AppSelect><p v-if="error" role="alert" class="field-error">{{error}}</p><div v-if="lastPage>1" class="picker-tools"><button type="button" class="btn" :disabled="disabled || loading || page<=1" @click="load(page-1)">السابق</button><small>{{page}} / {{lastPage}}</small><button type="button" class="btn" :disabled="disabled || loading || page>=lastPage" @click="load(page+1)">التالي</button></div></div></template>

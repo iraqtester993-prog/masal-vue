@@ -1,4 +1,6 @@
 <script setup>
+import AppSelect from '../../shared/components/AppSelect.vue';
+import {westernDigits} from '../../shared/numbers.js';
 import FilterBar from '../../shared/components/FilterBar.vue';
 import TablePanel from '../../shared/components/TablePanel.vue';
 
@@ -14,19 +16,22 @@ import {
   ref,
   watch,
 } from "vue";
+import {useListNavigation} from '../../shared/api/list-navigation.js';
+import {useRouteRefresh} from '../../shared/route-refresh.js';
 import { useRoute } from "vue-router";
 import { useAccountAccess } from "./use-account-access.js";
 import { createPagedResource } from "./paged-resource.js";
 import { accountTypeLabel } from "../../app/portal-config.js";
 import { childTypes } from "./child-types.js";
 import { initialAccountContext } from "./account-model.js";
+import {hasOwnerAuthority} from '../auth/capabilities.js';
 import AccountRowActions from "./AccountRowActions.vue";
 import AccountModal from './AccountModal.vue';
 const ArchiveConfirm = defineAsyncComponent(() => import('../archive/ArchiveConfirm.vue'));
 const archiveBusy = ref(false);
 import "./accounts.css";
 import NetworkHierarchy from "./NetworkHierarchy.vue";
-const networkRevision = ref(0),posFiltersOpen=ref(false);
+const networkRevision = ref(0),posFiltersOpen=ref(false),networkView=ref(null);
 const AccountEditor = defineAsyncComponent(
   () => import("./CreateAccountDialog.vue"),
 );
@@ -40,6 +45,7 @@ const PermissionEditor = defineAsyncComponent(
 );
 const { session, router, handleFailure } = useAccountAccess();
 const route = useRoute();
+const navigation=useListNavigation(session.api,`network:${route.name}`),savedNavigation=navigation.saved;
 const isPos = computed(
   () => route.name === "pos" || session.state.identity?.account.type === "pos",
 );
@@ -49,19 +55,20 @@ const filters = reactive({
   status: "",
   city: "",
   per_page: 10,
+  ...savedNavigation?.filters,
 });
-const view = ref("list"),
+const view = ref(savedNavigation?.view||"list"),
   path = ref([]),
-  treeMode = ref("agents"),
+  treeMode = ref(savedNavigation?.treeMode||"agents"),
   cities = ref([]),
   root = ref(null),
   modal = ref(null),
   success = ref(""),
-  hidden = ref([]);
+  hidden = ref(savedNavigation?.hidden||[]);
 const resource = createPagedResource(
-  (parameters, signal) => session.api.accounts(parameters, signal),
+  (parameters, signal, options) => session.api.accounts(parameters, signal, options),
   handleFailure,
-  {peek:parameters=>session.api.peekAccounts?.(parameters,120000)},
+  {peek:parameters=>session.api.peekAccounts?.(parameters)},
 );
 const state = resource.state;
 const columns = [
@@ -95,11 +102,11 @@ function parameters(page = 1) {
     
   };
 }
-async function load(page = 1, refreshNetwork = false) {
-  await resource.load(parameters(page));
+async function load(page = 1, refreshNetwork = false, fresh = false) {
+  await resource.load(parameters(page),{fresh});
   if (refreshNetwork) networkRevision.value++;
 }
-resource.hydrate(parameters());
+resource.hydrate(parameters(savedNavigation?.page||1));
 async function exportAccounts(){
   try{const {workbook}=await import('../../shared/files/excel-export.js'); const url=URL.createObjectURL(workbook(state.rows.map(row=>({'الوكيل':row.name,'المستوى':accountTypeLabel(row.type),'الوكيل الأعلى':row.parent?.name||'—','المحافظة':row.city||'—','الحالة':row.status==='active'?'مفعل':'موقوف'}))));const link=document.createElement('a');link.href=url;link.download='agents.xlsx';link.click();setTimeout(()=>URL.revokeObjectURL(url),0);}catch(cause){state.error=await handleFailure(cause);}
 }
@@ -109,11 +116,12 @@ function toggleColumn(key) {
     : [...hidden.value, key];
 }
 function columnValue(account, key) {
+  if(key === "phone")return westernDigits(account.phone)||"—";
   if(key === "representative")return account.representative_names?.join("، ")||"—";
   if (key === "parent") return account.parent?.name || "—";
   if (key === "created_at")
     return account.created_at
-      ? new Date(account.created_at).toLocaleDateString("ar-IQ")
+      ? new Date(account.created_at).toLocaleDateString("ar-IQ",{numberingSystem:"latn"})
       : "—";
   return account[key] || "—";
 }
@@ -132,7 +140,7 @@ function newAccount(
   kind = isPos.value ? "pos" : "agents",
   parent = focused.value || root.value,
 ) {
-  if (parent) modal.value = { kind: "edit", createKind: kind, parent };
+  if (parent&&hasOwnerAuthority(session.state.identity)&&session.can('account.create')) modal.value = { kind: "edit", createKind: kind, parent };
 }
 async function rowAction(kind, account) {
   success.value = "";
@@ -219,8 +227,13 @@ function quickCreate(){
   newAccount(route.query.quick==='pos' ? 'pos' : 'agents', root.value);
 }
 watch(() => route.query.quick, quickCreate);
+useRouteRefresh(async()=>{
+ const result=await Promise.allSettled([load(state.meta.current_page,false,true),networkView.value?.refresh(),session.api.accountOptions(controller.signal,{fresh:true}).then(response=>{if(!controller.signal.aborted)cities.value=response.data.cities;})]);
+ for(const item of result)if(item.status==='rejected'&&item.reason.name!=='AbortError')state.error=await handleFailure(item.reason);
+ return !state.error&&!result.some(item=>item.status==='fulfilled'&&item.value===false);
+},{canRefresh:()=>!modal.value&&!archiveBusy.value});
 onMounted(async () => {
-  const list = load();
+  const list = load(savedNavigation?.page||1).then(()=>navigation.restoreScroll());
   const details = (async () => {
     const context = await initialAccountContext(session.state.identity, session.api, controller.signal);
     const response = await session.api.account(context.id, controller.signal);
@@ -239,6 +252,7 @@ onMounted(async () => {
   quickCreate();
 });
 onBeforeUnmount(() => {
+  navigation.remember({filters:{...filters},page:state.meta.current_page,view:view.value,treeMode:treeMode.value,hidden:[...hidden.value]});
   clearTimeout(timer);
   controller.abort();
   resource.dispose();
@@ -271,7 +285,7 @@ onBeforeUnmount(() => {
             isPos ? 'بحث بالاسم أو الهاتف أو المندوب…' : 'بحث بالاسم أو المحافظة…'
           "
         />
-        <select
+        <AppSelect
           v-if="!isPos"
           v-model="filters.type"
           aria-label="مستوى الوكيل"
@@ -280,12 +294,12 @@ onBeforeUnmount(() => {
           <option value="main_agent">وكيل رئيسي</option>
           <option value="sub_agent">وكيل فرعي</option>
           <option value="sub_branch">فرع فرعي</option>
-        </select>
+        </AppSelect>
         <div class="workspace-actions">
           <button
             v-if="
               session.can('account.create') &&
-              session.state.identity?.membership?.kind === 'owner' &&
+              hasOwnerAuthority(session.state.identity) &&
               session.state.identity?.account.type !== 'pos' &&
               (!isPos ||
                 (session.can('pos.device') && session.can('pos.location')))
@@ -294,7 +308,7 @@ onBeforeUnmount(() => {
             @click="newAccount()"
           >
             {{ isPos ? "إضافة نقطة بيع" : root?.type === "system" ? "إضافة وكيل رئيسي" : "إضافة وكيل فرعي" }}</button
-          ><button v-if="!isPos && root?.type==='system' && session.can('account.create')" class="btn" :disabled="!state.rows.some(row=>['main_agent','sub_agent'].includes(row.type))" @click="newAccount('agents',state.rows.find(row=>['main_agent','sub_agent'].includes(row.type)))">إضافة وكيل فرعي</button><button
+          ><button v-if="!isPos && root?.type==='system' && hasOwnerAuthority(session.state.identity) && session.can('account.create')" class="btn" :disabled="!state.rows.some(row=>['main_agent','sub_agent'].includes(row.type))" @click="newAccount('agents',state.rows.find(row=>['main_agent','sub_agent'].includes(row.type)))">إضافة وكيل فرعي</button><button
             class="btn"
             :disabled="state.loading"
             @click="isPos ? posFiltersOpen=!posFiltersOpen : exportAccounts()" :aria-label="isPos?'فلترة نقاط البيع':'تصدير'" :aria-expanded="isPos?posFiltersOpen:undefined" :aria-controls="isPos?'pos-search-filters':undefined"
@@ -318,16 +332,16 @@ onBeforeUnmount(() => {
             >
           </div>
         </details>
-<select v-if="isPos" v-model.number="filters.per_page" aria-label="عدد نقاط البيع في الصفحة"><option v-for="size in [10,25,50,100]" :value="size">{{size}}</option></select><small v-if="isPos">{{state.meta.total ? (state.meta.current_page-1)*filters.per_page+1 : 0}}–{{Math.min(state.meta.current_page*filters.per_page,state.meta.total)}} من {{state.meta.total}}</small></FilterBar>
-      <div v-if="isPos && posFiltersOpen" id="pos-search-filters" class="pos-filter-panel">        <label>حالة الحساب<select v-model="filters.status" aria-label="حالة الحساب">
+<AppSelect v-if="isPos" v-model.number="filters.per_page" aria-label="عدد نقاط البيع في الصفحة"><option v-for="size in [10,25,50,100]" :value="size">{{size}}</option></AppSelect><small v-if="isPos">{{state.meta.total ? (state.meta.current_page-1)*filters.per_page+1 : 0}}–{{Math.min(state.meta.current_page*filters.per_page,state.meta.total)}} من {{state.meta.total}}</small></FilterBar>
+      <div v-if="isPos && posFiltersOpen" id="pos-search-filters" class="pos-filter-panel">        <label>حالة الحساب<AppSelect v-model="filters.status" aria-label="حالة الحساب">
           <option value="">كل الحالات</option>
           <option value="active">مفعل</option>
           <option value="disabled">موقوف</option>
-        </select></label>
-        <label>المحافظة<select v-model="filters.city" aria-label="المحافظة">
+        </AppSelect></label>
+        <label>المحافظة<AppSelect v-model="filters.city" aria-label="المحافظة">
           <option value="">كل المحافظات</option>
           <option v-for="city in cities" :key="city">{{ city }}</option>
-        </select></label>
+        </AppSelect></label>
 <button type="button" class="btn" @click="filters.status='';filters.city=''">مسح الفلاتر</button></div>
       <div v-if="!isPos && view === 'tree'" class="network-summary">
         <span
@@ -337,9 +351,9 @@ onBeforeUnmount(() => {
           >{{ accountTypeLabel(type) }}</span
         >
       </div>
-      <NetworkHierarchy v-if="!isPos && view !== 'list'" :mode="view" :query="filters.q" :type="filters.type" :revision="networkRevision" @action="rowAction" />
+      <NetworkHierarchy v-if="!isPos && view !== 'list'" ref="networkView" :mode="view" :query="filters.q" :type="filters.type" :revision="networkRevision" @action="rowAction" />
       <template v-if="isPos || view === 'list'">
-      <div v-if="!isPos" class="network-list-size"><select v-model.number="filters.per_page" aria-label="عدد الحسابات في الصفحة"><option v-for="size in [10,25,50,100]" :value="size">{{size}}</option></select><span>{{state.meta.total}} حساب</span></div>
+      <div v-if="!isPos" class="network-list-size"><AppSelect v-model.number="filters.per_page" aria-label="عدد الحسابات في الصفحة"><option v-for="size in [10,25,50,100]" :value="size">{{size}}</option></AppSelect><span>{{state.meta.total}} حساب</span></div>
       <p v-if="state.loading" class="read-loading empty" role="status">
         جارٍ تحميل الحسابات…
       </p>
@@ -347,7 +361,7 @@ onBeforeUnmount(() => {
         {{ state.error }}
         <button class="text-button" @click="load()">إعادة المحاولة</button>
       </div>
-      <template v-else>
+      <template v-if="state.rows.length||!state.loading&&!state.error">
         <TablePanel :start="(state.meta.current_page-1)*filters.per_page+1" class="tablewrap">
           <table>
             <thead>
@@ -438,7 +452,7 @@ onBeforeUnmount(() => {
             {{ state.meta.last_page }} · {{ state.meta.total }} حساب</span
           ><label
             >عرض
-            <select
+            <AppSelect
               v-model.number="filters.per_page"
               aria-label="عدد الحسابات في الصفحة"
             >
@@ -449,7 +463,7 @@ onBeforeUnmount(() => {
               >
                 {{ size }}
               </option>
-            </select></label
+            </AppSelect></label
           ><button
             class="btn small"
             :disabled="

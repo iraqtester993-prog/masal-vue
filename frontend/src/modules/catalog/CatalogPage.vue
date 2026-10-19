@@ -1,9 +1,12 @@
 <script setup>
+import {hasSystemScope} from '../auth/capabilities.js';
+import AppSelect from '../../shared/components/AppSelect.vue';
 import {usePreferencesTranslator as useUiLabelTranslator} from '../preferences/preferences-state.js';
 const uiLabel=useUiLabelTranslator();
 import { computed, reactive, provide, watch, onBeforeUnmount } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { usePortal } from "../auth/session.js";
+import {useRouteRefresh} from '../../shared/route-refresh.js';
 import { createCatalogApi } from "./catalog-api.js";
 import {
   catalogKey,
@@ -88,8 +91,7 @@ const vm = reactive({
       const i = session.state.identity;
       return (
         i?.account.type === "system" &&
-        (i.membership.kind === "owner" ||
-          i.membership.scope_roots?.includes(i.account.id))
+        hasSystemScope(i)
       );
     }
     return true;
@@ -261,6 +263,11 @@ async function initialize() {
     await fail(error);
   }
 }
+useRouteRefresh(async()=>{
+ const result=await Promise.allSettled([load(vm.meta.current_page,true),api.options(lifetime.signal,{fresh:true}).then(response=>{if(!lifetime.signal.aborted)vm.options=response.data;})]);
+ for(const item of result)if(item.status==='rejected')await fail(item.reason);
+ return !vm.error;
+},{canRefresh:()=>!vm.saving&&!vm.modal&&!vm.categoryImageBusy&&!vm.providerLogoBusy});
 watch(() => route.meta.catalog, initialize, { immediate: true });
 onBeforeUnmount(() => {
   revision++;
@@ -380,7 +387,7 @@ async function exportCurrent() {
             :class="{ full: field.type === 'cardFields' }"
             >{{ tr(field.label) }}
             <div v-if="field.type === 'cardFields'" class="card-field-editor">
-              <p class="help">
+              <p v-if="session.state.identity?.account.type!=='pos'" class="help">
                 حدد البيانات الموجودة في البطاقة. كل حقل محدد مطلوب عند
                 الاستيراد، وغير المحدد لا يستخدم.
               </p>
@@ -410,12 +417,12 @@ async function exportCurrent() {
                   }}</small></span
                 ></label
               >
-              <p class="help">
+              <p v-if="session.state.identity?.account.type!=='pos'" class="help">
                 رمز الشحن وتاريخ الانتهاء مطلوبان للبيع وإدارة صلاحية المخزون.
                 يمكن أخذ تاريخ الانتهاء من تاريخ الدفعة عند غيابه من الملف.
               </p>
             </div>
-            <select
+            <AppSelect
               v-else-if="field.options"
               v-model="vm.editForm[field.key]"
               required
@@ -426,11 +433,12 @@ async function exportCurrent() {
                 :value="option.value"
               >
                 {{ tr(option.label) }}
-              </option></select
+              </option></AppSelect
             ><input
               v-else
               v-model="vm.editForm[field.key]"
               v-money="['face', 'min'].includes(field.key)"
+              :lang="['face','min'].includes(field.key)||['date','datetime-local','time','number','tel'].includes(field.type)?'en':undefined"
               :type="
                 ['face', 'min'].includes(field.key)
                   ? 'text'

@@ -1,3 +1,5 @@
+import { clean as cleanMoney } from './money-input.js';
+
 export const catalogKey = Symbol("masal.catalog");
 export const tr = (value) =>
   ({
@@ -6,8 +8,8 @@ export const tr = (value) =>
     "الشركات والمزودون": "الشركات",
   })[value] ?? String(value ?? "");
 export const money = (value) =>
-  new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(
-    Number(value) || 0,
+  new Intl.NumberFormat("en-US", { maximumFractionDigits: 2, numberingSystem: "latn" }).format(
+    Number(cleanMoney(value)) || 0,
   );
 export const columns = [
   ["importCodes", "معرّفات الفئة في ملفات الطلبيات"],

@@ -5,14 +5,17 @@ export function createReadCache({ now = Date.now, ttl = 15000, limit = 60 } = {}
   const clone = value => structuredClone(value);
   const superseded = () => new DOMException('A newer read replaced this request', 'AbortError');
   function clear() { generation++; entries.clear(); }
+  function touch(key, entry) { entries.delete(key); entries.set(key, entry); }
   function has(key, maxAge = ttl) {
     const entry = entries.get(key), age = entry ? now() - entry.at : -1;
-    return !entry?.refreshing && entry?.value !== undefined && age >= 0 && age < maxAge;
+    return !entry?.refreshing && !entry?.failed && entry?.value !== undefined && age >= 0 && age < maxAge;
   }
   function peek(key, maxAge = ttl) {
     const entry = entries.get(key);
     const age = entry ? now() - entry.at : -1;
-    return entry?.value !== undefined && age >= 0 && age < maxAge ? clone(entry.value) : null;
+    if (entry?.value === undefined || age < 0 || age >= maxAge) return null;
+    touch(key, entry);
+    return clone(entry.value);
   }
   async function read(key, load, { signal, force = false } = {}) {
     signal?.throwIfAborted();
@@ -24,8 +27,8 @@ export function createReadCache({ now = Date.now, ttl = 15000, limit = 60 } = {}
     if (force || !entry?.pending) {
       const expected = generation;
       // Keep the previous display during revalidation, without serving it as fresh.
-      entry = { at: entry?.at ?? 0, value: entry?.value, pending: null, refreshing: force };
-      entries.set(key, entry);
+      entry = { at: entry?.at ?? 0, value: entry?.value, pending: null, refreshing: true, failed: false };
+      touch(key, entry);
       while (entries.size > limit) entries.delete(entries.keys().next().value);
       entry.pending = Promise.resolve().then(load).then(value => {
         if (entry.superseded) throw superseded();
@@ -35,10 +38,15 @@ export function createReadCache({ now = Date.now, ttl = 15000, limit = 60 } = {}
         return { value, expected };
       }, error => {
         if (entry.superseded) throw superseded();
-        if (entries.get(key) === entry) entries.delete(key);
+        if (entries.get(key) === entry) {
+          const transient = !error.status || error.status >= 500 || [408, 429].includes(error.status);
+          if (entry.value === undefined || !transient) entries.delete(key);
+          else { entry.pending = null; entry.refreshing = false; entry.failed = true; }
+        }
         throw error;
       });
     }
+    touch(key, entry);
     // Leaving one page must not cancel another page's shared request.
     let abort;
     const interrupted = new Promise((_, reject) => {

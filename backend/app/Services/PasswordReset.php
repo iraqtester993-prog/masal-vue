@@ -139,10 +139,17 @@ class PasswordReset
     public function canReset(User $actor, Account $target, bool $knownVisible = false): bool
     {
         $member = $actor->membership;
-        if (! $actor->isOperational() || $member->kind !== 'owner' || $member->account->type === AccountType::Pos
+        if (! $actor->isOperational() || ($member->kind !== 'owner' && ! app(ManagementAuthority::class)->hasSystemScope($actor)) || $member->account->type === AccountType::Pos
             || ! in_array('account.password_reset', $member->permissions(), true) || $target->archived_at !== null
             || $target->type === AccountType::System || $target->id === $member->account_id) {
             return false;
+        }
+
+        if ($member->kind === 'employee') {
+            $owner = AccountMembership::where('account_id', $target->id)->where('kind', 'owner')->first();
+            if (! $owner || array_diff($owner->permissions(), $member->permissions())) {
+                return false;
+            }
         }
 
         return $knownVisible || app(AccountScope::class)->query($actor)->whereKey($target->id)->exists();
@@ -190,6 +197,56 @@ class PasswordReset
                 'reset_version' => $user->password_reset_version, 'version' => $target->version, 'request_id' => $claim?->id]);
 
             return $target;
+        });
+    }
+
+    private function staffMember(User $actor, int $accountId, int $memberId, bool $lock = false): AccountMembership
+    {
+        $authority = app(ManagementAuthority::class);
+        $authority->account($actor, $accountId, 'staff.password_reset', true, $lock);
+        $authority->require($actor, 'staff.view');
+        $query = AccountMembership::where('account_id', $accountId);
+        $member = ($lock ? $query->lockForUpdate() : $query)->findOrFail($memberId);
+        $authority->member($actor, $member);
+        abort_if(array_diff($member->permissions(), $actor->membership->permissions()), 403, 'لا يمكن إعادة تعيين موظف بصلاحيات أعلى من صلاحياتك.');
+        abort_unless($member->user->isOperational(), 409, 'الموظف غير متاح.');
+
+        return $member;
+    }
+
+    public function staffRequests(User $actor, int $accountId, int $memberId): array
+    {
+        $member = $this->staffMember($actor, $accountId, $memberId);
+        $requests = $this->eligibleRequests($member->user)->orderByDesc('last_seen_at')->limit(20)->get()
+            ->filter(fn ($row): bool => $this->deviceBindingValid($row))->map(fn ($row): array => ['id' => $row->id, 'request_label' => $this->label($row->id), 'trusted' => (bool) $row->trusted, 'device_label' => $row->device_label])->values()->all();
+
+        return ['version' => $member->version, 'password_reset_requests' => $requests];
+    }
+
+    public function issueStaff(Request $request, int $accountId, int $memberId, array $data): void
+    {
+        DB::transaction(function () use ($request, $accountId, $memberId, $data): void {
+            $actor = $request->user();
+            $member = $this->staffMember($actor, $accountId, $memberId, true);
+            app(ManagementAuthority::class)->version($member, $data['version']);
+            $user = $member->user()->lockForUpdate()->firstOrFail();
+            $this->assertNoPendingWork($accountId);
+            $eligible = $this->eligibleRequests($user)->lockForUpdate()->get()->filter(fn ($row): bool => $this->deviceBindingValid($row));
+            if (! empty($data['request_id'])) {
+                $claim = $eligible->firstWhere('id', $data['request_id']);
+                abort_unless($claim, 409, 'طلب الاستعادة غير متاح؛ أعد فتح تفاصيل الموظف.');
+            } else {
+                $trusted = $eligible->where('trusted', true);
+                abort_if($trusted->count() > 1, 409, 'اختر طلب الجهاز المقصود قبل التأكيد.');
+                $claim = $trusted->first();
+            }
+            $user->forceFill(['password_change_required_at' => now(), 'password_reset_version' => $user->password_reset_version + 1])->save();
+            DB::table('managed_password_reset_requests')->where('user_id', $user->id)->whereNotNull('approved_at')->whereNull('consumed_at')->when($claim, fn ($q) => $q->where('id', '<>', $claim->id))->update(['consumed_at' => now()]);
+            if ($claim) {
+                DB::table('managed_password_reset_requests')->where('id', $claim->id)->update(['approved_at' => now(), 'approval_expires_at' => now()->addMinutes(15), 'approved_by' => $actor->id, 'reset_version' => $user->password_reset_version]);
+            }
+            $member->increment('version');
+            app(AuditLogger::class)->record('staff.password_reset', $request, $actor, $accountId, ['membership_id' => $memberId, 'subject_user_id' => $user->id, 'reason' => $data['reason']]);
         });
     }
 

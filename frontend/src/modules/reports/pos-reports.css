@@ -21,6 +21,7 @@
  html[data-portal=pos][data-theme] .pos-app .reports-workspace :is(.report-group-action,.report-related .report-tile .report-tile-open){display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;border-radius:11px;border:1px solid var(--line)!important;background:var(--raised)!important;color:var(--pos-accent)!important;font-size:12px;box-shadow:none}
  html[data-portal=pos][data-theme] .pos-app .reports-workspace .report-group-action>span{color:inherit}
  .pos-app .reports-workspace .report-group-action{width:100%;margin-top:auto}
+ html[data-portal=pos][data-theme] .pos-app .reports-workspace .report-group-card .report-group-action{font-family:inherit!important;font-weight:600!important}
  html[data-portal=pos][data-theme] .pos-app .reports-workspace .report-tile-icon{background:var(--raised);color:var(--pos-accent)!important;border-radius:12px;width:42px;height:42px}
  .pos-app .reports-workspace .report-tile-heading{gap:12px;margin-bottom:18px}
  .pos-app .reports-workspace .report-tile-heading h3{font-size:15px!important;line-height:1.8}

@@ -12,6 +12,7 @@ use App\Services\AuditLogger;
 use App\Services\Backups\BackupCoordination;
 use App\Services\CatalogAccess;
 use App\Services\Finance\FinanceOperations;
+use App\Services\Finance\FinanceServiceIdentity;
 use App\Services\ManagementAuthority;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -44,7 +45,7 @@ class ReceiptDesign
             'header' => $system?->layout['header'] ?? $product->receipt_header ?? '',
             'footer' => $system?->layout['footer'] ?? $product->receipt_footer ?? '',
             'display_order' => $system?->layout['display_order'] ?? self::BLOCKS,
-            'company_name' => $product->provider->name,
+            'company_name' => app(FinanceServiceIdentity::class)->providerName($product->provider),
             'company_image' => $product->provider->image_path ? '/api/v1/sales/products/'.$product->id.'/images/provider' : null,
             'category_image' => $product->image_path ? '/api/v1/sales/products/'.$product->id.'/images/product' : null,
             'agent_name' => $main?->name,

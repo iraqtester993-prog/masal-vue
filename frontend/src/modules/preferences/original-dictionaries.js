@@ -1,5 +1,6 @@
 // Exact original UI dictionaries, merged in their original load order.
 import supplemental from './supplemental-dictionaries.js';
+import operationalLabels from './operational-ui-dictionaries.js';
 const dictionaries = {
   "en": {
     "ماسال كاردز": "Masal Cards",
@@ -4266,5 +4267,5 @@ const posAppLabels={
     "تعديل إعدادات تطبيق دنانير": "گۆڕینی ڕێکخستنەکانی ئەپی دنانیر"
   }
 };
-for(const language of ['en','ckb']) Object.assign(dictionaries[language],posAppLabels[language]);
+for(const language of ['en','ckb']) Object.assign(dictionaries[language],posAppLabels[language],operationalLabels[language]);
 export default dictionaries;

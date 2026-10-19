@@ -4,7 +4,7 @@ import {readFile} from 'node:fs/promises';
 import {fileURLToPath} from 'node:url';
 import {runInNewContext} from 'node:vm';
 import {createServer} from 'vite';
-import {createSSRApp,h,reactive,ref,computed} from 'vue';
+import {createSSRApp,h,onServerPrefetch,reactive,ref,computed} from 'vue';
 import {renderToString} from '@vue/server-renderer';
 import {parse} from '@vue/compiler-sfc';
 import {createMemoryHistory,createRouter} from 'vue-router';
@@ -27,7 +27,7 @@ test('adopted POS home uses real separate balances, hides every hero figure, and
   const cached=new Map([['/dashboard/summary?currency=IQD&view=cards',summary],['/sales/products',{data:[{provider_id:4,provider_name:'شركة فعلية',provider_image_url:'/provider-logo.png'}]}],['/digital/offers?',{data:[{provider:'topup',product_provider_id:4,product_provider_name:'شركة فعلية',retail:'10000',wallet_available:'78901.00'}]}],['/dashboard/activity?limit=10',{data:[],meta:{}}]]);
   const permissions=['dashboard.view','sell.create','digital.view','wallets.view','company.view','support.view','sales.view'];
   const session={state:reactive({identity:{user:{id:3},account:{id:12,type:'pos'},membership:{kind:'owner'},permissions}}),can:key=>permissions.includes(key),api:{peekRequest:path=>cached.get(path),hasFreshRequest:path=>cached.has(path),async request(path){calls.push(path);assert.equal(path,'/dashboard/summary?currency=IQD&view=cards');return summary;}}};
-  const router=createRouter({history:createMemoryHistory(),routes:['dashboard','sell','wallets','support','company','topupAvailable','digital','sales'].map(name=>({path:'/'+name,name,component:{render:()=>null}}))});await router.push('/dashboard');
+  const router=createRouter({history:createMemoryHistory(),routes:['dashboard','sell','wallets','support','company','topupAvailable','digital','sales','posActivity'].map(name=>({path:'/'+name,name,component:{render:()=>null}}))});await router.push('/dashboard');
   const render=()=>renderToString(createSSRApp({render:()=>h(Dashboard)}).provide(portalContextKey,{session,portal:{id:'pos'},config:{}}).use(router));
   const visible=await render(),hero=visible.match(/<section class="pos-home-hero"[\s\S]*?<\/section>/)?.[0];
   assert.ok(hero);for(const number of ['123,456','23,456','78,901'])assert.ok(hero.includes(number));
@@ -66,4 +66,17 @@ test('PIN clipboard action copies only an authorized current card and performs n
  const current=vm.receipt.value.cards[0];await scope.handlers.copyPin(current);assert.deepEqual(copied,['0012-3456-7890']);assert.ok(!scope.handlers.pinCopyNotice.value.includes('0012'));
  await scope.handlers.copyPin({id:99,fields:{pin:'STALE-PIN'}});assert.equal(copied.length,1);
  vm.can=()=>false;await scope.handlers.copyPin(current);assert.equal(copied.length,1);
+});
+
+test('receipt delivery keeps the branded channel selector outside unchanged paper and preserves encrypted-file validation',async()=>{
+ const server=await createServer(serverOptions);
+ try{
+  const {portalContextKey}=await server.ssrLoadModule('/src/modules/auth/session.js'),Dialog=(await server.ssrLoadModule('/src/modules/sales/ReceiptDialog.vue')).default,Card=(await server.ssrLoadModule('/src/modules/sales/ReceiptCard.vue')).default,receipt=storedReceipt();
+  for(const channel of ['استلام مباشر','ملف مشفر']){
+   const inspected={...Dialog,setup(props,context){const controls=Dialog.setup(props,context);onServerPrefetch(()=>{controls.delivery.value=true;controls.channel.value=channel;});return controls;}},context={};
+   const app=createSSRApp({render:()=>h(inspected,{vm:receiptVm(receipt)})});app.provide(portalContextKey,{session:{state:{identity:{account:{type:'pos'}}}}});
+   await renderToString(app,context);const html=context.teleports.body,paper=await renderToString(createSSRApp({render:()=>h(Card,{receipt})}));
+   assert.ok(html.includes(paper));assert.ok(html.indexOf('class="app-select"')>html.indexOf(paper)+paper.length-1);assert.ok(html.includes('class="app-select-trigger"'));assert.ok(html.includes('طريقة التسليم'));assert.equal(html.includes('minlength="12"'),channel==='ملف مشفر');assert.ok(html.includes('maxlength="200"'));
+  }
+ }finally{await server.close();}
 });

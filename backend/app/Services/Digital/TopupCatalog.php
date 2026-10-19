@@ -12,9 +12,11 @@ use App\Models\Digital\TopupCategory;
 use App\Models\Digital\TopupGrant;
 use App\Models\User;
 use App\Services\AuditLogger;
+use App\Services\Finance\FinanceServiceIdentity;
 use App\Services\Operations\MutationGuard;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class TopupCatalog
 {
@@ -22,21 +24,21 @@ class TopupCatalog
 
     public function synchronize(User $actor, int $id, int $version, Request $request): array
     {
-        $this->access->owner($actor);
-        $connection = $this->access->connection($actor, $id, 'integrations.edit');
+        $this->access->system($actor, 'integrations.sync');
+        $connection = $this->access->connection($actor, $id, 'integrations.sync');
         abort_unless($connection->provider === 'topup', 422);
         $this->access->authority->version($connection, $version);
         $hash = DigitalConfiguration::credentialHash($connection->credential);
         $result = ['balance' => 'failed', 'catalog' => 'failed', 'category_count' => null];
-        if ($request->boolean('catalog_only')) {
+        if ($request->boolean('catalog_only') || ! in_array('integrations.balance', $actor->membership->permissions(), true)) {
             $result['balance'] = 'skipped';
         } else {
             try {
                 $balance = $this->configuration->balance($actor, $id, $request);
                 $version = $balance['version'];
                 $result['balance'] = 'ok';
-            } catch (\Throwable) {
-                $result['balance_message'] = 'تعذر تحديث الرصيد من الشركة؛ القراءة السابقة لا تمثل رصيدًا محدثًا.';
+            } catch (\Throwable $error) {
+                $result['balance_message'] = app(ProviderGateway::class)->readFailure($error, 'topup', $connection).' القراءة السابقة لا تمثل رصيدًا محدثًا.';
             }
         }
         try {
@@ -49,10 +51,11 @@ class TopupCatalog
             if ($result['excluded_count'] > 0) {
                 $result['catalog_message'] .= ' استُبعدت '.$result['excluded_count'].' سجلات مجموعات أو فئات دون سعر صالح للبيع.';
             }
-        } catch (\Throwable) {
-            $result['catalog_message'] = 'تعذر تحديث فئات الشركة؛ لم تُنشأ فئات بديلة. أعد الاستعلام.';
+        } catch (\Throwable $error) {
+            Log::warning('Topup catalog refresh did not complete.', ['connection_id' => $id, 'exception_type' => get_class($error), 'source' => basename($error->getFile()).':'.$error->getLine()]);
+            $result['catalog_message'] = app(ProviderGateway::class)->readFailure($error, 'topup', $connection).' لم تُنشأ فئات بديلة.';
         }
-        $current = $this->access->connection($actor, $id, 'integrations.edit');
+        $current = $this->access->connection($actor, $id, 'integrations.sync');
         abort_unless(hash_equals($hash, DigitalConfiguration::credentialHash($current->credential)), 409, 'تغير التوكن أثناء الاستعلام؛ حدّث الربط.');
 
         return $this->configuration->dto($current, $actor) + ['sync' => $result];
@@ -61,8 +64,8 @@ class TopupCatalog
     private function import(User $actor, DigitalConnection $connection, string $hash, int $version, int $snapshotId, Request $request): void
     {
         DB::transaction(function () use ($actor, $connection, $hash, $version, $snapshotId, $request): void {
-            app(MutationGuard::class)->lock($actor, [$connection->account_id], 'integrations.edit');
-            $current = $this->access->connection($actor, $connection->id, 'integrations.edit', true);
+            app(MutationGuard::class)->lock($actor, [$connection->account_id], 'integrations.sync');
+            $current = $this->access->connection($actor, $connection->id, 'integrations.sync', true);
             $this->access->authority->version($current, $version);
             abort_unless(hash_equals($hash, DigitalConfiguration::credentialHash($current->credential)), 409);
             $snapshot = CatalogSnapshot::where('connection_id', $current->id)->where('credential_hash', $hash)->findOrFail($snapshotId);
@@ -77,7 +80,10 @@ class TopupCatalog
                 $category->fill(['catalog_snapshot_id' => $snapshotId, 'name' => mb_substr($row['remote_name'], 0, 160), 'cost_minor' => $cost, 'retail_minor' => $retail, 'active' => true, 'version' => $category->exists ? $category->version + 1 : 1])->save();
                 $offer = DigitalOffer::where('connection_id', $current->id)->where('remote_id', $row['remote_id'])->where('type', $row['type'])->whereNull('manual_category_version')->lockForUpdate()->first();
                 if (! $offer) {
-                    $provider ??= CatalogProvider::firstOrCreate(['name' => 'آسياسيل · التعبئة المباشرة'], ['supplier' => 'Masal', 'connection' => 'API', 'status' => 'active']);
+                    $provider ??= CatalogProvider::whereIn('id', CatalogProduct::whereIn('id', DigitalOffer::where('connection_id', $current->id)->select('product_id'))->select('provider_id'))->orderBy('id')->first()
+                        ?? CatalogProvider::whereIn('id', app(FinanceServiceIdentity::class)->topupProviderIds())->orderBy('id')->first()
+                        ?? CatalogProvider::whereIn('name', ['Topup', 'آسياسيل · التعبئة المباشرة'])->orderBy('id')->first()
+                        ?? CatalogProvider::create(['name' => 'Topup', 'supplier' => 'Masal', 'connection' => 'API', 'status' => 'active']);
                     $reference = 'topup:'.substr(hash('sha256', $row['type'].':'.$row['remote_id']), 0, 48);
                     $product = CatalogProduct::where('legacy_reference', $reference)->first();
                     if (! $product) {

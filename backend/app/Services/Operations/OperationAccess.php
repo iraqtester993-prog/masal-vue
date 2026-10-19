@@ -21,14 +21,18 @@ class OperationAccess
 
     public function requireSecurity(User $actor, bool $write = false, bool $owner = false): void
     {
-        $this->authority->require($actor, 'account.view');
         $this->authority->require($actor, 'security.view');
-        if ($write || $owner) {
-            $this->authority->require($actor, 'security.policies');
+        if ($owner) {
+            $this->authority->require($actor, 'security.time');
         }
         abort_unless($actor->membership->account->type === AccountType::System, 403);
-        if ($owner) {
-            abort_unless($actor->membership->kind === 'owner', 403, 'ضوابط وقت الحساب لمدير النظام فقط.');
+    }
+
+    public function requireActions(User $actor, array $actions): void
+    {
+        $this->requireSecurity($actor);
+        foreach ($actions as $action) {
+            $this->authority->require($actor, 'security.'.$action);
         }
     }
 
@@ -37,9 +41,21 @@ class OperationAccess
         return $this->scope->query($actor)->where('type', '<>', AccountType::System);
     }
 
+    public function timeMembers(User $actor): Builder
+    {
+        $this->requireSecurity($actor, false, true);
+        $permissions = $actor->membership->permissions();
+
+        return $this->archiveMembers($actor)->where('kind', 'employee')->where('user_id', '<>', $actor->id)->whereHas('account', fn ($account) => $account->whereNull('archived_at'))
+            ->whereNotExists(function ($profile) use ($permissions): void {
+                $profile->selectRaw('1')->from('permission_profile_permissions')->join('permissions', 'permissions.id', '=', 'permission_id')
+                    ->whereColumn('permission_profile_id', 'account_memberships.permission_profile_id')->whereNotIn('permissions.name', $permissions);
+            });
+    }
+
     public function canRestoreGlobal(User $actor): bool
     {
-        foreach (['app', 'login', 'sales', 'printing'] as $key) {
+        foreach (['app', 'login', 'sales', 'printing', 'import'] as $key) {
             if (! in_array('security.'.$key, $actor->membership->permissions(), true)) {
                 return false;
             }

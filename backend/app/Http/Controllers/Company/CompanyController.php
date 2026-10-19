@@ -34,9 +34,18 @@ class CompanyController extends Controller
 
     public function appConfig(Request $request): JsonResponse
     {
-        $record = CompanyProfile::findOrFail(1);
+        $data = $this->configurationData(CompanyProfile::findOrFail(1));
+        if ($request->boolean('manage')) {
+            $data = $this->managementData($request, $data);
+        }
 
-        return response()->json(['data' => ['version' => $record->content['app_config_version'] ?? 1, 'config' => $record->content['app_config'] ?? ['name' => 'دنانير', 'about' => '', 'terms' => '', 'privacy' => '', 'printers' => [
+        return response()->json(['data' => $data]);
+    }
+
+    private function configurationData(CompanyProfile $record): array
+    {
+
+        return ['version' => $record->content['app_config_version'] ?? 1, 'config' => $record->content['app_config'] ?? ['name' => 'دنانير', 'about' => '', 'terms' => '', 'privacy' => '', 'printers' => [
             ['id' => 'goojprt', 'name' => 'GOOJPRT / MTP-2', 'profile' => 'GOOJPRT', 'match' => 'GOOJPRT|JingPu|MTP-2|MTP-II'],
             ['id' => 'yhd-8006', 'name' => 'YHD-8006', 'profile' => 'YHD-8006', 'match' => 'YHD-8006|YHD8006'],
             ['id' => 'feasycom', 'name' => 'Feasycom', 'profile' => 'Feasycom', 'match' => 'Feasycom'],
@@ -44,20 +53,31 @@ class CompanyController extends Controller
             ['id' => 'sunmi', 'name' => 'SUNMI', 'profile' => 'sunmi', 'match' => 'SUNMI'],
             ['id' => 'rovoo', 'name' => 'ROVOO', 'profile' => 'rovoo', 'match' => 'ROVOO|MTHD-M1'],
             ['id' => 'z91', 'name' => 'Z91', 'profile' => 'zcs', 'match' => 'Z91'],
-        ]]]]);
+        ]]];
+    }
+
+    private function managementData(Request $request, array $data): array
+    {
+        $permissions = $request->user()->membership->permissions();
+        $this->access->configuration($request->user(), in_array('app.settings', $permissions, true) ? 'app.settings' : 'printers.manage');
+        $fields = array_merge(in_array('app.settings', $permissions, true) ? ['name', 'about', 'terms', 'privacy'] : [], in_array('printers.manage', $permissions, true) ? ['printers'] : []);
+        $data['config'] = array_intersect_key($data['config'], array_flip($fields));
+
+        return $data;
     }
 
     public function saveAppConfig(Request $request): JsonResponse
     {
-        $this->access->require($request->user());
+        $allowed = array_keys($this->managementData($request, $this->configurationData(CompanyProfile::findOrFail(1)))['config']);
+        abort_if(is_array($request->input('config')) && array_diff(array_keys($request->input('config')), $allowed), 403);
         $data = $request->validate([
             'version' => ['required', 'integer', 'min:1'],
-            'config' => ['required', 'array:name,about,terms,privacy,printers'],
-            'config.name' => ['required', 'string', 'max:120'],
-            'config.about' => ['present', 'nullable', 'string', 'max:10000'],
-            'config.terms' => ['present', 'nullable', 'string', 'max:20000'],
-            'config.privacy' => ['present', 'nullable', 'string', 'max:20000'],
-            'config.printers' => ['present', 'array', 'max:40'],
+            'config' => ['required', 'array:name,about,terms,privacy,printers', 'min:1'],
+            'config.name' => ['sometimes', 'required', 'string', 'max:120'],
+            'config.about' => ['sometimes', 'nullable', 'string', 'max:10000'],
+            'config.terms' => ['sometimes', 'nullable', 'string', 'max:20000'],
+            'config.privacy' => ['sometimes', 'nullable', 'string', 'max:20000'],
+            'config.printers' => ['sometimes', 'array', 'max:40'],
             'config.printers.*' => ['array:id,name,profile,match,enabled'],
             'config.printers.*.enabled' => ['sometimes', 'boolean'],
             'config.printers.*.id' => ['required', 'string', 'regex:/^[a-zA-Z0-9_-]{1,60}$/', 'distinct'],
@@ -66,17 +86,26 @@ class CompanyController extends Controller
             'config.printers.*.match' => ['required', 'string', 'min:3', 'max:100'],
         ]);
         DB::transaction(function () use ($request, $data): void {
-            app(MutationGuard::class)->lock($request->user(), [], 'company.edit');
+            app(MutationGuard::class)->lock($request->user());
             $record = CompanyProfile::lockForUpdate()->findOrFail(1);
             abort_unless((int) ($record->content['app_config_version'] ?? 1) === (int) $data['version'], 409, 'تغيرت البيانات؛ أعد تحميل الإعدادات.');
+            $current = $this->configurationData($record)['config'];
+            foreach (['name', 'about', 'terms', 'privacy'] as $field) {
+                if (array_key_exists($field, $data['config'])) {
+                    $this->access->configuration($request->user(), 'app.settings');
+                }
+            }
+            if (array_key_exists('printers', $data['config'])) {
+                $this->access->configuration($request->user(), 'printers.manage');
+            }
             $content = $record->content;
-            $content['app_config'] = $data['config'];
+            $content['app_config'] = array_replace($current, $data['config']);
             $content['app_config_version'] = (int) $data['version'] + 1;
             $record->update(['content' => $content, 'editor_id' => $request->user()->id]);
-            $this->audit->record('company.app-config', $request, $request->user(), $request->user()->membership->account_id, ['printer_count' => count($data['config']['printers'])]);
+            $this->audit->record('company.app-config', $request, $request->user(), $request->user()->membership->account_id, ['printer_count' => count($content['app_config']['printers'])]);
         });
 
-        return $this->appConfig($request);
+        return response()->json(['data' => $this->managementData($request, $this->configurationData(CompanyProfile::findOrFail(1)))]);
     }
 
     public function save(CompanyProfileRequest $request): JsonResponse

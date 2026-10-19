@@ -1747,22 +1747,6 @@ html[dir="ltr"] :where(.catalog-workspace, .catalog-modal) table {
   --tile-yellow: #302c49;
 }
 @media print {
-  :where(.catalog-workspace, .catalog-modal) html:has(.receipt),
-  :where(.catalog-workspace, .catalog-modal) body:has(.receipt) {
-    background: #fff !important;
-    color: #000 !important;
-    height: auto !important;
-    min-height: 0 !important;
-    overflow: visible !important;
-    color-scheme: light !important;
-  }
-  :where(.catalog-workspace, .catalog-modal) body:has(.receipt) {
-    page: masal-receipt;
-  }
-  :where(.catalog-workspace, .catalog-modal) body:has(.receipt) .shell,
-  :where(.catalog-workspace, .catalog-modal) body:has(.receipt) .toast {
-    display: none !important;
-  }
   :where(.catalog-workspace, .catalog-modal) .overlay:has(.receipt) {
     position: static !important;
     display: block !important;

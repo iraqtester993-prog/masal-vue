@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\CatalogProvider;
 use App\Models\Digital\CatalogSnapshot;
 use App\Models\Digital\DigitalConnection;
 use App\Models\Digital\DigitalOffer;
@@ -121,6 +122,22 @@ class TopupCatalogTest extends TestCase
     private function populate(): void
     {
         $this->products = [['product_id' => 'ASIA-5000', 'title' => 'آسياسيل 5000', 'type' => 'topup', 'price' => '5000.00', 'show2site' => 1]];
+    }
+
+    public function test_new_catalog_rows_reuse_the_original_provider_after_it_was_renamed(): void
+    {
+        $f = $this->supportFixture();
+        $id = $this->connection($f);
+        $this->populate();
+        $this->synchronize($f, $id);
+        $providerId = DigitalOffer::where('connection_id', $id)->firstOrFail()->product->provider_id;
+        CatalogProvider::findOrFail($providerId)->update(['name' => 'اسم مختلف للشركة']);
+        $count = CatalogProvider::count();
+        $this->products[] = ['product_id' => 'ASIA-10000', 'title' => 'آسياسيل 10000', 'type' => 'topup', 'price' => '10000.00', 'show2site' => 1];
+        $this->synchronize($f, $id);
+        $this->assertSame($count, CatalogProvider::count());
+        $this->assertSame($providerId, DigitalOffer::where('connection_id', $id)->where('remote_id', 'ASIA-10000')->firstOrFail()->product->provider_id);
+        $this->assertSame('اسم مختلف للشركة', CatalogProvider::findOrFail($providerId)->name);
     }
 
     public function test_actual_category_ids_accept_shared_and_null_product_references_without_importing_groups(): void

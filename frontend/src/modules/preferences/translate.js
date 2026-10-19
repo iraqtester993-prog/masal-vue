@@ -1,3 +1,5 @@
+import {westernDigits} from '../../shared/numbers.js';
+
 let dictionaries=null,pending=null;
 const patterns={};
 export const languages=[{id:'ar',name:'العربية',direction:'rtl'},{id:'en',name:'English',direction:'ltr'},{id:'ckb',name:'کوردی',direction:'rtl'}];
@@ -14,12 +16,12 @@ export function translate(value,language='ar',protectedRecords=[]) {
   const names=[...new Set(protectedRecords.filter(name=>typeof name==='string'&&name))].sort((a,b)=>b.length-a.length),saved=[];
   let source=value;for(const name of names)if(source.includes(name)){const token=`\u0001${saved.length}\u0002`;saved.push(name);source=source.split(name).join(token);}
   const trimmed=source.trim();
-  if(Object.hasOwn(dictionary,trimmed))source=source.replace(trimmed,()=>dictionary[trimmed]);
-  else {patterns[language]||=new RegExp(`(?<![\\p{L}\\p{N}_])(?:${Object.keys(dictionary).filter(Boolean).sort((a,b)=>b.length-a.length).map(key=>key.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')})(?![\\p{L}\\p{N}_])`,'gu');source=source.replace(patterns[language],key=>dictionary[key]??key);}
+  if(Object.hasOwn(dictionary,trimmed))source=source.replace(trimmed,()=>westernDigits(dictionary[trimmed]));
+  else {patterns[language]||=new RegExp(`(?<![\\p{L}\\p{N}_])(?:${Object.keys(dictionary).filter(Boolean).sort((a,b)=>b.length-a.length).map(key=>key.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|')})(?![\\p{L}\\p{N}_])`,'gu');source=source.replace(patterns[language],key=>westernDigits(dictionary[key]??key));}
   return source.replace(/\u0001(\d+)\u0002/g,(_,index)=>saved[Number(index)]);
 }
 export function translateKnown(value,language='ar') {
   if(typeof value!=='string'||language==='ar')return value;
   const dictionary=dictionaries?.[language],key=value.trim();
-  return dictionary&&Object.hasOwn(dictionary,key)?value.replace(key,()=>dictionary[key]):value;
+  return dictionary&&Object.hasOwn(dictionary,key)?value.replace(key,()=>westernDigits(dictionary[key])):value;
 }

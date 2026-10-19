@@ -1,5 +1,6 @@
 <!-- Template retained from the original component; runtime is API-backed. -->
 <script setup>
+import AppSelect from '../../shared/components/AppSelect.vue';
 import { computed, ref, watch } from "vue";
 import { tr, money } from "./catalog-model.js";
 const props = defineProps({
@@ -115,12 +116,12 @@ function confirm() {
             v-model="query"
             :placeholder="tr('بحث بالفئة أو القيمة')"
             :aria-label="tr('بحث الفئات المسموحة')"
-          /><select v-model="provider" :aria-label="tr('فلتر مزود الفئات')">
+          /><AppSelect v-model="provider" :aria-label="tr('فلتر مزود الفئات')">
             <option value="">{{ tr("كل الشركات والمزودين") }}</option>
             <option v-for="p in vm.s.providers" :key="p.id" :value="p.id">
               {{ tr(p.name) }}
             </option>
-          </select>
+          </AppSelect>
         </div>
         <div v-if="!readonly" class="agent-product-tools">
           <button

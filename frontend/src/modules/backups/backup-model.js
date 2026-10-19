@@ -16,9 +16,9 @@ export function manifestCounts(manifest) {
 }
 export function bytes(value) {
   if(!Number.isSafeInteger(value)||value<0)return '—';
-  return new Intl.NumberFormat('en',{maximumFractionDigits:2}).format(value/1024/1024)+' MB';
+  return new Intl.NumberFormat('en',{maximumFractionDigits:2,numberingSystem:'latn'}).format(value/1024/1024)+' MB';
 }
 export function date(value) {
   if(!value||!Number.isFinite(Date.parse(value)))return '—';
-  return new Intl.DateTimeFormat('ar-IQ',{dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Baghdad'}).format(new Date(value));
+  return new Intl.DateTimeFormat('ar-IQ', {numberingSystem:'latn',dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Baghdad'}).format(new Date(value));
 }

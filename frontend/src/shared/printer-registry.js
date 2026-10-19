@@ -37,3 +37,53 @@ export function mergePrinterDevices(previous=[],updates=[]){
  }
  return [...result.values()].slice(0,100);
 }
+
+function availableDirectDevices(definition){
+ const seen=new Set();
+ return (definition.deviceChoices||[]).filter(choice=>{
+  if(choice.kind!=='bluetooth'||choice.route!=='direct'||choice.printerId!==definition.printerId||choice.unavailable||choice.bonded!==true||!choice.address)return false;
+  const address=String(choice.address).trim().toUpperCase();
+  if(seen.has(address))return false;
+  seen.add(address);return true;
+ });
+}
+
+// Definitions are display options; their device candidates retain the original
+// Bluetooth identities used by the existing selection and native routing code.
+export function directPrinterDefinitions(choices=[],registry=[]){
+ const direct=choices.filter(choice=>choice.route==='direct');
+ const definitions=[],internal=direct.find(choice=>choice.kind==='internal');
+ if(internal)definitions.push({key:'internal',printerId:internal.printerId||'',name:internal.registryName||internal.name,kind:'internal',route:'direct',unavailable:!!internal.unavailable,deviceChoices:[internal]});
+ const seen=new Set();
+ for(const row of enabledPrinters(registry)){
+  if(!row.id||seen.has(row.id))continue;
+  seen.add(row.id);
+  const key='registered:'+row.id;
+  const devices=direct.filter(choice=>choice.kind==='bluetooth'&&choice.printerId===row.id);
+  // printerChoices already omits registered placeholders for a detected
+  // internal definition. Do not recreate those omitted rows by display name.
+  if(!devices.length&&!direct.some(choice=>choice.kind==='registered'&&choice.key===key))continue;
+  const definition={key,printerId:row.id,name:row.name||row.profile,kind:'registered',route:'direct',unavailable:false,deviceChoices:devices};
+  definition.unavailable=availableDirectDevices(definition).length===0;
+  definitions.push(definition);
+ }
+ return definitions;
+}
+
+export function resolveDirectPrinterChoice(definition,preferredAddress=''){
+ const result=(status,choice=null)=>({choice,status,ambiguous:status==='ambiguous'});
+ if(!definition||definition.route!=='direct')return result('unavailable');
+ if(definition.kind==='internal'){
+  const choice=definition.deviceChoices?.find(row=>row.kind==='internal'&&row.route==='direct'&&!row.unavailable);
+  return !definition.unavailable&&choice?result('ready',choice):result('unavailable');
+ }
+ if(definition.kind!=='registered'||!definition.printerId)return result('unavailable');
+ const devices=definition.unavailable?[]:availableDirectDevices(definition);
+ const address=String(preferredAddress||'').trim().toUpperCase();
+ if(address){
+  const choice=devices.find(row=>String(row.address).trim().toUpperCase()===address);
+  return choice?result('ready',choice):result('stale');
+ }
+ if(devices.length===1)return result('ready',devices[0]);
+ return result(devices.length>1?'ambiguous':'unavailable');
+}

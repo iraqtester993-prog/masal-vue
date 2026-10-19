@@ -2,9 +2,9 @@
 // account/permission changes and logout invalidate that cache centrally.
 export const dashboardSummaryPath=(currency='IQD',view='cards')=>`/dashboard/summary?currency=${encodeURIComponent(currency)}&view=${view}`;
 export const dashboardActivityPath=(limit,cursor='')=>`/dashboard/activity?limit=${encodeURIComponent(limit)}${cursor?`&cursor=${encodeURIComponent(cursor)}`:''}`;
-export const dashboardReadScope=identity=>JSON.stringify([identity?.portal,identity?.user?.id,identity?.account?.id,identity?.membership,identity?.permissions]);
+export const dashboardReadScope=identity=>JSON.stringify([identity?.portal,identity?.user?.id,identity?.account?.id,identity?.membership,identity?.permissions,identity?.capabilities]);
 
-export function dashboardCatalogSnapshot(api,can,maxAge=120000){
+export function dashboardCatalogSnapshot(api,can,maxAge){
  const rows=path=>{const value=api.peekRequest?.(path,maxAge)?.data;return Array.isArray(value)?value:[];};
  return {products:can('sell.create')?rows('/sales/products'):[],offers:can('digital.view')?rows('/digital/offers?'):[]};
 }

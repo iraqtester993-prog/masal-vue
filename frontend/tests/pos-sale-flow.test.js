@@ -1,3 +1,4 @@
+import {topupKind,topupKinds} from '../src/modules/digital/pos-topup-context.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -41,6 +42,7 @@ async function salePage({create,refreshProducts}={}){
   clearReceipt(){},
  };
  const context={usePreferencesTranslator:()=>value=>value,ref,computed,defineAsyncComponent,watch(){},onMounted(){},onBeforeUnmount(){},useRoute:()=>({query:{}}),useSalesRuntime:()=>runtime,createDigitalApi:()=>({}),salePayload,multiply,money,stockUnavailableReason,readCategoryFavorites:()=>[],saveCategoryFavorites(){},digitalCatalogProduct:()=>({}),catalogCompanyMatches:()=>true};
+ context.useRouteRefresh=()=>{};context.topupKind=topupKind;context.topupKinds=topupKinds;
  runInNewContext(script+'\nglobalThis.control={printSelected,backToCatalog,choose,selectedId,issuedSale,quantity,retail,catalogProducts};',context);
  context.control.selectedId.value=3;
  return {control:context.control,runtime,product,creates,opens};

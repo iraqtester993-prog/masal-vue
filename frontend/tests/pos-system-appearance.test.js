@@ -39,3 +39,14 @@ test('a full-screen dialog or drawer paints the top bar to match its own header,
     assert.equal(posSystemAppearance({home:true,dark,hero}).statusBarColor,hero);
   }
 });
+
+test('printer dialogs receive neutral theme surfaces and the current agent accent on every page',()=>{
+  for(const dark of [false,true]){
+    const accent=dark?'#D5B4EF':'#613581';
+    const page=posSystemAppearance({dark,accent,hero:'#301040'});
+    assert.equal(page.accentColor,accent);
+    assert.equal(page.panelColor,page.navigationBarColor);
+    assert.notEqual(page.textColor,page.panelColor);
+    assert.equal(posSystemAppearance({dark,accent:'url(secret)'}).accentColor,dark?'#B4D8D3':'#0D5C63');
+  }
+});

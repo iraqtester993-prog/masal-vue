@@ -27,9 +27,9 @@ onMounted(load); onBeforeUnmount(() => controller.abort());
   <section class="card funding-request-settings">
     <form v-if="policy" @submit.prevent="save"><fieldset :disabled="busy">
       <div class="funding-settings-head"><h3>طلبات تمويل نقاط البيع</h3><button class="btn primary">حفظ إعدادات التمويل</button></div>
-      <div class="funding-settings-limit"><label>عدد الطلبات المسموح يوميًا لكل نقطة<input v-model.number="policy.daily_limit" type="number" min="1" max="100" required></label></div>
+      <div class="funding-settings-limit"><label>عدد الطلبات المسموح يوميًا لكل نقطة<input lang="en" v-model.number="policy.daily_limit" type="number" min="1" max="100" required></label></div>
       <div class="funding-settings-head"><h4>مبالغ الطلبات المتاحة · د.ع</h4><button type="button" class="btn" @click="policy.amounts.push('')">إضافة مبلغ</button></div>
-      <div class="funding-settings-amounts"><label v-for="(_, index) in policy.amounts" :key="index">المبلغ {{index+1}}<div><input v-model="policy.amounts[index]" type="number" min="0.01" step="0.01" required :aria-label="'المبلغ '+(index+1)"><button type="button" class="btn small danger" @click="policy.amounts.splice(index,1)">حذف</button></div></label></div>
+      <div class="funding-settings-amounts"><label v-for="(_, index) in policy.amounts" :key="index">المبلغ {{index+1}}<div><input lang="en" v-model="policy.amounts[index]" type="number" min="0.01" step="0.01" required :aria-label="'المبلغ '+(index+1)"><button type="button" class="btn small danger" @click="policy.amounts.splice(index,1)">حذف</button></div></label></div>
       <p v-if="!policy.amounts.length" class="caption">لا توجد مبالغ متاحة للطلبات.</p>
     </fieldset></form>
     <p v-if="error" class="notice warn" role="alert">{{error}} <button class="btn small" @click="load">إعادة التحميل</button></p><p v-if="notice" role="status">{{notice}}</p>

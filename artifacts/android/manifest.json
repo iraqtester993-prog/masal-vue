@@ -1,0 +1,12 @@
+{
+  "version": "1.4.12",
+  "version_code": 26,
+  "application_id": "iq.dananir.pos",
+  "file": "dananeer-pos-1.4.12.apk",
+  "sha256": "f600eaaa4ac98daeb01e202113833376d926dc383abaebf73a17611a9cdbef5d",
+  "bytes": 2777892,
+  "signer_sha256": "97c48ca9773e70d9e77e21e76158da63d46a37620ce3485ae7ad80c6212f7b90",
+  "debuggable": false,
+  "release": "20261019-selection143",
+  "native_changes_in_handover": true
+}

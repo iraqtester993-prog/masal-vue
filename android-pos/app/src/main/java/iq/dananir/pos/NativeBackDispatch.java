@@ -5,13 +5,16 @@ final class NativeBackDispatch {
     enum Action { IGNORE, HANDLED, EXIT, FALLBACK, BLOCKED }
 
     static final String SCRIPT = "(function(){try{var e=new CustomEvent('dananeer:native-back',"
-        + "{cancelable:true,detail:{result:'unhandled',exitConfirmationVersion:1}});window.dispatchEvent(e);"
+        + "{cancelable:true,detail:{result:'unhandled',exitConfirmationVersion:1,doubleBackExitVersion:1}});window.dispatchEvent(e);"
         + "if(!e.defaultPrevented)return 'unhandled';"
-        + "return e.detail&&e.detail.result==='exit'?'exit':'handled';"
+        + "return e.detail&&e.detail.result==='exit'?'exit:'+String(Number.isSafeInteger(e.detail.exitGeneration)?e.detail.exitGeneration:0):'handled';"
         + "}catch(error){return 'unhandled';}})()";
 
     private long generation;
     private boolean pending;
+    private String exitContext = "legacy";
+
+    String exitContext() { return exitContext; }
 
     long begin() { if (pending) return 0; pending = true; return ++generation; }
     void invalidate() { pending = false; generation++; }
@@ -22,6 +25,10 @@ final class NativeBackDispatch {
         // evaluateJavascript serializes the fixed string result as JSON, rather than passing raw text.
         if ("\"handled\"".equals(serialized)) return Action.HANDLED;
         if (printBusy) return Action.BLOCKED;
-        return "\"exit\"".equals(serialized) ? Action.EXIT : Action.FALLBACK;
+        if ("\"exit\"".equals(serialized)) { exitContext = "legacy"; return Action.EXIT; }
+        if (serialized != null && serialized.matches("\"exit:[0-9]{1,16}\"")) {
+            exitContext = serialized.substring(1, serialized.length() - 1); return Action.EXIT;
+        }
+        return Action.FALLBACK;
     }
 }

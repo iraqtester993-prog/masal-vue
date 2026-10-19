@@ -12,9 +12,12 @@ use App\Models\PermissionProfile;
 use App\Models\User;
 use App\Services\AuditLogger;
 use App\Services\Finance\Ledger;
+use App\Services\Finance\Money;
 use App\Services\ManagementAuthority;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Support\CreatesAccounts;
@@ -39,6 +42,22 @@ class FinanceCoreTest extends TestCase
         return ['account_id' => $account->id, 'service' => 'cash', 'currency' => 'IQD', 'amount' => $amount, 'reference' => 'Bank receipt 1', 'idempotency_key' => $key];
     }
 
+    private function seedHistoricalDeposit(array $input): LedgerTransaction
+    {
+        return DB::transaction(function () use ($input): LedgerTransaction {
+            $actor = Auth::user();
+            $ledger = app(Ledger::class);
+            $from = $ledger->wallet($actor->membership->account_id, $input['service'], $input['currency'], 'external');
+            $to = $ledger->wallet($input['account_id'], $input['service'], $input['currency']);
+            $transaction = $ledger->pair($actor, 'deposit', $input['idempotency_key'], $input, $from, $to, Money::minor($input['amount']), $input['reference']);
+            $historicalRequest = Request::create('/historical-fixture', 'POST');
+            $historicalRequest->attributes->set('portal', $actor->membership->account->type->portal());
+            app(AuditLogger::class)->record('wallets.deposit', $historicalRequest, $actor, $input['account_id'], ['transaction_id' => $transaction->id]);
+
+            return $transaction;
+        });
+    }
+
     private function enableProduct(Account $target): CatalogProduct
     {
         $p = CatalogProduct::factory()->create(['minimum_price' => '100.00']);
@@ -53,7 +72,7 @@ class FinanceCoreTest extends TestCase
         [$system, $main, $sub, $pos] = $this->tree();
         $this->asPortalUser($this->userFor($system));
         foreach ([$main, $sub, $pos] as $index => $account) {
-            $this->postJson('/api/v1/finance/deposits', $this->depositInput($account, '100.01', 'summary-deposit-'.$index))->assertCreated();
+            $this->seedHistoricalDeposit($this->depositInput($account, '100.01', 'summary-deposit-'.$index));
         }
         $this->getJson('/api/v1/finance/wallets?service=cash&currency=IQD&per_page=1&summary=1&metrics=0')->assertOk()
             ->assertJsonCount(1, 'data')->assertJsonPath('meta.total', 3)
@@ -74,7 +93,7 @@ class FinanceCoreTest extends TestCase
         $foreign = $this->account(AccountType::MainAgent, $system);
         $pos->update(['name' => 'Paged target 100%', 'city' => 'Basra']);
         $this->asPortalUser($this->userFor($system));
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($pos, '12.34'))->assertCreated();
+        $this->seedHistoricalDeposit($this->depositInput($pos, '12.34'));
         $this->getJson('/api/v1/finance/options?compact=1')->assertOk()->assertJsonCount(1, 'data.accounts')->assertJsonPath('data.accounts_paged', true)->assertJsonPath('data.accounts_total', 5);
         $this->getJson('/api/v1/finance/accounts?account_type=pos&account_query=100%25&per_page=1')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $pos->id)->assertJsonPath('meta.total', 1);
         $this->getJson('/api/v1/finance/wallets?account_city=Basra&summary=1&metrics=0')->assertOk()->assertJsonPath('summary.balance', '12.34');
@@ -106,11 +125,11 @@ class FinanceCoreTest extends TestCase
         $this->assertDatabaseCount('finance_wallets', 0);
     }
 
-    public function test_documented_deposit_creates_balanced_immutable_entries_and_exact_wallet_balance(): void
+    public function test_historical_deposit_remains_readable_with_balanced_immutable_entries_and_exact_wallet_balance(): void
     {
         [$system,$main] = $this->tree();
         $this->asPortalUser($this->userFor($system));
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($main))->assertCreated()->assertJsonPath('data.kind', 'deposit');
+        $this->assertSame('deposit', $this->seedHistoricalDeposit($this->depositInput($main))->kind);
         $this->getJson('/api/v1/finance/wallets?account_id='.$main->id)->assertOk()->assertJsonPath('data.0.balance', '1234.56')->assertJsonPath('data.0.available', '1234.56');
         $this->assertSame([-123456, 123456], DB::table('finance_entries')->orderBy('id')->pluck('amount_minor')->map(fn ($v): int => (int) $v)->all());
         $this->assertSame(0, (int) DB::table('finance_entries')->sum('amount_minor'));
@@ -118,18 +137,35 @@ class FinanceCoreTest extends TestCase
         $this->getJson('/api/v1/finance/ledger?account_id='.$main->id)->assertJsonCount(1, 'data')->assertJsonPath('data.0.amount', '1234.56')->assertJsonPath('data.0.account_name', $main->name);
     }
 
-    public function test_same_idempotency_key_returns_original_posting_without_double_credit_and_changed_payload_returns_409(): void
+    public function test_new_generic_deposits_are_rejected_even_for_system_owner_without_any_posting(): void
     {
-        [$system,$main] = $this->tree();
+        [$system, $main] = $this->tree();
         $this->asPortalUser($this->userFor($system));
         $input = $this->depositInput($main);
-        $id = $this->postJson('/api/v1/finance/deposits', $input)->assertCreated()->json('data.id');
-        $this->postJson('/api/v1/finance/deposits', $input)->assertCreated()->assertJsonPath('data.id', $id);
-        $this->postJson('/api/v1/finance/deposits', array_replace($input, ['amount' => '1234.57']))->assertConflict();
-        $this->assertDatabaseCount('finance_transactions', 1);
-        $this->assertDatabaseCount('finance_entries', 2);
+        $this->postJson('/api/v1/finance/deposits', $input)->assertUnprocessable()->assertJsonValidationErrors('service');
+        $this->postJson('/api/v1/finance/deposits', $input)->assertUnprocessable();
+        $this->assertDatabaseCount('finance_transactions', 0);
+        $this->assertDatabaseCount('finance_entries', 0);
+        $this->assertDatabaseCount('finance_wallets', 0);
+        $this->assertDatabaseCount('finance_operations', 0);
+        $this->assertDatabaseMissing('audit_logs', ['action' => 'wallets.deposit']);
+    }
+
+    public function test_same_transfer_key_returns_original_posting_without_double_credit_and_changed_payload_returns_409(): void
+    {
+        [$system, $main, $sub] = $this->tree();
+        $this->asPortalUser($this->userFor($system));
+        $this->seedHistoricalDeposit($this->depositInput($main, '2000.00'));
+        $this->asPortalUser($this->userFor($main));
+        $input = ['from_account_id' => $main->id, 'to_account_id' => $sub->id, 'service' => 'cash', 'currency' => 'IQD', 'amount' => '1234.56', 'reference' => 'Documented transfer', 'idempotency_key' => 'transfer-retry-001'];
+        $id = $this->postJson('/api/v1/finance/transfers', $input)->assertCreated()->json('data.id');
+        $this->postJson('/api/v1/finance/transfers', $input)->assertCreated()->assertJsonPath('data.id', $id);
+        $this->postJson('/api/v1/finance/transfers', array_replace($input, ['amount' => '1234.57']))->assertConflict();
+        $this->assertDatabaseCount('finance_transactions', 2);
+        $this->assertDatabaseCount('finance_entries', 4);
         $this->assertDatabaseCount('finance_operations', 1);
-        $this->assertDatabaseHas('finance_wallets', ['account_id' => $main->id, 'kind' => 'account', 'balance_minor' => 123456]);
+        $this->assertDatabaseHas('finance_wallets', ['account_id' => $sub->id, 'kind' => 'account', 'balance_minor' => 123456]);
+        $this->assertDatabaseHas('finance_wallets', ['account_id' => $main->id, 'kind' => 'account', 'balance_minor' => 76544]);
     }
 
     public static function invalidMoney(): array
@@ -174,7 +210,7 @@ class FinanceCoreTest extends TestCase
     {
         [$system,$main,$sub] = $this->tree();
         $this->asPortalUser($this->userFor($system));
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($main))->assertCreated();
+        $this->seedHistoricalDeposit($this->depositInput($main));
         $this->asPortalUser($this->userFor($main));
         $input = ['from_account_id' => $main->id, 'to_account_id' => $sub->id, 'service' => 'cash', 'currency' => 'IQD', 'amount' => '234.56', 'reference' => 'Funding 1', 'idempotency_key' => 'transfer-test-001'];
         $this->postJson('/api/v1/finance/transfers', $input)->assertCreated();
@@ -209,23 +245,26 @@ class FinanceCoreTest extends TestCase
         $this->postJson('/api/v1/finance/transfers', ['from_account_id' => $main->id, 'to_account_id' => $sub->id, 'service' => 'cash', 'currency' => 'IQD', 'amount' => '1.00', 'reference' => 'Attempt', 'idempotency_key' => 'admin-transfer-forbid'])->assertForbidden();
     }
 
-    public function test_audit_failure_rolls_back_deposit_and_all_ledger_entries(): void
+    public function test_audit_failure_rolls_back_transfer_and_all_new_ledger_entries(): void
     {
-        [$system,$main] = $this->tree();
+        [$system, $main, $sub] = $this->tree();
         $this->asPortalUser($this->userFor($system));
+        $this->seedHistoricalDeposit($this->depositInput($main, '100.00'));
+        $this->asPortalUser($this->userFor($main));
         $this->mock(AuditLogger::class)->shouldReceive('record')->once()->andThrow(new \RuntimeException('Audit unavailable'));
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($main))->assertInternalServerError();
-        $this->assertDatabaseCount('finance_transactions', 0);
-        $this->assertDatabaseCount('finance_entries', 0);
-        $this->assertDatabaseCount('finance_wallets', 0);
+        $this->postJson('/api/v1/finance/transfers', ['from_account_id' => $main->id, 'to_account_id' => $sub->id, 'service' => 'cash', 'currency' => 'IQD', 'amount' => '10.00', 'reference' => 'Transfer rollback', 'idempotency_key' => 'transfer-audit-rollback'])->assertInternalServerError();
+        $this->assertDatabaseCount('finance_transactions', 1);
+        $this->assertDatabaseCount('finance_entries', 2);
+        $this->assertDatabaseCount('finance_wallets', 2);
         $this->assertDatabaseCount('finance_operations', 0);
+        $this->assertDatabaseHas('finance_wallets', ['account_id' => $main->id, 'balance_minor' => 10000]);
     }
 
     public function test_funding_request_review_is_exact_idempotent_and_not_available_to_other_parent(): void
     {
         [$system,$main,$sub] = $this->tree();
         $this->asPortalUser($this->userFor($system));
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($main))->assertCreated();
+        $this->seedHistoricalDeposit($this->depositInput($main));
         $this->asPortalUser($this->userFor($sub));
         $request = ['service' => 'cash', 'currency' => 'IQD', 'amount' => '34.56', 'purpose' => 'Request', 'idempotency_key' => 'funding-request-001'];
         $id = $this->postJson('/api/v1/finance/funding-requests', $request)->assertCreated()->assertJsonPath('data.status', 'pending')->assertJsonPath('data.from_account_id', $main->id)->json('data.id');
@@ -269,7 +308,7 @@ class FinanceCoreTest extends TestCase
     {
         [$system,$main] = $this->tree();
         $this->asPortalUser($this->userFor($system));
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($main))->assertCreated();
+        $this->seedHistoricalDeposit($this->depositInput($main));
         $input = $this->depositInput($main, '1000.00', 'invoice-create-001') + ['kind' => 'payable', 'supplier' => 'Original supplier'];
         $id = $this->postJson('/api/v1/finance/invoices', $input)->assertCreated()->assertJsonPath('data.paid', '0.00')->json('data.id');
         $this->assertDatabaseCount('finance_transactions', 1);
@@ -313,7 +352,7 @@ class FinanceCoreTest extends TestCase
     {
         [$system,$main] = $this->tree();
         $this->asPortalUser($this->userFor($system));
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($main))->assertCreated();
+        $this->seedHistoricalDeposit($this->depositInput($main));
         $this->expectException(QueryException::class);
         DB::table('finance_entries')->update(['amount_minor' => 1]);
     }
@@ -322,7 +361,7 @@ class FinanceCoreTest extends TestCase
     {
         [$system,$main] = $this->tree();
         $this->asPortalUser($this->userFor($system));
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($main))->assertCreated();
+        $this->seedHistoricalDeposit($this->depositInput($main));
         $this->expectException(QueryException::class);
         DB::table('finance_transactions')->delete();
     }
@@ -344,7 +383,7 @@ class FinanceCoreTest extends TestCase
     {
         [$system, $main, $sub, $pos] = $this->tree();
         $this->asPortalUser($this->userFor($system));
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($main, '100.00'))->assertCreated();
+        $this->seedHistoricalDeposit($this->depositInput($main, '100.00'));
         $this->asPortalUser($this->userFor($main));
         $input = ['service' => 'cash', 'currency' => 'IQD', 'rows' => [['to_account_id' => $sub->id, 'amount' => '60.00'], ['to_account_id' => $pos->id, 'amount' => '60.00']], 'reference' => 'Grouped funding', 'idempotency_key' => 'bulk-funding-001'];
 
@@ -360,7 +399,7 @@ class FinanceCoreTest extends TestCase
     {
         [$system, $main, $sub, $pos] = $this->tree();
         $this->asPortalUser($this->userFor($system));
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($main, '100.00'))->assertCreated();
+        $this->seedHistoricalDeposit($this->depositInput($main, '100.00'));
         $this->asPortalUser($this->userFor($main));
         $input = ['service' => 'cash', 'currency' => 'IQD', 'rows' => [['to_account_id' => $sub->id, 'amount' => '30.10'], ['to_account_id' => $pos->id, 'amount' => '40.20']], 'reference' => 'Grouped funding', 'idempotency_key' => 'bulk-funding-002'];
 
@@ -377,7 +416,7 @@ class FinanceCoreTest extends TestCase
     {
         [$system, $main, $sub] = $this->tree();
         $this->asPortalUser($this->userFor($system));
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($main, '100.00'))->assertCreated();
+        $this->seedHistoricalDeposit($this->depositInput($main, '100.00'));
         $this->asPortalUser($this->userFor($main));
         $id = $this->postJson('/api/v1/finance/transfers', ['from_account_id' => $main->id, 'to_account_id' => $sub->id, 'service' => 'cash', 'currency' => 'IQD', 'amount' => '80.00', 'reference' => 'Recoverable funding', 'idempotency_key' => 'recovery-transfer-001'])->assertCreated()->json('data.id');
         $before = DB::table('finance_entries')->where('transaction_id', $id)->get()->map(fn ($entry): array => (array) $entry)->all();
@@ -400,7 +439,7 @@ class FinanceCoreTest extends TestCase
         $this->freezeTime();
         $admin = $this->userFor($system);
         $this->asPortalUser($admin);
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($main, '100.00'))->assertCreated();
+        $this->seedHistoricalDeposit($this->depositInput($main, '100.00'));
         $owner = $this->userFor($main);
         $this->asPortalUser($owner);
         $id = $this->postJson('/api/v1/finance/transfers', ['from_account_id' => $main->id, 'to_account_id' => $sub->id, 'service' => 'cash', 'currency' => 'IQD', 'amount' => '80.00', 'reference' => 'Deadline funding', 'idempotency_key' => 'recovery-deadline-001'])->assertCreated()->json('data.id');
@@ -425,7 +464,7 @@ class FinanceCoreTest extends TestCase
     {
         [$system, $main, $sub] = $this->tree();
         $this->asPortalUser($this->userFor($system));
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($main, '100.00'))->assertCreated();
+        $this->seedHistoricalDeposit($this->depositInput($main, '100.00'));
         $this->asPortalUser($this->userFor($main));
         $transfer = $this->postJson('/api/v1/finance/transfers', ['from_account_id' => $main->id, 'to_account_id' => $sub->id, 'service' => 'cash', 'currency' => 'IQD', 'amount' => '80.00', 'reference' => 'Recovery cap', 'idempotency_key' => 'immutable-recovery-transfer'])->assertCreated()->json('data.id');
         $this->postJson('/api/v1/finance/transfers/'.$transfer.'/recover', ['amount' => '30.00', 'reason' => 'Unused funding', 'idempotency_key' => 'immutable-recovery-entry'])->assertCreated();
@@ -442,7 +481,7 @@ class FinanceCoreTest extends TestCase
     {
         [$system, $main] = $this->tree();
         $this->asPortalUser($this->userFor($system));
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($main))->assertCreated();
+        $this->seedHistoricalDeposit($this->depositInput($main));
         $this->expectException(QueryException::class);
 
         DB::table('finance_wallets')->where('account_id', $main->id)->update(['balance_minor' => 999999, 'version' => 3]);
@@ -455,7 +494,7 @@ class FinanceCoreTest extends TestCase
         $admin = $this->userFor($system);
         $owner = $this->userFor($main);
         $this->asPortalUser($admin);
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($main, '100.00'))->assertCreated();
+        $this->seedHistoricalDeposit($this->depositInput($main, '100.00'));
         $payload = ['from_account_id' => $main->id, 'service' => 'cash', 'currency' => 'IQD', 'rows' => [['to_account_id' => $pos->id, 'amount' => '25.00']], 'reference' => 'Administrator bulk funding', 'idempotency_key' => 'system-bulk-agent-001'];
 
         $id = $this->postJson('/api/v1/finance/bulk-transfers', $payload)->assertCreated()->assertJsonPath('data.0.from_account_id', $main->id)->json('data.0.transaction_id');
@@ -553,10 +592,10 @@ class FinanceCoreTest extends TestCase
         $this->travelTo(now()->setDate(2026, 10, 6)->setTime(20, 59, 59));
         $first = $this->depositInput($main, '1.00', 'date-boundary-first');
         $first['reference'] = 'Literal %_ reference';
-        $this->postJson('/api/v1/finance/deposits', $first)->assertCreated();
+        $this->seedHistoricalDeposit($first);
         $this->travelTo(now()->addSecond());
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($main, '2.00', 'date-boundary-second'))->assertCreated();
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($sub, '3.00', 'date-boundary-sub'))->assertCreated();
+        $this->seedHistoricalDeposit($this->depositInput($main, '2.00', 'date-boundary-second'));
+        $this->seedHistoricalDeposit($this->depositInput($sub, '3.00', 'date-boundary-sub'));
         $this->asPortalUser($this->userFor($main));
 
         $this->getJson('/api/v1/finance/ledger?from=2026-10-06&to=2026-10-06&q=%25_&per_page=1')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.amount', '1.00');
@@ -570,7 +609,7 @@ class FinanceCoreTest extends TestCase
         [$system, $main, $sub] = $this->tree();
         $child = $this->account(AccountType::Pos, $sub);
         $this->asPortalUser($this->userFor($system));
-        $this->postJson('/api/v1/finance/deposits', $this->depositInput($main, '100.00'))->assertCreated();
+        $this->seedHistoricalDeposit($this->depositInput($main, '100.00'));
         $mainActor = $this->userFor($main);
         $this->asPortalUser($mainActor);
         $base = ['service' => 'cash', 'currency' => 'IQD', 'amount' => '80.00', 'reference' => 'Distributed funding'];

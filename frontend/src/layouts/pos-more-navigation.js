@@ -20,8 +20,8 @@ export function posMoreNavigation({routes, identity, can}) {
     if (available.has('sales') && item.id === 'exceptions') return false;
     // The unified seller and history together cover the digital page. A reader
     // without either destination still needs its direct digital entry.
-    if (item.id === 'digital' && available.has('sell') && can('sell.create')
-      && available.has('sales') && can('sales.view')) return false;
+    if (item.id === 'digital' && available.has('sell') && (can('sell.create')||can('digital.view'))
+      && available.has('sales') && (can('sales.view')||can('digital.view'))) return false;
     return true;
   });
 

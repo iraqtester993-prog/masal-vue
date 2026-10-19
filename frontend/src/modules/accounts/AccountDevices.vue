@@ -7,7 +7,7 @@ async function load(page=1){busy.value=true;error.value='';transfer.value=null;t
 async function review(row,status){if(busy.value)return;busy.value=true;error.value='';try{await session.api.mutate(`/accounts/${props.account.id}/devices/${row.id}`,'PATCH',{version:row.version,status});await load(meta.value.current_page);}catch(e){if(alive)error.value=e.message;}finally{if(alive)busy.value=false;}}
 function askTransfer(row){if(busy.value)return;success.value='';error.value='';transfer.value={id:row.id,version:row.version,binding_version:meta.value.login_binding.version};}
 async function transferLogin(){if(busy.value||!transfer.value)return;const selected=transfer.value;busy.value=true;error.value='';try{await session.api.mutate(`/accounts/${props.account.id}/devices/${selected.id}/login-access`,'POST',{version:selected.version,binding_version:selected.binding_version});await load(meta.value.current_page);if(alive)success.value='تم نقل دخول النقطة إلى الجهاز المحدد. يحتاج المستخدم إلى تسجيل الدخول مجددًا.';}catch(e){if(alive)error.value=e.message;}finally{if(alive)busy.value=false;}}
-function date(value){return value?new Date(value).toLocaleString('ar-IQ'):'—';}
+function date(value){return value?new Date(value).toLocaleString('ar-IQ',{numberingSystem:'latn'}):'—';}
 onMounted(()=>load());onBeforeUnmount(()=>{alive=false;reader.abort();});
 </script>
 <template>

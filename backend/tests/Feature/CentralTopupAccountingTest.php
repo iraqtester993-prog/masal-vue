@@ -14,6 +14,7 @@ use App\Services\Finance\Money;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Tests\Support\CreatesSupport;
 use Tests\TestCase;
@@ -58,7 +59,8 @@ class CentralTopupAccountingTest extends TestCase
         $f['pos']->update(['device_lock_enabled' => false]);
         $this->asPortalUser($f['admin']);
         $id = $this->postJson('/api/v1/digital/connections', ['provider' => 'topup', 'account_id' => $f['system']->id, 'version' => 0, 'active' => true, 'credential' => 'central-private-token', 'offers' => [], 'idempotency_key' => 'central-connect-001'])->assertCreated()->json('data.id');
-        $this->postJson('/api/v1/digital/connections/'.$id.'/sync', ['version' => 1])->assertOk()->assertJsonPath('data.sync.catalog', 'ok');
+        $synchronized = $this->postJson('/api/v1/digital/connections/'.$id.'/sync', ['version' => 1])->assertOk();
+        $this->assertSame('ok', $synchronized->json('data.sync.catalog'), $synchronized->json('data.sync.catalog_message'));
         $category = TopupCategory::where('connection_id', $id)->firstOrFail();
         $f += ['connection' => DigitalConnection::findOrFail($id), 'category' => $category];
         $this->allocate($f, $f['main']->id, '40000.00');
@@ -293,6 +295,82 @@ class CentralTopupAccountingTest extends TestCase
         $this->postJson('/api/v1/digital/orders', $this->saleInput($f))->assertCreated();
         $this->assertSame(0, Artisan::call('topup:audit-accounting'), Artisan::output());
         $this->assertDatabaseCount('finance_invoices', 0);
+        $this->assertSame(1, $this->purchases);
+    }
+
+    public function test_scoped_allocator_cannot_recover_change_categories_or_reach_another_agent(): void
+    {
+        $f = $this->setupCentral();
+        $employee = $this->supportEmployee($f['system'], $f['main'], ['account.view', 'topup.view', 'topup.allocate']);
+        $this->asPortalUser($employee);
+        $this->getJson('/api/v1/topup/distribution?target_account_id='.$f['main']->id)->assertOk()->assertJsonPath('data.can_allocate', true)->assertJsonPath('data.can_assign', false)->assertJsonPath('data.grant.balance', '40000.00')->assertJsonMissingPath('data.connection.company_balance')->assertJsonPath('data.connections.0.balance', null);
+        $input = ['version' => 1, 'connection_id' => $f['connection']->id, 'allocation_balance' => '45000.00', 'category_ids' => [$f['category']->id], 'active' => true, 'idempotency_key' => 'scoped-allocate-increase'];
+        $path = '/api/v1/topup/distribution/'.$f['main']->id;
+        $this->putJson($path, $input)->assertOk()->assertJsonPath('data.balance', '45000.00');
+        $before = DB::table('finance_transactions')->count();
+        $this->putJson($path, array_replace($input, ['version' => 2, 'allocation_balance' => '40000.00', 'idempotency_key' => 'scoped-allocate-deny-decrease']))->assertForbidden();
+        $this->putJson($path, array_replace($input, ['version' => 2, 'category_ids' => [], 'idempotency_key' => 'scoped-allocate-deny-categories']))->assertForbidden();
+        $this->putJson('/api/v1/topup/distribution/'.$f['foreign']->id, array_replace($input, ['version' => 0, 'idempotency_key' => 'scoped-allocate-deny-foreign']))->assertNotFound();
+        $this->assertSame($before, DB::table('finance_transactions')->count());
+        $this->assertSame(4500000, TopupGrant::where('target_account_id', $f['main']->id)->firstOrFail()->balance_minor);
+        $this->assertSame(0, (int) DB::table('finance_entries')->sum('amount_minor'));
+    }
+
+    public function test_scoped_recovery_cannot_allocate_more_funds(): void
+    {
+        $f = $this->setupCentral();
+        $employee = $this->supportEmployee($f['system'], $f['main'], ['account.view', 'topup.view', 'topup.recover']);
+        $this->asPortalUser($employee);
+        $input = ['version' => 1, 'connection_id' => $f['connection']->id, 'allocation_balance' => '35000.00', 'category_ids' => [$f['category']->id], 'active' => true, 'idempotency_key' => 'scoped-recovery-decrease'];
+        $path = '/api/v1/topup/distribution/'.$f['main']->id;
+        $this->putJson($path, $input)->assertOk()->assertJsonPath('data.balance', '35000.00');
+        $before = DB::table('finance_transactions')->count();
+        $this->putJson($path, array_replace($input, ['version' => 2, 'allocation_balance' => '40000.00', 'idempotency_key' => 'scoped-recovery-deny-increase']))->assertForbidden();
+        $this->assertSame($before, DB::table('finance_transactions')->count());
+        $this->assertSame(3500000, TopupGrant::where('target_account_id', $f['main']->id)->firstOrFail()->balance_minor);
+        $this->assertSame(0, (int) DB::table('finance_entries')->sum('amount_minor'));
+    }
+
+    public function test_category_assignment_permission_does_not_change_allocated_funds(): void
+    {
+        $f = $this->setupCentral();
+        $employee = $this->supportEmployee($f['system'], $f['main'], ['account.view', 'topup.view', 'topup.assign']);
+        $this->asPortalUser($employee);
+        $before = [];
+        foreach (['finance_wallets', 'finance_transactions', 'finance_entries'] as $table) {
+            $before[$table] = DB::table($table)->orderBy('id')->get()->toJson();
+        }
+        $this->putJson('/api/v1/topup/distribution/'.$f['main']->id, ['version' => 1, 'connection_id' => $f['connection']->id, 'category_ids' => [], 'active' => true, 'idempotency_key' => 'category-only-assignment'])->assertOk()->assertJsonPath('data.balance', '40000.00');
+        foreach ($before as $table => $rows) {
+            $this->assertSame($rows, DB::table($table)->orderBy('id')->get()->toJson(), $table);
+        }
+    }
+
+    public function test_prices_can_be_delegated_without_category_assignment_or_balance_rights(): void
+    {
+        $f = $this->setupCentral();
+        $employee = $this->supportEmployee($f['main'], $f['main'], ['account.view', 'topup.view', 'topup.prices']);
+        $this->asPortalUser($employee);
+        $before = DB::table('finance_transactions')->count();
+        $this->putJson('/api/v1/topup/prices', ['version' => 1, 'prices' => [['category_id' => $f['category']->id, 'price' => '6500.00']], 'idempotency_key' => 'delegated-topup-price'])->assertOk();
+        $this->putJson('/api/v1/topup/distribution/'.$f['sub']->id, ['version' => 1, 'category_ids' => [], 'active' => true, 'idempotency_key' => 'price-deny-category-assignment'])->assertForbidden();
+        $this->assertSame($before, DB::table('finance_transactions')->count());
+        $this->assertSame(4000000, TopupGrant::where('target_account_id', $f['main']->id)->firstOrFail()->balance_minor);
+    }
+
+    public function test_permission_upgrade_preserves_nonzero_topup_balances_and_completed_provider_orders(): void
+    {
+        $f = $this->setupCentral();
+        $this->postJson('/api/v1/digital/orders', $this->saleInput($f))->assertCreated()->assertJsonPath('data.status', 'succeeded');
+        $before = [];
+        foreach (['finance_wallets', 'finance_transactions', 'finance_entries', 'topup_grants', 'digital_orders', 'digital_provider_attempts'] as $table) {
+            $before[$table] = DB::table($table)->orderBy('id')->get()->toJson();
+        }
+        $migration = require database_path('migrations/2026_10_17_134658_add_granular_operational_permissions.php');
+        $migration->up();
+        foreach ($before as $table => $rows) {
+            $this->assertSame($rows, DB::table($table)->orderBy('id')->get()->toJson(), $table);
+        }
         $this->assertSame(1, $this->purchases);
     }
 }

@@ -8,12 +8,67 @@ use App\Models\PosType;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
-use Tests\Support\CreatesAccounts;
+use Tests\Support\CreatesSupport;
 use Tests\TestCase;
 
 class PosBrandingTest extends TestCase
 {
-    use CreatesAccounts, RefreshDatabase;
+    use CreatesSupport, RefreshDatabase;
+
+    public function test_identity_keeps_owner_name_separate_from_the_logged_in_employee(): void
+    {
+        $system = $this->account(AccountType::System);
+        $main = $this->account(AccountType::MainAgent, $system);
+        $pos = $this->account(AccountType::Pos, $main);
+        $owner = $this->userFor($pos);
+        $employee = $this->supportEmployee($pos, $pos, ['account.view']);
+        $this->asPortalUser($employee);
+        $this->getJson('/api/v1/auth/me')->assertOk()->assertJsonPath('data.user.name', $employee->name)->assertJsonPath('data.account.owner_name', $owner->name);
+        $pos->update(['owner_name' => 'اسم صاحب النقطة المسجل']);
+        $this->getJson('/api/v1/auth/me')->assertOk()->assertJsonPath('data.account.owner_name', 'اسم صاحب النقطة المسجل')->assertJsonPath('data.user.name', $employee->name);
+    }
+
+    public function test_self_photo_and_parent_name_are_available_without_general_attachment_access(): void
+    {
+        Storage::fake('local');
+        $system = $this->account(AccountType::System);
+        $main = $this->account(AccountType::MainAgent, $system);
+        $main->update(['name' => 'الوكيل المباشر']);
+        $pos = $this->account(AccountType::Pos, $main);
+        $foreign = $this->account(AccountType::Pos, $main);
+        $user = $this->userFor($pos);
+        $photo = AccountAttachment::factory()->create(['account_id' => $pos->id, 'kind' => 'personal_image', 'storage_path' => 'private/self.png']);
+        AccountAttachment::factory()->create(['account_id' => $foreign->id, 'kind' => 'personal_image', 'storage_path' => 'private/foreign.png']);
+        AccountAttachment::factory()->create(['account_id' => $pos->id, 'kind' => 'document', 'storage_path' => 'private/document.png']);
+        Storage::disk('local')->put('private/self.png', 'self-photo');
+        Storage::disk('local')->put('private/foreign.png', 'foreign-photo');
+        Storage::disk('local')->put('private/document.png', 'private-document');
+        $this->asPortalUser($user);
+        $response = $this->getJson('/api/v1/auth/me?account_id='.$foreign->id)->assertOk()
+            ->assertJsonPath('data.account.parent_name', 'الوكيل المباشر')
+            ->assertJsonPath('data.account.personal_image_url', '/api/v1/auth/personal-image?v='.$photo->id)
+            ->assertJsonPath('data.user.name', $user->name);
+        $this->assertStringNotContainsString('storage_path', $response->getContent());
+        $image = $this->get('/api/v1/auth/personal-image?account_id='.$foreign->id.'&kind=document')->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')->assertHeader('X-Content-Type-Options', 'nosniff');
+        $this->assertSame(Storage::disk('local')->path('private/self.png'), $image->baseResponse->getFile()->getPathname());
+        $photo->delete();
+        $this->getJson('/api/v1/auth/me')->assertOk()->assertJsonPath('data.account.personal_image_url', null);
+        $this->get('/api/v1/auth/personal-image')->assertNotFound();
+    }
+
+    public function test_self_photo_requires_authentication_and_never_falls_back_to_documents(): void
+    {
+        Storage::fake('local');
+        $this->withHeader('X-Masal-Portal', 'pos')->get('/api/v1/auth/personal-image')->assertUnauthorized();
+        $system = $this->account(AccountType::System);
+        $main = $this->account(AccountType::MainAgent, $system);
+        $pos = $this->account(AccountType::Pos, $main);
+        AccountAttachment::factory()->create(['account_id' => $pos->id, 'kind' => 'document', 'storage_path' => 'private/id.png']);
+        Storage::disk('local')->put('private/id.png', 'id-document');
+        $this->asPortalUser($this->userFor($pos));
+        $this->get('/api/v1/auth/personal-image')->assertNotFound();
+    }
 
     public function test_pos_inherits_its_main_agent_brand_without_exposing_private_attachment_fields(): void
     {

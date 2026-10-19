@@ -284,6 +284,7 @@ html[data-theme="dark"] .portal-shell .language-picker { background-image: url("
 .portal-shell .mobile-shade { display: none; }
 .portal-shell .navgroup:focus-visible,
 .portal-shell .navitem:focus-visible,
+.portal-shell .account-profile-link:focus-visible,
 .portal-shell .iconbtn:focus-visible,
 .portal-shell .avatar:focus-visible,
 .portal-shell .sidebar-logout:focus-visible { outline: 3px solid #8ab4fc; outline-offset: 3px; }

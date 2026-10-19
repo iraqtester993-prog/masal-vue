@@ -9,6 +9,7 @@ use App\Models\Sales\ReprintRequest;
 use App\Models\Sales\Sale;
 use App\Models\Stock\StockCard;
 use App\Models\User;
+use App\Services\AccountPrivacy;
 use App\Services\AuditLogger;
 use App\Services\Finance\FinanceOperations;
 use App\Services\ManagementAuthority;
@@ -159,7 +160,9 @@ class PrintOperations
 
     public function requestDto(ReprintRequest $r): array
     {
-        return ['id' => $r->id, 'sale_id' => (int) $r->sale_id, 'account_id' => (int) $r->account_id, 'account_name' => $r->account?->name, 'creator_id' => (int) $r->creator_id, 'creator_name' => $r->creator?->name, 'recipient_id' => (int) $r->recipient_id, 'recipient_name' => $r->recipient?->name, 'reviewer_id' => $r->reviewer_id, 'reviewer_name' => $r->reviewer?->name, 'reason' => $r->reason, 'failure_reason' => $r->failure_reason, 'status' => $r->status, 'history' => $r->history, 'version' => $r->version, 'created_at' => $r->created_at->toISOString(), 'reviewed_at' => $r->reviewed_at?->toISOString(), 'used_at' => $r->used_at?->toISOString()];
+        $privacy = app(AccountPrivacy::class);
+
+        return ['id' => $r->id, 'sale_id' => (int) $r->sale_id, 'account_id' => (int) $r->account_id, 'account_name' => $privacy->accountName($r->account), 'creator_id' => $privacy->userId($r->creator_id), 'creator_name' => $privacy->userName($r->creator), 'recipient_id' => (int) $r->recipient_id, 'recipient_name' => $privacy->accountName($r->recipient), 'reviewer_id' => $privacy->userId($r->reviewer_id), 'reviewer_name' => $privacy->userName($r->reviewer), 'reason' => $r->reason, 'failure_reason' => $r->failure_reason, 'status' => $r->status, 'history' => array_map(fn (array $event): array => isset($event['actor_id']) ? array_replace($event, ['actor_id' => $privacy->userId((int) $event['actor_id'])]) : $event, $r->history), 'version' => $r->version, 'created_at' => $r->created_at->toISOString(), 'reviewed_at' => $r->reviewed_at?->toISOString(), 'used_at' => $r->used_at?->toISOString()];
     }
 
     public function review(User $actor, int $id, array $data, Request $request, bool $escalate): array

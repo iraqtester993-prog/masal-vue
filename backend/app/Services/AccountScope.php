@@ -41,7 +41,7 @@ class AccountScope
     {
         $membership = $user->membership;
         $query = Account::query()->when(! $includeArchived, fn ($q) => $q->whereNull('accounts.archived_at'));
-        if (! $user->isOperational() || ! $membership || ! in_array('account.view', $membership->permissions(), true)) {
+        if (! $user->isOperational() || ! $membership) {
             return $query->whereRaw('1 = 0');
         }
 

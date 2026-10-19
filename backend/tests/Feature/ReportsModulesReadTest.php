@@ -100,14 +100,13 @@ class ReportsModulesReadTest extends TestCase
         $this->getJson('/api/v1/reports/sections/sales-services/rows?currency=USD')->assertUnprocessable()->assertJsonValidationErrors('currency');
         $this->supportGrant($f['agent'], 'data.cost', false);
         $this->asPortalUser($f['agent']);
-        $protected = $this->getJson('/api/v1/reports/sections/sales-services/rows')->assertOk()->assertJsonPath('data.0.profit', null);
+        $protected = $this->getJson('/api/v1/reports/sections/sales-services/rows')->assertOk()->assertJsonMissingPath('data.0.profit');
         $this->assertArrayNotHasKey('cost', $protected->json('data.0'));
         $profit = collect($protected->json('columns'))->firstWhere('key', 'profit');
-        $this->assertTrue($profit['protected']);
-        $this->assertSame(['data.profit', 'data.cost'], $profit['required_permissions']);
+        $this->assertNull($profit);
         $this->supportGrant($f['agent'], 'digital.view', false);
         $this->asPortalUser($f['agent']);
-        $this->getJson('/api/v1/reports/sections/sales-services/rows')->assertConflict();
+        $this->getJson('/api/v1/reports/sections/sales-services/rows')->assertNotFound();
     }
 
     public function test_catalog_snapshot_is_not_provider_settlement_and_pending_review_refunded_orders_have_no_completed_profit(): void
@@ -195,13 +194,13 @@ class ReportsModulesReadTest extends TestCase
         $this->supportGrant($f['agent'], 'reports.operations');
         $this->asPortalUser($f['agent']);
         $response = $this->getJson('/api/v1/reports/sections/operations-integrations/rows?sort=provider&direction=asc')->assertOk()->assertJsonCount(2, 'data');
-        $this->assertEqualsCanonicalizing(['الرابعة', 'التعبئة المباشرة'], array_column($response->json('data'), 'provider'));
+        $this->assertEqualsCanonicalizing(['الرابعة', 'Topup'], array_column($response->json('data'), 'provider'));
         foreach ($response->json('data') as $row) {
             $this->assertSame($f['main']->name, $row['agent']);
             $this->assertNull($row['expiry']);
         }
         $this->noSecrets($response->getContent());
-        $this->getJson('/api/v1/reports/sections/operations-integrations/rows?q='.urlencode('التعبئة المباشرة'))->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.provider', 'التعبئة المباشرة');
+        $this->getJson('/api/v1/reports/sections/operations-integrations/rows?q='.urlencode('Topup'))->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.provider', 'Topup');
         $export = $this->postJson('/api/v1/reports/export', ['section_ids' => ['operations-integrations']])->assertOk()->assertJsonCount(2, 'data.sections.0.rows');
         $this->noSecrets($export->getContent());
         $this->getJson('/api/v1/reports/sections/operations-integrations/rows?agent_id='.$f['foreign']->id)->assertNotFound();
@@ -240,7 +239,7 @@ class ReportsModulesReadTest extends TestCase
         $this->postJson('/api/v1/reports/export', ['section_ids' => ['network-archive']])->assertOk()->assertJsonCount(1, 'data.sections.0.rows');
         $this->supportGrant($f['agent'], 'agents.archiveView', false);
         $this->asPortalUser($f['agent']);
-        $this->getJson('/api/v1/reports/sections/network-archive/rows')->assertConflict();
+        $this->getJson('/api/v1/reports/sections/network-archive/rows')->assertNotFound();
     }
 
     public function test_presence_uses_latest_real_location_current_sessions_and_active_ancestry_without_leaking_session_ids(): void
@@ -296,7 +295,7 @@ class ReportsModulesReadTest extends TestCase
         $this->getJson('/api/v1/reports/sections/network-presence/rows?q=Visible%20Employee')->assertOk()->assertJsonCount(0, 'data');
     }
 
-    public function test_time_policy_rows_are_real_employee_policies_and_owner_only_even_when_employee_is_granted_security_permissions(): void
+    public function test_time_policy_rows_require_the_time_permission_and_a_system_account(): void
     {
         $f = $this->supportFixture();
         $employee = $this->supportEmployee($f['system'], $f['main'], ['account.view', 'reports.view', 'reports.users', 'security.view', 'security.policies']);
@@ -309,12 +308,12 @@ class ReportsModulesReadTest extends TestCase
             ->assertJsonPath('data.0.startTime', 'غير مفعّل')->assertJsonPath('data.0.idleMinutes', '7')->assertJsonPath('data.0.sessionMinutes', 'غير مفعّل');
         $this->asPortalUser($employee);
         $this->withSession(['masal.time_clock' => ['user' => $employee->id, 'started' => now()->timestamp, 'lastActivity' => now()->timestamp]]);
-        $this->getJson('/api/v1/reports/sections/users-times/rows')->assertConflict();
+        $this->getJson('/api/v1/reports/sections/users-times/rows')->assertNotFound();
         $this->supportGrant($f['agent'], 'reports.users');
         $this->supportGrant($f['agent'], 'security.view');
         $this->supportGrant($f['agent'], 'security.policies');
         $this->asPortalUser($f['agent']);
-        $this->getJson('/api/v1/reports/sections/users-times/rows')->assertConflict();
+        $this->getJson('/api/v1/reports/sections/users-times/rows')->assertNotFound();
     }
 
     public function test_security_events_include_actual_stop_and_resume_records_and_hide_foreign_global_decisions_from_scoped_staff(): void

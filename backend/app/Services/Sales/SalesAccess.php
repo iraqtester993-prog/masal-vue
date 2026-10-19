@@ -27,7 +27,6 @@ class SalesAccess
     public function require(User $actor, string $permission, bool $system = false): void
     {
         $this->authority->require($actor, $permission);
-        $this->authority->require($actor, 'account.view');
         if (str_starts_with($permission, 'sell.') || str_starts_with($permission, 'sales.')) {
             $this->authority->require($actor, 'sales.view');
         }

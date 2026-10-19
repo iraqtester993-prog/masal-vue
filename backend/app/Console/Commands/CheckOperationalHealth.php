@@ -39,7 +39,7 @@ class CheckOperationalHealth extends Command
             $warnings['restore'] = 'توجد عمليات استعادة فاشلة خلال آخر يوم: '.$restore.'.';
         }
         if ($this->callSilent('topup:audit-accounting') !== self::SUCCESS) {
-            $warnings['accounting'] = 'فشلت مطابقة التبب المالية؛ راجع سجل المطابقة الخاص بالسيرفر.';
+            $warnings['accounting'] = 'فشلت مطابقة Topup المالية؛ راجع سجل المطابقة الخاص بالسيرفر.';
         }
         if ($warnings !== []) {
             Log::warning('Operational health warnings.', ['codes' => array_keys($warnings)]);

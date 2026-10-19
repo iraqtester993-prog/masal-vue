@@ -6,6 +6,7 @@ use App\Http\Requests\CatalogRequest;
 use App\Models\CatalogProvider;
 use App\Services\AuditLogger;
 use App\Services\CatalogAccess;
+use App\Services\Finance\FinanceServiceIdentity;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 
@@ -50,9 +51,9 @@ class CatalogExportController extends Controller
         fputcsv($stream, $headings, ',', '"', '');
         foreach ($rows as $row) {
             if ($kind === 'providers') {
-                $values = [$row->id, $row->name, $row->supplier, $row->connection, $row->status === 'active' ? 'مفعلة' : 'معطلة'];
+                $values = [$row->id, app(FinanceServiceIdentity::class)->providerName($row), $row->supplier, $row->connection, $row->status === 'active' ? 'مفعلة' : 'معطلة'];
             } else {
-                $values = [$row->id, implode(', ', $row->import_codes), $row->image_path ? '/api/v1/catalog/products/'.$row->id.'/image' : '', $row->name, $row->kind, $row->provider->name, $row->face_value, $row->currency, $row->minimum_price, $row->daily_quantity ?? '', $row->daily_amount ?? ''];
+                $values = [$row->id, implode(', ', $row->import_codes), $row->image_path ? '/api/v1/catalog/products/'.$row->id.'/image' : '', $row->name, $row->kind, app(FinanceServiceIdentity::class)->providerName($row->provider), $row->face_value, $row->currency, $row->minimum_price, $row->daily_quantity ?? '', $row->daily_amount ?? ''];
                 foreach (['pin', 'expiry', 'serial', 'cvc', 'reference'] as $key) {
                     $values[] = ($row->field_policy[$key] ?? 'unused') === 'required' ? 'مطلوب' : 'غير مستخدم';
                 } array_push($values, implode('، ', $row->allowed_cities) ?: 'الكل', $row->receipt_width.' mm', $row->receipt_header, $row->receipt_footer, $row->display_order, $row->status === 'active' ? 'مفعلة' : 'معطلة');

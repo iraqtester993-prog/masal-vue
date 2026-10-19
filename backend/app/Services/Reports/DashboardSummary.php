@@ -5,6 +5,7 @@ namespace App\Services\Reports;
 use App\Enums\AccountType;
 use App\Models\Digital\DigitalConnection;
 use App\Models\User;
+use App\Services\AccountPrivacy;
 use App\Services\Digital\DigitalAccess;
 use App\Services\Digital\DigitalTotals;
 use App\Services\Digital\TopupDistribution;
@@ -22,11 +23,15 @@ class DashboardSummary
 
     public function recentOperations(User $actor, string $currency = 'IQD', ?int $limit = 30, ?array $cursor = null): array
     {
+        if ($actor->membership->account->type === AccountType::Pos) {
+            return $this->posFinancialOperations($actor, $currency, $limit, $cursor);
+        }
         $rows = collect();
         if ($this->access->allows($actor, 'sales.view')) {
             $rows = DB::table('sales as r')->whereIn('r.account_id', $this->access->accounts($actor)->select('id'))
+                ->whereNotIn('r.creator_id', app(AccountPrivacy::class)->ownerIds())
                 ->whereIn('r.product_id', $this->access->products($actor)->select('id'))->where('r.currency', $currency)->whereNotNull('r.issued_at')
-                ->join('accounts as a', 'a.id', '=', 'r.account_id')->join('catalog_products as p', 'p.id', '=', 'r.product_id')
+                ->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'r.account_id')->join('catalog_products as p', 'p.id', '=', 'r.product_id')
                 ->when($cursor, fn ($query) => $this->beforeCursor($query, 'r.issued_at', 'stock', $cursor))->orderByDesc('r.issued_at')->orderByDesc('r.id')->when($limit !== null, fn ($query) => $query->limit($limit))
                 ->get(['r.id', 'r.issued_at as occurred_at', 'r.status', 'a.name as account_name', 'p.name as product_name', 'r.retail_total_minor as amount'])
                 ->map(fn ($row): array => ['key' => 'stock:'.$row->id, 'kind' => 'stock', 'occurred_at' => $row->occurred_at, 'status' => $row->status, 'account_name' => $row->account_name, 'product_name' => $row->product_name, 'amount' => ReportDataset::decimal($row->amount), 'currency' => $currency, 'destination' => 'sales', 'parameters' => []]);
@@ -34,7 +39,7 @@ class DashboardSummary
         if ($currency === 'IQD' && $this->access->allows($actor, 'digital.view') && Schema::hasTable('digital_orders')) {
             $digitalScope = $this->digital->accounts($actor)->select('accounts.id');
             $smallDigitalScope = (clone $digitalScope)->limit(101)->pluck('id')->all();
-            $digitalQuery = DB::table('digital_orders as r')->whereIn('r.account_id', count($smallDigitalScope) <= 100 ? $smallDigitalScope : $digitalScope);
+            $digitalQuery = DB::table('digital_orders as r')->whereNotIn('r.creator_id', app(AccountPrivacy::class)->ownerIds())->whereIn('r.account_id', count($smallDigitalScope) <= 100 ? $smallDigitalScope : $digitalScope);
             if ($cursor) {
                 $this->beforeCursor($digitalQuery, 'r.created_at', 'digital', $cursor);
             }
@@ -53,7 +58,7 @@ class DashboardSummary
             if (DB::getDriverName() === 'mysql' && $limit !== null) {
                 $digitalColumns[0] = DB::raw('STRAIGHT_JOIN r.id');
             }
-            $digital = ! $hasOrders ? collect() : $digitalQuery->join('accounts as a', 'a.id', '=', 'r.account_id')->join('catalog_products as p', 'p.id', '=', 'r.product_id')
+            $digital = ! $hasOrders ? collect() : $digitalQuery->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'r.account_id')->join('catalog_products as p', 'p.id', '=', 'r.product_id')
                 ->orderByDesc('r.created_at')->orderByDesc('r.id')->when($limit !== null, fn ($query) => $query->limit($limit))
                 ->get($digitalColumns)
                 ->map(fn ($row): array => ['key' => 'digital:'.$row->id, 'kind' => $row->provider, 'occurred_at' => $row->occurred_at, 'status' => $row->status, 'account_name' => $row->account_name, 'product_name' => $row->product_name, 'amount' => ReportDataset::decimal($row->amount), 'currency' => 'IQD', 'destination' => 'digital', 'parameters' => ['provider' => $row->provider, 'tab' => 'log']]);
@@ -82,6 +87,61 @@ class DashboardSummary
             ->when($limit !== null, fn (Collection $items): Collection => $items->take($limit))->values()->all();
     }
 
+    private function posFinancialOperations(User $actor, string $currency, ?int $limit, ?array $cursor): array
+    {
+        $accountId = $actor->membership->account_id;
+        if (! $this->access->accounts($actor)->whereKey($accountId)->exists()) {
+            return [];
+        }
+        $rows = collect();
+        $salesVisible = $this->access->allows($actor, 'sales.view');
+        $digitalVisible = $this->access->allows($actor, 'digital.view') && Schema::hasTable('digital_orders');
+        $read = function (Builder $query, string $time, string $source, array $columns) use ($limit, $cursor): Collection {
+            app(AccountPrivacy::class)->excludeOwner($query, $source === 'ledger' ? 't.actor_id' : 'r.creator_id');
+
+            return $query->when($cursor, fn (Builder $query): Builder => $this->beforeCursor($query, $time, $source, $cursor))
+                ->orderByDesc($time)->orderByDesc('r.id')->when($limit !== null, fn (Builder $query): Builder => $query->limit($limit))->get($columns);
+        };
+        if ($salesVisible) {
+            $sales = DB::table('sales as r')->where('r.account_id', $accountId)->where('r.currency', $currency)->whereNotNull('r.issued_at')
+                ->whereIn('r.product_id', $this->access->products($actor)->select('id'))
+                ->join('finance_transactions as posting', 'posting.id', '=', 'r.transaction_id')->where('posting.posted', true)
+                ->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'r.account_id')->join('catalog_products as p', 'p.id', '=', 'r.product_id')
+                ->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 'r.creator_id');
+            $rows = $rows->concat($read($sales, 'r.issued_at', 'stock', ['r.id', 'r.issued_at as occurred_at', 'r.status', 'a.name as account_name', 'u.name as actor_name', 'p.name as product_name', 'r.retail_total_minor as amount'])
+                ->map(fn ($row): array => ['key' => 'stock:'.$row->id, 'kind' => 'stock', 'action' => 'sales.issue', 'occurred_at' => $row->occurred_at, 'status' => $row->status, 'account_name' => $row->account_name, 'actor_name' => $row->actor_name, 'product_name' => $row->product_name, 'amount' => ReportDataset::decimal($row->amount), 'amount_label' => 'مبلغ البيع', 'currency' => $currency, 'destination' => 'sales', 'parameters' => []]));
+        }
+        if ($digitalVisible && $currency === 'IQD') {
+            foreach (['digital' => 'resolved_at', 'refund' => 'refunded_at'] as $source => $time) {
+                $orders = DB::table('digital_orders as r')->where('r.account_id', $accountId)->whereIn('r.status', ['succeeded', 'refunded'])
+                    ->whereNotNull('r.'.$time)->whereNotNull('r.actual_retail_minor')
+                    ->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'r.account_id')->join('catalog_products as p', 'p.id', '=', 'r.product_id')
+                    ->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 'r.creator_id');
+                $rows = $rows->concat($read($orders, 'r.'.$time, $source, ['r.id', 'r.'.$time.' as occurred_at', 'r.provider', 'a.name as account_name', 'u.name as actor_name', 'p.name as product_name', 'r.actual_retail_minor as amount'])
+                    ->map(fn ($row): array => ['key' => $source.':'.$row->id, 'kind' => $row->provider, 'action' => $source === 'refund' ? 'digital.refund' : 'digital.purchase', 'occurred_at' => $row->occurred_at, 'status' => $source === 'refund' ? 'refunded' : 'succeeded', 'account_name' => $row->account_name, 'actor_name' => $row->actor_name, 'product_name' => $row->product_name, 'amount' => ReportDataset::decimal($row->amount), 'amount_label' => $source === 'refund' ? 'مبلغ الاسترجاع' : 'مبلغ البيع', 'currency' => 'IQD', 'destination' => 'sales', 'parameters' => []]));
+            }
+        }
+        if ($this->access->allows($actor, 'wallets.view')) {
+            $entries = DB::table('finance_entries as r')->join('finance_wallets as w', 'w.id', '=', 'r.wallet_id')
+                ->join('finance_transactions as t', 't.id', '=', 'r.transaction_id')->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'w.account_id')
+                ->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 't.actor_id')->where('w.account_id', $accountId)->where('w.kind', 'account')->where('w.currency', $currency)->where('t.posted', true);
+            if ($salesVisible) {
+                $entries->whereNotExists(fn (Builder $query): Builder => $query->selectRaw('1')->from('sales as purchase')->whereColumn('purchase.transaction_id', 't.id')
+                    ->where('purchase.account_id', $accountId)->whereNotNull('purchase.issued_at')->whereIn('purchase.product_id', $this->access->products($actor)->select('id')));
+            }
+            if ($digitalVisible && Schema::hasTable('topup_finance_events')) {
+                $entries->whereNotExists(fn (Builder $query): Builder => $query->selectRaw('1')->from('topup_finance_events as event')
+                    ->join('digital_orders as purchase', 'purchase.id', '=', 'event.order_id')->whereColumn('event.transaction_id', 't.id')
+                    ->where('purchase.account_id', $accountId)->whereIn('event.phase', ['sale', 'refund'])->whereIn('purchase.status', ['succeeded', 'refunded']));
+            }
+            $rows = $rows->concat($read($entries, 'r.created_at', 'ledger', ['r.id', 'r.created_at as occurred_at', 'r.amount_minor as amount', 't.kind', 't.service', 't.reference', 'a.name as account_name', 'u.name as actor_name'])
+                ->map(fn ($row): array => ['key' => 'ledger:'.$row->id, 'kind' => 'ledger', 'action' => $row->kind, 'occurred_at' => $row->occurred_at, 'status' => 'posted', 'account_name' => $row->account_name, 'actor_name' => $row->actor_name, 'product_name' => null, 'amount' => ReportDataset::decimal(abs((int) $row->amount)), 'currency' => $currency, 'direction' => $row->amount < 0 ? 'debit' : 'credit', 'destination' => 'wallets', 'parameters' => [], 'summary_fields' => [['label' => 'الخدمة', 'value' => $row->service], ['label' => 'المرجع', 'value' => $row->reference]]]));
+        }
+
+        return $rows->sortByDesc(fn (array $row): string => $row['occurred_at'].'|'.str_pad(explode(':', $row['key'])[1], 20, '0', STR_PAD_LEFT).'|'.$row['key'])
+            ->when($limit !== null, fn (Collection $items): Collection => $items->take($limit))->values()->all();
+    }
+
     private function beforeCursor(Builder $query, string $column, string $source, array $cursor): Builder
     {
         $operator = strcmp($source, $cursor['source']) < 0 ? '<=' : '<';
@@ -101,20 +161,10 @@ class DashboardSummary
                 $query->whereNull('r.subject_account_id')->whereIn('r.account_id', $scope);
             });
         });
-        if (! $this->access->allows($actor, 'audit.view')) {
-            $permissions = ['wallets' => 'wallets.view', 'invoices' => 'invoices.view', 'prices' => 'prices.view', 'sell' => 'sales.view', 'sales' => 'sales.view', 'digital' => 'digital.view', 'topup' => 'digital.view', 'account' => 'account.view', 'staff' => 'staff.view', 'inventory' => 'inventory.view', 'import' => 'import.view', 'support' => 'support.view'];
-            $query->where(function (Builder $query) use ($actor, $permissions): void {
-                $query->where('r.user_id', $actor->id);
-                foreach ($permissions as $prefix => $permission) {
-                    if ($this->access->allows($actor, $permission)) {
-                        $query->orWhere('r.action', 'like', $prefix.'.%');
-                    }
-                }
-            });
-        }
+        app(AuditVisibility::class)->apply($query, $actor);
 
-        return $query->leftJoin('accounts as a', 'a.id', '=', DB::raw('COALESCE(r.subject_account_id,r.account_id)'))
-            ->leftJoin('users as u', 'u.id', '=', 'r.user_id')->when($cursor, fn ($query) => $this->beforeCursor($query, 'r.created_at', 'audit', $cursor))->orderByDesc('r.created_at')->orderByDesc('r.id')->when($limit !== null, fn ($query) => $query->limit($limit))
+        return $query->leftJoinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', DB::raw('COALESCE(r.subject_account_id,r.account_id)'))
+            ->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 'r.user_id')->when($cursor, fn ($query) => $this->beforeCursor($query, 'r.created_at', 'audit', $cursor))->orderByDesc('r.created_at')->orderByDesc('r.id')->when($limit !== null, fn ($query) => $query->limit($limit))
             ->get(['r.id', 'r.action', 'r.created_at', 'r.details', 'a.name as account_name', 'u.name as actor_name'])
             ->map(function ($row) use ($actor): array {
                 $details = json_decode($row->details ?? '{}', true) ?? [];
@@ -181,7 +231,7 @@ class DashboardSummary
             if (DB::getDriverName() === 'mysql') {
                 array_unshift($columns, DB::raw('STRAIGHT_JOIN r.id'));
             }
-            $rows = $compact || (int) $stats->total === 0 ? [] : $recent->join('accounts as a', 'a.id', '=', 'r.account_id')->leftJoin('users as u', 'u.id', '=', 'r.creator_id')->join('catalog_products as product', 'product.id', '=', 'r.product_id')
+            $rows = $compact || (int) $stats->total === 0 ? [] : $recent->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'r.account_id')->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 'r.creator_id')->join('catalog_products as product', 'product.id', '=', 'r.product_id')
                 ->orderByDesc('r.created_at')->orderByDesc('r.id')->limit(5)->get($columns)
                 ->map(fn ($row): array => ['name' => $row->account_name.' · '.$row->creator_name.' · '.$row->product_name, 'value' => ReportDataset::decimal($row->value), 'unit' => 'د.ع', 'note' => match ($row->status) {
                     'pending' => 'قيد التنفيذ', 'review' => 'بانتظار التحقق', 'succeeded' => 'ناجحة', 'failed' => 'فاشلة', 'refunded' => 'مرتجعة', default => $row->status,
@@ -192,7 +242,7 @@ class DashboardSummary
                 $cards[$index]['cost_availability'] = ['complete' => (int) $stats->unknown_cost === 0, 'unknown_count' => (int) $stats->unknown_cost, 'catalog_count' => (int) $stats->catalog_cost_count];
             }
             if ($provider === 'topup' && in_array($actor->membership->account->type, [AccountType::System, AccountType::MainAgent], true) && $currency === 'IQD') {
-                $connections = DB::table('digital_connections as c')->whereIn('c.id', $this->digitalConnections($actor)->select('digital_connections.id'))->where('c.provider', 'topup')->join('accounts as a', 'a.id', '=', 'c.account_id');
+                $connections = DB::table('digital_connections as c')->whereIn('c.id', $this->digitalConnections($actor)->select('digital_connections.id'))->where('c.provider', 'topup')->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'c.account_id');
                 $cards[$index]['balance_rows_total'] = (clone $connections)->count();
                 $balances = (clone $connections)->selectRaw('COUNT(*) AS total, COUNT(c.company_balance_minor) AS known, SUM(c.company_balance_minor) AS amount')->first();
                 $cards[$index]['remaining'] = (int) $balances->total > 0 && (int) $balances->known === (int) $balances->total ? ReportDataset::decimal($balances->amount) : null;
@@ -207,7 +257,7 @@ class DashboardSummary
                 $allocations = DB::table('topup_grants as g')->whereNotNull('g.connection_id')
                     ->whereIn('g.target_account_id', $this->access->accounts($actor)->select('id'))
                     ->when($own->type === AccountType::System, fn ($q) => $q->whereIn('g.target_account_id', $this->access->accounts($actor)->select('id')), fn ($q) => $q->where('g.target_account_id', $main?->id ?? 0))
-                    ->join('accounts as agent', 'agent.id', '=', 'g.target_account_id')->join('digital_connections as central', 'central.id', '=', 'g.connection_id');
+                    ->joinSub(app(AccountPrivacy::class)->accounts(), 'agent', 'agent.id', '=', 'g.target_account_id')->join('digital_connections as central', 'central.id', '=', 'g.connection_id');
                 if ((clone $allocations)->exists()) {
                     $allocationTotals = (clone $allocations)->selectRaw('COUNT(*) AS total, SUM(g.balance_minor) AS balance, SUM(g.spent_minor) AS spent')->first();
                     $allocated = $compact ? collect() : $allocations->orderBy('g.target_account_id')->limit(100)->get(['g.target_account_id', 'agent.name', 'g.balance_minor', 'g.held_minor', 'g.spent_minor', 'central.balance_updated_at']);
@@ -263,7 +313,7 @@ class DashboardSummary
                 return [];
             }
 
-            return $query->join('accounts as a', 'a.id', '=', 'r.account_id')->join('catalog_products as p', 'p.id', '=', 'r.product_id')->orderByDesc('r.issued_at')->limit(5)->get(['r.id', 'a.name', 'p.name as product', 'r.status', $db::raw($value.' as value')])->map(fn ($r): array => ['name' => $r->name.' · '.$r->product, 'value' => $money ? ReportDataset::decimal($r->value) : (int) $r->value, 'unit' => $money ? $unit : 'بطاقة', 'note' => $r->status])->all();
+            return $query->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'r.account_id')->join('catalog_products as p', 'p.id', '=', 'r.product_id')->orderByDesc('r.issued_at')->limit(5)->get(['r.id', 'a.name', 'p.name as product', 'r.status', $db::raw($value.' as value')])->map(fn ($r): array => ['name' => $r->name.' · '.$r->product, 'value' => $money ? ReportDataset::decimal($r->value) : (int) $r->value, 'unit' => $money ? $unit : 'بطاقة', 'note' => $r->status])->all();
         };
         if ($this->access->allows($actor, 'sales.view')) {
             $profitVisible = $this->access->allows($actor, 'data.profit') && ! $system && ($pos || $this->access->allows($actor, 'data.cost'));
@@ -279,11 +329,6 @@ class DashboardSummary
             if ($profitVisible) {
                 $make('profit', $pos ? 'ربح نقطة البيع اليوم' : 'ربح الوكيل اليوم', ReportDataset::decimal($dayTotals->profit), $unit, 'اليوم · قبل المصاريف', 'reports', ['sales.view', 'data.profit'], $saleRows(clone $daySales, $profit), 'sales', ['from' => $day, 'to' => $day]);
             }
-            if (! $system && ! $pos && $this->access->allows($actor, 'data.profit') && ! $this->access->allows($actor, 'data.cost')) {
-                $make('profit', 'ربح الوكيل اليوم', null, $unit, 'عرض الربح المشتق يتطلب صلاحية تكلفة التحميل.', 'reports', ['sales.view', 'data.profit'], [], 'sales');
-                $cards['profit']['available'] = false;
-                $cards['profit']['required_permissions'] = ['data.profit', 'data.cost'];
-            }
             foreach (['failed' => 'Print Failed', 'reprints' => 'Reprint Requested'] as $key => $status) {
                 if (! $this->access->allows($actor, 'exceptions.view')) {
                     continue;
@@ -292,7 +337,7 @@ class DashboardSummary
                 $make($key, $key === 'failed' ? 'عمليات الطباعة الفاشلة' : 'طلبات إعادة الطباعة', (clone $query)->count(), 'طلب', 'تحتاج متابعة', 'exceptions', ['exceptions.view'], $saleRows($query, $total), 'exceptions', ['status' => $status]);
             }
         }
-        if ($system && $this->access->allows($actor, 'data.profit') && $this->access->allows($actor, 'sales.view')) {
+        if ($system && $this->access->allows($actor, 'data.profit') && $this->access->allows($actor, 'sales.view') && $this->access->allows($actor, 'invoices.view') && $this->access->allows($actor, 'data.cost')) {
             $value = null;
             $rows = [];
             $known = $this->access->allows($actor, 'invoices.view') && $this->access->allows($actor, 'data.cost');
@@ -303,19 +348,20 @@ class DashboardSummary
                 $value = ReportDataset::decimal((clone $invoices)->sum($db::raw($difference)));
                 $rows = $compact ? [] : (clone $invoices)->orderByDesc('i.created_at')->limit(5)->get(['i.id', 'i.status', $db::raw($difference.' as value')])->map(fn ($r): array => ['name' => (string) $r->id, 'value' => ReportDataset::decimal($r->value), 'unit' => $unit, 'note' => $r->status])->all();
             }
-            $make('profit', 'ربح ماسال من الطلبيات اليوم', $value, $unit, $known ? 'اليوم · قبل المصاريف' : 'عرض الربح يتطلب صلاحية تكلفة التحميل والفواتير.', 'reports', ['sales.view', 'data.profit'], $rows, 'wallets', ['tab' => 'invoices', 'from' => $day, 'to' => $day]);
+            $make('profit', 'ربح ماسال من الطلبيات اليوم', $value, $unit, 'اليوم · قبل المصاريف', 'reports', ['sales.view', 'data.profit'], $rows, 'wallets', ['tab' => 'invoices', 'from' => $day, 'to' => $day]);
             $cards['profit']['available'] = $known;
         }
         if ($this->access->allows($actor, 'wallets.view')) {
-            $wallets = $db::table('finance_wallets as w')->join('accounts as a', 'a.id', '=', 'w.account_id')->where('w.kind', 'account')->where('w.service', 'voucher')->where('w.currency', $currency)->whereIn('w.account_id', clone $scope);
+            $wallets = $db::table('finance_wallets as w')->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'w.account_id')->where('w.kind', 'account')->where('w.service', 'voucher')->where('w.currency', $currency)->whereIn('w.account_id', clone $scope);
             if (! $system) {
                 $wallets->where('w.account_id', $account->id);
             }
             $balance = 'CAST(w.balance_minor AS SIGNED)-CAST(w.held_minor AS SIGNED)';
             $rows = $compact ? [] : (clone $wallets)->orderBy('a.name')->limit(5)->get(['a.name', $db::raw($balance.' as value')])->map(fn ($r): array => ['name' => $r->name, 'value' => ReportDataset::decimal($r->value), 'unit' => $unit, 'note' => ''])->all();
             $knownOwn = $system || (clone $scope)->whereKey($account->id)->exists();
-            $make('balance', 'الرصيد التشغيلي المتاح', $knownOwn ? ReportDataset::decimal((clone $wallets)->sum($db::raw($balance))) : null, $unit, $knownOwn ? 'البطاقات · الآن' : 'محفظة الحساب خارج نطاق الموظف.', 'wallets', ['wallets.view'], $rows, 'wallets', ['account_id' => $account->id]);
-            $cards['balance']['available'] = $knownOwn;
+            if ($knownOwn) {
+                $make('balance', 'الرصيد التشغيلي المتاح', ReportDataset::decimal((clone $wallets)->sum($db::raw($balance))), $unit, 'البطاقات · الآن', 'wallets', ['wallets.view'], $rows, 'wallets', ['account_id' => $account->id]);
+            }
             $funding = $db::table('finance_funding_requests as r')->where('r.status', 'pending')->where('r.currency', $currency)->where(function ($q) use ($scope): void {
                 $q->whereIn('r.from_account_id', clone $scope)->orWhereIn('r.to_account_id', clone $scope);
             });
@@ -325,7 +371,7 @@ class DashboardSummary
             if ($main) {
                 $funding->where('r.from_account_id', $account->id);
             }
-            $rows = $compact ? [] : (clone $funding)->join('accounts as f', 'f.id', '=', 'r.from_account_id')->join('accounts as t', 't.id', '=', 'r.to_account_id')->orderByDesc('r.created_at')->limit(5)->get(['f.name as from_name', 't.name as to_name', 'r.amount_minor', 'r.status'])->map(fn ($r): array => ['name' => $r->from_name.' ← '.$r->to_name, 'value' => ReportDataset::decimal($r->amount_minor), 'unit' => $unit, 'note' => $r->status])->all();
+            $rows = $compact ? [] : (clone $funding)->joinSub(app(AccountPrivacy::class)->accounts(), 'f', 'f.id', '=', 'r.from_account_id')->joinSub(app(AccountPrivacy::class)->accounts(), 't', 't.id', '=', 'r.to_account_id')->orderByDesc('r.created_at')->limit(5)->get(['f.name as from_name', 't.name as to_name', 'r.amount_minor', 'r.status'])->map(fn ($r): array => ['name' => $r->from_name.' ← '.$r->to_name, 'value' => ReportDataset::decimal($r->amount_minor), 'unit' => $unit, 'note' => $r->status])->all();
             $make('funding', 'طلبات التمويل المعلقة', (clone $funding)->count(), 'طلب', 'بانتظار التمويل', 'wallets', ['wallets.view'], $rows, 'wallets', ['tab' => 'funding', 'status' => 'pending']);
         }
         $available = $db::table('stock_cards as r')->whereIn('r.account_id', clone $scope)->where('r.status', 'Available')->where('r.credit_held', false)->whereNull('r.sale_id')->where(function ($q) use ($day): void {
@@ -391,7 +437,7 @@ class DashboardSummary
         if (! $compact && $this->access->allows($actor, 'agents.view') && $this->access->allows($actor, 'pos.view') && $this->access->allows($actor, 'inventory.view')) {
             $agents = $this->access->accounts($actor)->where('type', 'main_agent')->orderBy('name')->get(['id', 'name', 'city', 'color']);
             $ids = $agents->pluck('id');
-            $posCounts = $db::table('account_closure as region_scope')->join('accounts as point', 'point.id', '=', 'region_scope.descendant_id')->whereIn('region_scope.ancestor_id', $ids)->whereIn('point.id', $this->access->accounts($actor)->select('id'))->where('point.type', 'pos')->groupBy('region_scope.ancestor_id')->select('region_scope.ancestor_id')->selectRaw('COUNT(*) AS quantity')->pluck('quantity', 'ancestor_id');
+            $posCounts = $db::table('account_closure as region_scope')->joinSub(app(AccountPrivacy::class)->accounts(), 'point', 'point.id', '=', 'region_scope.descendant_id')->whereIn('region_scope.ancestor_id', $ids)->whereIn('point.id', $this->access->accounts($actor)->select('id'))->where('point.type', 'pos')->groupBy('region_scope.ancestor_id')->select('region_scope.ancestor_id')->selectRaw('COUNT(*) AS quantity')->pluck('quantity', 'ancestor_id');
             $stockCounts = (clone $available)->whereIn('r.account_id', $ids)->groupBy('r.account_id')->select('r.account_id')->selectRaw('COUNT(*) AS quantity')->pluck('quantity', 'account_id');
             foreach ($agents as $region) {
                 $regions[] = ['id' => $region->id, 'name' => $region->name, 'city' => $region->city, 'color' => $region->color, 'pos_count' => (int) ($posCounts[$region->id] ?? 0), 'available_count' => (int) ($stockCounts[$region->id] ?? 0)];

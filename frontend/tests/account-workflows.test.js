@@ -1,10 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { accountPayload, canManageAttachments, changePermission, displayLogin, grantablePermissions, initialAccountContext, permissionGroups, selectedPermissions, staffPayload } from '../src/modules/accounts/account-model.js';
+import { accountPayload, accountPhoneError, normalizeAccountPhoneDigits, unchangedAccountPhone, canManageAttachments, changePermission, displayLogin, grantablePermissions, initialAccountContext, permissionGroups, selectedPermissions, staffPayload } from '../src/modules/accounts/account-model.js';
 import { createPagedResource } from '../src/modules/accounts/paged-resource.js';
 
 const deferred = () => { let resolve, reject; const promise = new Promise((yes,no) => {resolve=yes;reject=no;});return {promise,resolve,reject}; };
 const page = (name) => ({data:[{id:name,name}],meta:{current_page:1,last_page:1,total:1}});
+
+test('new account phones use eleven local 077 or 078 digits and normalize Arabic digits', () => {
+  for (const phone of ['07701234567','07801234567','٠٧٧٠١٢٣٤٥٦٧','۰۷۸۰۱۲۳۴۵۶۷']) assert.equal(accountPhoneError(phone),'');
+  for (const phone of ['','+++','0770123456','077012345678','07901234567','07501234567','+9647701234567','009647701234567','0770 123 4567']) assert.ok(accountPhoneError(phone),phone);
+  assert.equal(normalizeAccountPhoneDigits('۰۷۸۰۱۲۳۴۵۶۷'),'07801234567');
+  const payload=accountPayload({name:'Agent',city:'بغداد',phone:'٠٧٧٠١٢٣٤٥٦٧',color:'#168baf'},{parent:{id:9},type:'main_agent',email:'agent@example.test',password:'password',confirmation:'password'});
+  assert.equal(payload.phone,'07701234567');
+});
+
+test('unrelated account edits preserve an unchanged valid legacy phone while new international input is rejected', () => {
+  const phone='+964 770 123 4567';
+  assert.equal(unchangedAccountPhone(phone,phone),true);
+  assert.equal(accountPhoneError(phone,phone),'');
+  assert.ok(accountPhoneError('+9647701234567',phone));
+  assert.ok(accountPhoneError('+++','+++'));
+  const payload=accountPayload({name:'Updated',city:'بغداد',phone,color:'#168baf'},{account:{version:1,phone},type:'main_agent'});
+  assert.equal(payload.phone,phone);
+});
 
 test('account creation follows original email identifier and preserves secret whitespace', () => {
   const secret='  ALongSecret123  ';

@@ -6,7 +6,9 @@ use App\Models\Finance\FundingRequest;
 use App\Models\Notifications\Notice;
 use App\Models\Stock\StockOrder;
 use App\Services\AuditLogger;
+use App\Services\ManagementAuthority;
 use App\Services\Notifications\ActivityNotifications;
+use App\Services\PermissionCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +18,14 @@ use Tests\TestCase;
 class NotificationsTest extends TestCase
 {
     use CreatesSupport,RefreshDatabase;
+
+    private function notificationFixture(): array
+    {
+        $f = $this->supportFixture();
+        $f['admin'] = $this->supportEmployee($f['system'], $f['system'], array_keys(PermissionCatalog::LABELS));
+
+        return $f;
+    }
 
     public function test_unnotified_activity_is_still_audited_without_loading_a_notification_audience(): void
     {
@@ -53,7 +63,7 @@ class NotificationsTest extends TestCase
 
     public function test_manual_notice_is_visible_only_to_sender_or_exact_target_and_read_state_is_per_user(): void
     {
-        $f = $this->supportFixture();
+        $f = $this->notificationFixture();
         $this->asPortalUser($f['admin']);
         $payload = ['title' => 'تنبيه', 'body' => 'المحتوى', 'mode' => 'custom', 'user_ids' => [$f['agent']->id, $f['foreignUser']->id], 'idempotency_key' => 'notice-one'];
         $id = $this->postJson('/api/v1/notifications', $payload)->assertCreated()->assertJsonPath('data.count', 2)->json('data.id');
@@ -74,7 +84,7 @@ class NotificationsTest extends TestCase
 
     public function test_opening_visible_notices_marks_only_those_ids_and_only_current_users_recipients(): void
     {
-        $f = $this->supportFixture();
+        $f = $this->notificationFixture();
         $this->asPortalUser($f['admin']);
         $id = $this->postJson('/api/v1/notifications', ['title' => 'Seen', 'body' => 'Displayed', 'mode' => 'custom', 'user_ids' => [$f['agent']->id, $f['foreignUser']->id], 'idempotency_key' => 'visible-read-notice'])->assertCreated()->json('data.id');
         $this->asPortalUser($f['agent']);
@@ -102,7 +112,7 @@ class NotificationsTest extends TestCase
 
     public function test_translations_need_permission_complete_pairs_and_fall_back_to_arabic(): void
     {
-        $f = $this->supportFixture();
+        $f = $this->notificationFixture();
         $this->asPortalUser($f['admin']);
         $data = ['title' => 'العنوان العربي', 'body' => 'النص العربي', 'mode' => 'custom', 'user_ids' => [$f['agent']->id], 'idempotency_key' => 'translate-one', 'translations' => ['en' => ['title' => 'English title', 'body' => 'English body'], 'ckb' => ['title' => '', 'body' => '']]];
         $this->postJson('/api/v1/notifications', $data)->assertCreated();
@@ -112,14 +122,14 @@ class NotificationsTest extends TestCase
         $this->asPortalUser($f['admin']);
         $this->postJson('/api/v1/notifications', array_replace($data, ['idempotency_key' => 'partial-translation', 'translations' => ['en' => ['title' => 'partial', 'body' => '']]]))->assertUnprocessable();
         $this->postJson('/api/v1/notifications', array_replace($data, ['idempotency_key' => 'unknown-locale', 'translations' => ['fr' => ['title' => 'titre', 'body' => 'texte']]]))->assertUnprocessable();
-        $this->supportGrant($f['admin'], 'notifications.translations', false);
+        app(ManagementAuthority::class)->replaceProfilePermissions($f['admin']->membership->permission_profile_id, array_values(array_diff(array_keys(PermissionCatalog::LABELS), ['notifications.translations'])));
         $this->asPortalUser($f['admin']);
         $this->postJson('/api/v1/notifications', array_replace($data, ['idempotency_key' => 'denied-translation']))->assertForbidden();
     }
 
     public function test_read_page_only_marks_current_users_incoming_page_notices_and_export_escapes_formulas(): void
     {
-        $f = $this->supportFixture();
+        $f = $this->notificationFixture();
         $first = Notice::factory()->toUser($f['agent'])->toUser($f['foreignUser'])->create(['sender_id' => $f['admin']->id, 'title' => '=HYPERLINK("bad")', 'body' => '@bad', 'page' => 'wallets']);
         Notice::factory()->toUser($f['agent'])->create(['sender_id' => $f['admin']->id, 'page' => 'prices']);
         $this->asPortalUser($f['agent']);
@@ -201,7 +211,7 @@ class NotificationsTest extends TestCase
 
     public function test_live_pending_sidebar_counts_obey_scope_permission_and_deduplicate_notification_entities(): void
     {
-        $f = $this->supportFixture();
+        $f = $this->notificationFixture();
         $request = FundingRequest::factory()->create(['from_account_id' => $f['main']->id, 'to_account_id' => $f['sub']->id, 'creator_id' => $f['subUser']->id]);
         Notice::factory()->toUser($f['agent'])->count(2)->create(['sender_id' => $f['admin']->id, 'page' => 'wallets', 'entity_id' => $request->id, 'entity_type' => 'funding_request']);
         $this->asPortalUser($f['agent']);

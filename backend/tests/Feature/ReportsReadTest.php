@@ -143,9 +143,9 @@ class ReportsReadTest extends TestCase
     {
         $tree = $this->setupTree();
         foreach (['account.update', 'wallets.transfer', 'support.reply', 'security.update'] as $index => $action) {
-            DB::table('audit_logs')->insert(['user_id' => $tree['admin']->id, 'account_id' => $tree['system']->id, 'subject_account_id' => $tree['pos']->id, 'action' => $action, 'portal' => 'admin', 'created_at' => '2026-10-10 08:00:0'.$index, 'details' => json_encode(['amount' => '6000.00', 'credential' => 'secret-never-visible', 'phone' => 'private-number'])]);
+            DB::table('audit_logs')->insert(['user_id' => $tree['agent']->id, 'account_id' => $tree['main']->id, 'subject_account_id' => $tree['pos']->id, 'action' => $action, 'portal' => 'admin', 'created_at' => '2026-10-10 08:00:0'.$index, 'details' => json_encode(['amount' => '6000.00', 'credential' => 'secret-never-visible', 'phone' => 'private-number'])]);
         }
-        DB::table('audit_logs')->insert(['user_id' => $tree['admin']->id, 'account_id' => $tree['system']->id, 'subject_account_id' => $tree['other']->id, 'action' => 'wallets.transfer', 'portal' => 'admin', 'created_at' => '2026-10-10 09:00:00']);
+        DB::table('audit_logs')->insert(['user_id' => $tree['agent']->id, 'account_id' => $tree['main']->id, 'subject_account_id' => $tree['other']->id, 'action' => 'wallets.transfer', 'portal' => 'admin', 'created_at' => '2026-10-10 09:00:00']);
         $this->asPortalUser($tree['admin']);
         $response = $this->getJson('/api/v1/dashboard/summary')->assertOk()->assertJsonCount(5, 'data.recent_operations');
         $this->assertStringNotContainsString('secret-never-visible', $response->getContent());
@@ -177,7 +177,7 @@ class ReportsReadTest extends TestCase
         $tree = $this->setupTree();
         $lastId = null;
         for ($index = 0; $index < 35; $index++) {
-            $lastId = DB::table('audit_logs')->insertGetId(['user_id' => $tree['admin']->id, 'account_id' => $tree['system']->id, 'subject_account_id' => $tree['pos']->id, 'action' => 'account.update', 'portal' => 'admin', 'created_at' => '2026-10-10 08:00:00']);
+            $lastId = DB::table('audit_logs')->insertGetId(['user_id' => $tree['agent']->id, 'account_id' => $tree['main']->id, 'subject_account_id' => $tree['pos']->id, 'action' => 'account.update', 'portal' => 'admin', 'created_at' => '2026-10-10 08:00:00']);
         }
         $this->asPortalUser($tree['admin']);
         $this->getJson('/api/v1/dashboard/summary')->assertOk()->assertJsonCount(30, 'data.recent_operations')->assertJsonPath('data.recent_operations.0.key', 'audit:'.$lastId);
@@ -188,9 +188,9 @@ class ReportsReadTest extends TestCase
         $tree = $this->setupTree();
         $lastId = null;
         for ($index = 0; $index < 125; $index++) {
-            $lastId = DB::table('audit_logs')->insertGetId(['user_id' => $tree['admin']->id, 'account_id' => $tree['system']->id, 'subject_account_id' => $tree['pos']->id, 'action' => 'account.update', 'portal' => 'admin', 'created_at' => '2026-10-10 08:00:00', 'details' => json_encode(['version' => 2, 'reason' => 'تصحيح اسم الحساب', 'credential' => 'HIDDEN_SECRET', 'phone' => 'PRIVATE_PHONE'])]);
+            $lastId = DB::table('audit_logs')->insertGetId(['user_id' => $tree['agent']->id, 'account_id' => $tree['main']->id, 'subject_account_id' => $tree['pos']->id, 'action' => 'account.update', 'portal' => 'admin', 'created_at' => '2026-10-10 08:00:00', 'details' => json_encode(['version' => 2, 'reason' => 'تصحيح اسم الحساب', 'credential' => 'HIDDEN_SECRET', 'phone' => 'PRIVATE_PHONE'])]);
         }
-        DB::table('audit_logs')->insert(['user_id' => $tree['admin']->id, 'account_id' => $tree['system']->id, 'subject_account_id' => $tree['other']->id, 'action' => 'account.update', 'portal' => 'admin', 'created_at' => '2026-10-10 09:00:00']);
+        DB::table('audit_logs')->insert(['user_id' => $tree['agent']->id, 'account_id' => $tree['main']->id, 'subject_account_id' => $tree['other']->id, 'action' => 'account.update', 'portal' => 'admin', 'created_at' => '2026-10-10 09:00:00']);
         $this->asPortalUser($tree['agent']);
         foreach ([10, 20, 50, 100, 'all'] as $limit) {
             $response = $this->getJson('/api/v1/dashboard/activity?limit='.$limit)->assertOk()->assertJsonCount($limit === 'all' ? 100 : $limit, 'data')->assertJsonPath('data.0.key', 'audit:'.$lastId)
@@ -219,14 +219,14 @@ class ReportsReadTest extends TestCase
             ->assertJsonPath('data.recent_operations.0.product_name', $tree['product']->name);
     }
 
-    public function test_authentication_and_catalog_preserve_all_52_original_sections_and_unavailable_counts_are_null(): void
+    public function test_authentication_and_catalog_preserve_supported_sections_and_unavailable_counts_are_null(): void
     {
         $this->withHeader('X-Masal-Portal', 'admin')->getJson('/api/v1/reports/summary')->assertUnauthorized();
         $tree = $this->setupTree();
         $this->asPortalUser($tree['admin']);
-        $this->getJson('/api/v1/reports/options')->assertOk()->assertJsonCount(52, 'data.sections')->assertJsonCount(5, 'data.groups');
+        $this->getJson('/api/v1/reports/options')->assertOk()->assertJsonCount(49, 'data.sections')->assertJsonCount(5, 'data.groups');
         $summary = $this->getJson('/api/v1/reports/summary')->assertOk()->json('data.sections');
-        $this->assertCount(52, $summary);
+        $this->assertCount(49, $summary);
         foreach ($summary as $section) {
             if (! $section['available']) {
                 $this->assertNull($section['count']);
@@ -236,6 +236,25 @@ class ReportsReadTest extends TestCase
             }
             $this->getJson('/api/v1/reports/sections/'.$section['id'].'/rows')->assertOk()->assertJsonPath('meta.current_page', 1);
         }
+    }
+
+    public function test_removed_report_cards_are_not_exposed_in_catalog_summary_rows_or_exports(): void
+    {
+        $tree = $this->setupTree();
+        $this->asPortalUser($tree['admin']);
+        $options = $this->getJson('/api/v1/reports/options')->assertOk()->json('data.sections');
+        $summary = $this->getJson('/api/v1/reports/summary')->assertOk()->json('data.sections');
+        $export = $this->postJson('/api/v1/reports/export', [])->assertOk()->json('data.sections');
+
+        foreach (['wallets-legacy', 'wallets-holds', 'prices-policies'] as $id) {
+            foreach ([$options, $summary, $export] as $sections) {
+                $this->assertNotContains($id, array_column($sections, 'id'));
+            }
+            $this->getJson('/api/v1/reports/sections/'.$id.'/rows')->assertNotFound();
+            $this->getJson('/api/v1/reports/summary?section_ids[]='.$id)->assertNotFound();
+            $this->postJson('/api/v1/reports/export', ['section_ids' => [$id]])->assertNotFound();
+        }
+        $this->assertDatabaseCount('finance_transactions', 0);
     }
 
     public function test_sales_are_scoped_to_seller_account_and_reserved_sales_are_not_financial_movements(): void
@@ -334,17 +353,16 @@ class ReportsReadTest extends TestCase
         $permission = DB::table('permissions')->where('name', 'data.cost')->value('id');
         DB::table('membership_permissions')->insert(['membership_id' => $tree['agent']->membership->id, 'permission_id' => $permission, 'allowed' => false]);
         $this->asPortalUser($tree['agent']);
-        $row = $this->getJson('/api/v1/reports/sections/sales/rows')->assertOk()->assertJsonPath('data.0.profit', null)->assertJsonPath('data.0.margin', null)->json('data.0');
+        $row = $this->getJson('/api/v1/reports/sections/sales/rows')->assertOk()->assertJsonMissingPath('data.0.profit')->assertJsonMissingPath('data.0.margin')->json('data.0');
         $this->assertArrayNotHasKey('cost', $row);
-        $detail = $this->getJson('/api/v1/reports/sections/sales/rows/'.$sale->id)->assertOk()->assertJsonPath('data.profit', null)->json();
+        $detail = $this->getJson('/api/v1/reports/sections/sales/rows/'.$sale->id)->assertOk()->assertJsonMissingPath('data.profit')->json();
         $profitColumn = collect($detail['columns'])->firstWhere('key', 'profit');
-        $this->assertTrue($profitColumn['protected']);
-        $this->assertFalse($profitColumn['source_available']);
-        $this->postJson('/api/v1/reports/export', ['section_ids' => ['sales'], 'visible_columns' => ['profit', 'margin']])->assertOk()->assertJsonPath('data.sections.0.rows.0.profit', null);
+        $this->assertNull($profitColumn);
+        $this->postJson('/api/v1/reports/export', ['section_ids' => ['sales'], 'visible_columns' => ['profit', 'margin']])->assertUnprocessable();
+        $this->postJson('/api/v1/reports/export', ['section_ids' => ['sales']])->assertOk()->assertJsonMissingPath('data.sections.0.rows.0.profit');
         $cards = $this->getJson('/api/v1/dashboard/summary')->assertOk()->json('data.cards');
         $profit = collect($cards)->firstWhere('key', 'profit');
-        $this->assertNull($profit['value']);
-        $this->assertFalse($profit['available']);
+        $this->assertNull($profit);
         $this->asPortalUser($tree['seller']);
         $this->getJson('/api/v1/reports/sections/sales/rows')->assertOk()->assertJsonPath('data.0.profit', '20.01');
     }
@@ -372,11 +390,10 @@ class ReportsReadTest extends TestCase
         $this->getJson('/api/v1/reports/sections/sales/rows/'.$foreign->id)->assertNotFound();
         $this->getJson('/api/v1/reports/sections/inventory/rows')->assertOk()->assertJsonCount(0, 'data');
         $this->getJson('/api/v1/reports/sections/network-pos/rows')->assertOk()->assertJsonPath('data.0.agent', null);
-        $this->getJson('/api/v1/reports/sections/users/rows')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $tree['seller']->id)->assertJsonPath('data.0.granted', count($tree['seller']->membership->permissions()));
+        $this->getJson('/api/v1/reports/sections/users/rows')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $tree['seller']->id)->assertJsonPath('data.0.granted', count(array_intersect($tree['seller']->membership->permissions(), $employee->membership->permissions())));
         $cards = $this->getJson('/api/v1/dashboard/summary')->assertOk()->json('data.cards');
         $balance = collect($cards)->firstWhere('key', 'balance');
-        $this->assertNull($balance['value']);
-        $this->assertFalse($balance['available']);
+        $this->assertNull($balance);
     }
 
     public function test_stock_report_never_exports_pin_secret_payloads_and_scoped_batch_relations_are_real(): void
@@ -417,7 +434,7 @@ class ReportsReadTest extends TestCase
         $this->asPortalUser($tree['agent']);
         $this->getJson('/api/v1/reports/sections/wallets-collections/rows')->assertOk()->assertJsonCount(1, 'data');
         $this->asPortalUser($tree['seller']);
-        $this->getJson('/api/v1/reports/sections/wallets-collections/rows')->assertOk()->assertJsonCount(0, 'data');
+        $this->getJson('/api/v1/reports/sections/wallets-collections/rows')->assertNotFound();
     }
 
     public function test_print_rules_read_object_targets_and_hide_targets_outside_employee_scope(): void
@@ -443,8 +460,9 @@ class ReportsReadTest extends TestCase
         $reply = SupportMessage::factory()->create(['ticket_id' => $own->id, 'user_id' => $tree['admin']->id, 'account_id' => $tree['system']->id, 'body' => 'Visible audience reply']);
         DB::table('support_message_audience')->insert(['message_id' => $reply->id, 'account_id' => $tree['main']->id]);
         SupportMessage::factory()->create(['ticket_id' => $own->id, 'body' => 'FORBIDDEN_REPLY']);
-        Notice::factory()->toUser($tree['agent'])->create(['sender_id' => $tree['admin']->id, 'body' => 'Visible notice']);
-        Notice::factory()->toUser($tree['seller'])->create(['sender_id' => $tree['admin']->id, 'body' => 'FORBIDDEN_NOTICE']);
+        $noticeSender = $this->userFor($tree['other']);
+        Notice::factory()->toUser($tree['agent'])->create(['sender_id' => $noticeSender->id, 'body' => 'Visible notice']);
+        Notice::factory()->toUser($tree['seller'])->create(['sender_id' => $noticeSender->id, 'body' => 'FORBIDDEN_NOTICE']);
         $this->asPortalUser($tree['agent']);
         $tickets = $this->getJson('/api/v1/reports/sections/support/rows')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.description', 'Visible original ticket');
         $replies = $this->getJson('/api/v1/reports/sections/support-replies/rows')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.body', 'Visible audience reply');

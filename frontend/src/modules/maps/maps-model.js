@@ -2,7 +2,7 @@ import { systemLabel } from '../preferences/system-labels.js';
 export const presenceContextKey = Symbol('masal.presence');
 export const roleSymbols = {main_agent:'◆',sub_agent:'■',sub_branch:'■',pos:'▲',employee:'●'};
 export function validLocation(point) {return !!point&&typeof point.lat==='number'&&typeof point.lng==='number'&&Number.isFinite(point.lat)&&Number.isFinite(point.lng)&&Math.abs(point.lat)<=85&&Math.abs(point.lng)<=180;}
-export function mapTime(value) {return value&&Number.isFinite(Date.parse(value))?new Date(value).toLocaleString('ar-IQ',{timeZone:'Asia/Baghdad'}):'غير متوفر';}
+export function mapTime(value) {return value&&Number.isFinite(Date.parse(value))?new Date(value).toLocaleString('ar-IQ', {numberingSystem:'latn',timeZone:'Asia/Baghdad'}):'غير متوفر';}
 export function mapUser(row) {
   return {...row,kindLabel:systemLabel(row.kind,'accountType'),location:validLocation(row.location)?row.location:null,networkColor:/^#[0-9a-f]{6}$/i.test(row.networkColor||'')?row.networkColor:'#0898b5',symbol:roleSymbols[row.role]||'●',online:row.online===true,active:row.active===true};
 }

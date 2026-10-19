@@ -1,6 +1,6 @@
 <script setup>
 import { onBeforeUnmount,ref,watch } from 'vue';
-import {usePortal} from '../auth/session.js';
+import {usePortal,identityScope} from '../auth/session.js';
 import {createCompanyApi} from './company-api.js';
 import {imageUrl} from './company-model.js';
 const props = defineProps({modelValue:{type:Object,default:null},disabled:Boolean});
@@ -11,12 +11,12 @@ function release() { if (preview.value.startsWith('blob:')) URL.revokeObjectURL(
 watch(()=>props.modelValue,value=>{ if (!value) release(); });
 async function choose(event) {
   const file = event.target.files?.[0]; event.target.value = ''; if (!file || busy.value || props.disabled) return;
-  reader?.abort(); reader = new AbortController(); const expected = ++revision, actor = session.state.identity;
+  reader?.abort(); reader = new AbortController(); const expected = ++revision, actor = identityScope(session.state.identity);
   busy.value = true; error.value = ''; emit('busy',true);
   try {
     if (!['image/png','image/jpeg'].includes(file.type) || file.size > 700000) throw new Error('اختر PNG أو JPG بحجم أقل من 700 كيلوبايت');
     const response = await api.upload(file,reader.signal);
-    if (expected !== revision || reader.signal.aborted || session.state.identity !== actor) return;
+    if (expected !== revision || reader.signal.aborted || identityScope(session.state.identity) !== actor) return;
     release(); preview.value = URL.createObjectURL(file); emit('update:modelValue',response.data);
   } catch (cause) { if (expected === revision && cause.name !== 'AbortError') { error.value = cause.message; emit('error',cause); } }
   finally { if (expected === revision) { busy.value = false; emit('busy',false); } }

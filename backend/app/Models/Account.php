@@ -17,7 +17,7 @@ class Account extends Model
     protected static function booted(): void
     {
         static::saving(function (self $account): void {
-            $account->phone_key = $account->type === AccountType::System ? null : AccountPhone::key($account->phone);
+            $account->phone_key = AccountPhone::key($account->phone);
         });
     }
 

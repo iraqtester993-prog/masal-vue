@@ -1,8 +1,7 @@
+import { westernDigits } from '../../shared/numbers.js';
+
 function clean(value) {
-  return String(value ?? "")
-    .replace(/[٠-٩۰-۹]/g, (c) =>
-      String(c.charCodeAt(0) - (c <= "٩" ? 1632 : 1776)),
-    )
+  return westernDigits(value)
     .replace(/[,٬\s]/g, "")
     .replace(/٫/g, ".");
 }

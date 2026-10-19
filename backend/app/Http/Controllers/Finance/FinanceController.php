@@ -6,6 +6,7 @@ use App\Enums\AccountType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Finance\FinanceRequest;
 use App\Http\Resources\Finance\FinanceResource;
+use App\Models\Account;
 use App\Models\CatalogProvider;
 use App\Models\Finance\FundingRecovery;
 use App\Models\Finance\FundingRequest;
@@ -15,13 +16,16 @@ use App\Models\Finance\Policy;
 use App\Models\Finance\PriceRequest;
 use App\Models\Finance\Wallet;
 use App\Models\Stock\StockBatch;
+use App\Models\User;
 use App\Services\AccountLookup;
+use App\Services\AccountPrivacy;
 use App\Services\AuditLogger;
 use App\Services\CatalogAccess;
 use App\Services\Digital\TopupDistribution;
 use App\Services\Digital\TopupWallets;
 use App\Services\Finance\FinanceAccess;
 use App\Services\Finance\FinanceOperations;
+use App\Services\Finance\FinanceServiceIdentity;
 use App\Services\Finance\Money;
 use App\Services\ManagementAuthority;
 use App\Services\Operations\MutationGuard;
@@ -41,15 +45,15 @@ class FinanceController extends Controller
         $permissions = array_values(array_intersect(['wallets.view', 'prices.view', 'invoices.view', 'ledger.view'], $request->user()->membership->permissions()));
         abort_unless($permissions, 403);
         $this->access->require($request->user(), $permissions[0]);
-        $services = [['id' => 'voucher', 'name' => 'الكارتات'], ['id' => 'topup', 'name' => 'التعبئة'], ['id' => 'cash', 'name' => 'النقد']];
-        foreach (CatalogProvider::where('connection', 'API')->where('status', 'active')->get(['id', 'name']) as $provider) {
+        $services = [['id' => 'voucher', 'name' => 'الكارتات'], ['id' => 'topup', 'name' => 'Topup'], ['id' => 'cash', 'name' => 'النقد']];
+        foreach (CatalogProvider::where('connection', 'API')->where('status', 'active')->whereNotIn('id', app(FinanceServiceIdentity::class)->topupProviderIds())->get(['id', 'name']) as $provider) {
             $services[] = ['id' => 'api:'.$provider->id, 'name' => $provider->name];
         }
         $accountScope = $this->access->accounts($request->user());
         $accountKinds = (clone $accountScope)->selectRaw('type, COUNT(*) AS total')->groupBy('type')->pluck('total', 'type');
-        $cities = (clone $accountScope)->whereNotNull('city')->where('city', '<>', '')->distinct()->orderBy('city')->pluck('city');
+        $cities = (clone $accountScope)->where('type', '<>', 'system')->whereNotNull('city')->where('city', '<>', '')->distinct()->orderBy('city')->pluck('city');
         $childCount = (clone $accountScope)->where('parent_id', $request->user()->membership->account_id)->where('status', 'active')->count();
-        $accounts = (clone $accountScope)->when($request->boolean('compact'), fn ($query) => $query->whereKey($request->user()->membership->account_id))->orderBy('id')->get(['id', 'name', 'type', 'parent_id', 'phone', 'city', 'status']);
+        $accounts = (clone $accountScope)->when($request->boolean('compact'), fn ($query) => $query->whereKey($request->user()->membership->account_id))->orderBy('id')->get(['id', 'name', 'type', 'parent_id', 'phone', 'city', 'status'])->map(app(AccountPrivacy::class)->accountData(...));
 
         $own = (int) $request->user()->membership->account_id;
         $systemScope = $request->user()->membership->account->type === AccountType::System;
@@ -64,8 +68,10 @@ class FinanceController extends Controller
 
         $parent = $request->user()->membership->account->parent;
         $topupFunder = $request->user()->membership->account->type === AccountType::Pos ? app(TopupDistribution::class)->main($request->user()->membership->account) : null;
+        $legacySummary = in_array('wallets.view', $request->user()->membership->permissions(), true)
+            ? app(FinanceServiceIdentity::class)->legacySummary($this->access->accounts($request->user())->select('id'), $own, [$own], 'visible_accounts') : null;
 
-        return response()->json(['data' => ['services' => $services, 'currencies' => ['IQD'], 'accounts' => $accounts, 'account_kinds' => $accountKinds, 'account_cities' => $cities, 'child_count' => $childCount, 'accounts_total' => array_sum($accountKinds->all()), 'accounts_paged' => $request->boolean('compact'), 'own_account_id' => $own, 'parent_account_id' => $parent?->id, 'parent_account_name' => $parent?->name, 'parent_account_type' => $parent?->type->value, 'topup_funder_account_id' => $topupFunder?->id, 'topup_funder_account_name' => $topupFunder?->name, 'counts' => $counts, 'funding_policy' => (new FinanceResource(Policy::findOrFail(1)))->resolve($request)]]);
+        return response()->json(['data' => ['services' => $services, 'legacy_topup_summary' => $legacySummary, 'currencies' => ['IQD'], 'accounts' => $accounts, 'account_kinds' => $accountKinds, 'account_cities' => $cities, 'child_count' => $childCount, 'accounts_total' => array_sum($accountKinds->all()), 'accounts_paged' => $request->boolean('compact'), 'own_account_id' => $own, 'parent_account_id' => $parent?->id, 'parent_account_name' => app(AccountPrivacy::class)->accountName($parent), 'parent_account_type' => $parent?->type->value, 'topup_funder_account_id' => $topupFunder?->id, 'topup_funder_account_name' => $topupFunder?->name, 'counts' => $counts, 'funding_policy' => (new FinanceResource(Policy::findOrFail(1)))->resolve($request)]]);
     }
 
     private function scopedAccounts(FinanceRequest $request): mixed
@@ -97,7 +103,14 @@ class FinanceController extends Controller
                     $search->orWhereRaw($column." LIKE ? ESCAPE '!'", [$pattern]);
                 }
                 foreach ($relations as $relation) {
-                    $search->orWhereHas($relation, fn ($names) => $names->whereRaw("name LIKE ? ESCAPE '!'", [$pattern]));
+                    $search->orWhereHas($relation, function ($names) use ($pattern): void {
+                        if ($names->getModel() instanceof User) {
+                            $names->whereNotIn('users.id', app(AccountPrivacy::class)->ownerIds());
+                        } elseif ($names->getModel() instanceof Account) {
+                            $names->where('accounts.type', '<>', 'system');
+                        }
+                        $names->whereRaw("name LIKE ? ESCAPE '!'", [$pattern]);
+                    });
                 }
             });
         }
@@ -120,11 +133,11 @@ class FinanceController extends Controller
 
     public function wallets(FinanceRequest $request): mixed
     {
-        $query = Wallet::with('account')->where('kind', 'account')->whereIn('account_id', $this->ids($request, 'wallets.view'))->orderBy('account_id')->orderBy('service')->orderBy('currency');
+        $query = Wallet::with('account')->where('kind', 'account')->whereNotIn('service', app(FinanceServiceIdentity::class)->legacyServices())->whereIn('account_id', $this->ids($request, 'wallets.view'))->orderBy('account_id')->orderBy('service')->orderBy('currency');
         $this->filters($query, $request, 'created_at', ['service'], ['account']);
         foreach (['service', 'currency'] as $field) {
             if ($request->filled($field)) {
-                $query->where($field, $request->input($field));
+                ($field === 'service' ? $query->whereIn($field, app(FinanceServiceIdentity::class)->family($request->input($field))) : $query->where($field, $request->input($field)));
             }
         }
 
@@ -144,9 +157,13 @@ class FinanceController extends Controller
             $summary = ['balance' => Money::decimal((int) $totals->balance), 'available' => Money::decimal((int) $totals->balance - (int) $totals->held), 'held' => Money::decimal((int) $totals->held), 'own_balance' => Money::decimal((int) $totals->own_balance), 'own_available' => Money::decimal((int) $totals->own_balance - (int) $totals->own_held), 'own_held' => Money::decimal((int) $totals->own_held), 'children' => Money::decimal((int) $totals->balance - (int) $totals->own_balance)];
         }
 
-        $topupSummary = $request->boolean('summary') && $request->input('service') === 'topup' ? app(TopupWallets::class)->summary($this->ids($request, 'wallets.view'), $request->user()->membership->permissions()) : null;
+        $topupSummary = $request->boolean('summary') && in_array('topup', app(FinanceServiceIdentity::class)->family($request->input('service', '')), true) ? app(TopupWallets::class)->summary($this->ids($request, 'wallets.view'), $request->user()->membership->permissions()) : null;
 
-        return FinanceResource::collection($query->paginate((int) $request->input('per_page', 100)))->additional(['stock_metrics' => $stockMetrics, 'summary' => $summary, 'topup_summary' => $topupSummary]);
+        $page = $query->paginate((int) $request->input('per_page', 100));
+        $legacySummary = ! $request->filled('service') || in_array('topup', app(FinanceServiceIdentity::class)->family($request->input('service')), true)
+            ? app(FinanceServiceIdentity::class)->legacySummary($this->ids($request, 'wallets.view'), (int) $request->user()->membership->account_id, array_merge($request->input('account_ids', $page->getCollection()->pluck('account_id')->all()), $request->filled('account_id') ? [(int) $request->account_id] : []), filters: $request->only(['from', 'to', 'q', 'currency'])) : null;
+
+        return FinanceResource::collection($page)->additional(['stock_metrics' => $stockMetrics, 'summary' => $summary, 'topup_summary' => $topupSummary, 'legacy_topup_summary' => $legacySummary]);
     }
 
     public function ledger(FinanceRequest $request): JsonResponse
@@ -156,11 +173,11 @@ class FinanceController extends Controller
         $this->filters($query, $request, 'finance_entries.created_at', ['finance_transactions.reference', 'finance_transactions.kind']);
         foreach (['service', 'currency'] as $field) {
             if ($request->filled($field)) {
-                $query->where('finance_wallets.'.$field, $request->input($field));
+                ($field === 'service' ? $query->whereIn('finance_wallets.'.$field, app(FinanceServiceIdentity::class)->family($request->input($field))) : $query->where('finance_wallets.'.$field, $request->input($field)));
             }
         }
-        $page = $query->paginate((int) $request->input('per_page', 25), ['finance_entries.id', 'finance_entries.transaction_id', 'finance_wallets.account_id', 'accounts.name as account_name', 'finance_wallets.service', 'finance_wallets.currency', 'finance_entries.amount_minor', 'finance_entries.balance_after_minor', 'finance_transactions.kind', 'finance_transactions.reference', 'finance_entries.created_at']);
-        $data = $page->getCollection()->map(fn ($entry): array => ['id' => (int) $entry->id, 'transaction_id' => (int) $entry->transaction_id, 'account_id' => (int) $entry->account_id, 'account_name' => $entry->account_name, 'service' => $entry->service, 'currency' => $entry->currency, 'amount' => Money::decimal((int) $entry->amount_minor), 'balance_after' => Money::decimal((int) $entry->balance_after_minor), 'kind' => $entry->kind, 'reference' => $entry->reference, 'created_at' => $entry->created_at]);
+        $page = $query->paginate((int) $request->input('per_page', 25), ['finance_entries.id', 'finance_entries.transaction_id', 'finance_wallets.account_id', 'accounts.name as account_name', 'finance_wallets.service', 'finance_wallets.currency', 'finance_entries.amount_minor', 'finance_entries.balance_after_minor', 'finance_transactions.kind', 'finance_transactions.reference', 'finance_transactions.reversal_of', 'finance_entries.created_at']);
+        $data = $page->getCollection()->map(fn ($entry): array => ['id' => (int) $entry->id, 'transaction_id' => (int) $entry->transaction_id, 'account_id' => (int) $entry->account_id, 'account_name' => $entry->account_name, ...app(FinanceServiceIdentity::class)->metadata($entry->service), 'currency' => $entry->currency, 'amount' => Money::decimal((int) $entry->amount_minor), 'balance_after' => Money::decimal((int) $entry->balance_after_minor), 'kind' => $entry->kind, 'reference' => $entry->reference, 'reversal_of' => $entry->reversal_of === null ? null : (int) $entry->reversal_of, 'created_at' => $entry->created_at]);
 
         return response()->json(['data' => $data, 'meta' => ['current_page' => $page->currentPage(), 'per_page' => $page->perPage(), 'total' => $page->total(), 'last_page' => $page->lastPage()]]);
     }
@@ -192,7 +209,7 @@ class FinanceController extends Controller
         $this->filters($query, $request, 'created_at', ['reason', 'id'], ['fromAccount', 'toAccount', 'actor']);
         foreach (['service', 'currency'] as $field) {
             if ($request->filled($field)) {
-                $query->whereIn('transaction_id', LedgerTransaction::where($field, $request->input($field))->select('id'));
+                $query->whereIn('transaction_id', LedgerTransaction::query()->when($field === 'service', fn ($rows) => $rows->whereIn($field, app(FinanceServiceIdentity::class)->family($request->input($field))), fn ($rows) => $rows->where($field, $request->input($field)))->select('id'));
             }
         }
 
@@ -209,7 +226,7 @@ class FinanceController extends Controller
             ->where(fn ($q) => $q->whereIn('sender.account_id', $ids)->orWhereIn('recipient.account_id', $ids))->orderByDesc('t.id');
         $this->filters($query, $request, 't.created_at', ['t.reference']);
         if ($request->boolean('recoverable')) {
-            $query->where('sender.account_id', $request->user()->membership->account_id)->where('sender.kind', 'account')->where('t.recovery_deadline', '>', now())
+            $query->whereNotIn('t.id', LedgerTransaction::whereNotNull('reversal_of')->select('reversal_of'))->where('sender.account_id', $request->user()->membership->account_id)->where('sender.kind', 'account')->where('t.recovery_deadline', '>', now())
                 ->whereRaw('credit.amount_minor > (SELECT COALESCE(SUM(amount_minor), 0) FROM finance_recoveries WHERE transfer_id = t.id)');
         }
         if ($request->filled('direction')) {
@@ -217,12 +234,13 @@ class FinanceController extends Controller
         }
         foreach (['service', 'currency'] as $field) {
             if ($request->filled($field)) {
-                $query->where('t.'.$field, $request->input($field));
+                ($field === 'service' ? $query->whereIn('t.'.$field, app(FinanceServiceIdentity::class)->family($request->input($field))) : $query->where('t.'.$field, $request->input($field)));
             }
         }
         $page = $query->paginate((int) $request->input('per_page', 25), ['t.id', 'sender.account_id as from_account_id', 'recipient.account_id as to_account_id', 't.service', 't.currency', 't.reference', 't.created_at', 't.recovery_deadline', 'credit.amount_minor']);
         $recovered = FundingRecovery::whereIn('transfer_id', $page->getCollection()->pluck('id'))->groupBy('transfer_id')->selectRaw('transfer_id, SUM(amount_minor) as total')->pluck('total', 'transfer_id');
-        $data = $page->getCollection()->map(fn ($tx): array => ['id' => (int) $tx->id, 'from_account_id' => (int) $tx->from_account_id, 'to_account_id' => (int) $tx->to_account_id, 'service' => $tx->service, 'currency' => $tx->currency, 'amount' => Money::decimal((int) $tx->amount_minor), 'recovered_amount' => Money::decimal((int) ($recovered[$tx->id] ?? 0)), 'remaining' => Money::decimal((int) $tx->amount_minor - (int) ($recovered[$tx->id] ?? 0)), 'reference' => $tx->reference, 'created_at' => $tx->created_at, 'recovery_deadline' => $tx->recovery_deadline]);
+        $reversed = LedgerTransaction::whereIn('reversal_of', $page->getCollection()->pluck('id'))->pluck('id', 'reversal_of');
+        $data = $page->getCollection()->map(fn ($tx): array => ['id' => (int) $tx->id, 'from_account_id' => (int) $tx->from_account_id, 'to_account_id' => (int) $tx->to_account_id, ...app(FinanceServiceIdentity::class)->metadata($tx->service), 'currency' => $tx->currency, 'amount' => Money::decimal((int) $tx->amount_minor), 'recovered_amount' => Money::decimal((int) ($recovered[$tx->id] ?? 0)), 'reversed_by' => isset($reversed[$tx->id]) ? (int) $reversed[$tx->id] : null, 'remaining' => isset($reversed[$tx->id]) ? '0.00' : Money::decimal((int) $tx->amount_minor - (int) ($recovered[$tx->id] ?? 0)), 'reference' => $tx->reference, 'created_at' => $tx->created_at, 'recovery_deadline' => $tx->recovery_deadline]);
 
         return response()->json(['data' => $data, 'meta' => ['current_page' => $page->currentPage(), 'per_page' => $page->perPage(), 'total' => $page->total(), 'last_page' => $page->lastPage()]]);
     }
@@ -241,7 +259,7 @@ class FinanceController extends Controller
         }
         foreach (['service', 'currency'] as $field) {
             if ($request->filled($field)) {
-                $query->where($field, $request->input($field));
+                ($field === 'service' ? $query->whereIn($field, app(FinanceServiceIdentity::class)->family($request->input($field))) : $query->where($field, $request->input($field)));
             }
         }
 
@@ -318,7 +336,7 @@ class FinanceController extends Controller
         $this->filters($query, $request, 'created_at', ['reference', 'supplier', 'id'], ['account', 'creator']);
         foreach (['status', 'service', 'currency'] as $field) {
             if ($request->filled($field)) {
-                $query->where($field, $request->input($field));
+                ($field === 'service' ? $query->whereIn($field, app(FinanceServiceIdentity::class)->family($request->input($field))) : $query->where($field, $request->input($field)));
             }
         }
 
@@ -353,15 +371,23 @@ class FinanceController extends Controller
         }
         foreach (['currency', 'provider_id'] as $field) {
             if ($request->filled($field)) {
-                $query->where($field, $request->input($field));
+                ($field === 'service' ? $query->whereIn($field, app(FinanceServiceIdentity::class)->family($request->input($field))) : $query->where($field, $request->input($field)));
             }
+        }
+        if ($request->filled('service') && in_array('topup', app(FinanceServiceIdentity::class)->family($request->input('service')), true)) {
+            $query->whereIn('catalog_products.id', DB::table('digital_offers as offers')->join('digital_connections as connection', 'connection.id', '=', 'offers.connection_id')->where('connection.provider', 'topup')->select('offers.product_id'));
         }
         if ($request->filled('product_id')) {
             $query->whereKey((int) $request->product_id);
         }
         if ($request->filled('q')) {
             $pattern = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $request->input('q')).'%';
-            $query->where(fn ($names) => $names->whereRaw("catalog_products.name LIKE ? ESCAPE '!'", [$pattern])->orWhereRaw("catalog_products.id LIKE ? ESCAPE '!'", [$pattern])->orWhereHas('provider', fn ($providers) => $providers->whereRaw("name LIKE ? ESCAPE '!'", [$pattern])));
+            $query->where(function ($names) use ($pattern, $request): void {
+                $names->whereRaw("catalog_products.name LIKE ? ESCAPE '!'", [$pattern])->orWhereRaw("catalog_products.id LIKE ? ESCAPE '!'", [$pattern])->orWhereHas('provider', fn ($providers) => $providers->whereRaw("name LIKE ? ESCAPE '!'", [$pattern]));
+                if (stripos('Topup', $request->input('q')) !== false) {
+                    $names->orWhereIn('provider_id', app(FinanceServiceIdentity::class)->topupProviderIds());
+                }
+            });
         }
         $configured = DB::table('finance_prices')->where('account_id', $priceAccountId);
         if (in_array($request->input('price_state'), ['active', 'inactive'], true)) {
@@ -379,7 +405,7 @@ class FinanceController extends Controller
         }
         $products = $query->paginate((int) $request->input('per_page', 100));
         $prices = DB::table('finance_prices')->where('account_id', $priceAccountId)->whereIn('product_id', $products->getCollection()->pluck('id'))->get()->keyBy('product_id');
-        $data = $products->getCollection()->map(fn ($p): array => ['product_id' => $p->id, 'name' => $p->name, 'face_value' => $p->face_value, 'price_updated_at' => isset($prices[$p->id]) ? CarbonImmutable::parse($prices[$p->id]->updated_at, 'UTC')->toIso8601String() : null, 'provider_id' => $p->provider_id, 'provider_name' => $p->provider->name, 'currency' => $p->currency, 'minimum_price' => $p->minimum_price, 'price' => isset($prices[$p->id]) ? Money::decimal((int) $prices[$p->id]->price_minor) : null, 'version' => isset($prices[$p->id]) ? (int) $prices[$p->id]->version : 0, 'status' => $p->status]);
+        $data = $products->getCollection()->map(fn ($p): array => ['product_id' => $p->id, 'name' => $p->name, 'face_value' => $p->face_value, 'price_updated_at' => isset($prices[$p->id]) ? CarbonImmutable::parse($prices[$p->id]->updated_at, 'UTC')->toIso8601String() : null, 'provider_id' => $p->provider_id, 'provider_name' => app(FinanceServiceIdentity::class)->providerName($p->provider), 'currency' => $p->currency, 'minimum_price' => $p->minimum_price, 'price' => isset($prices[$p->id]) ? Money::decimal((int) $prices[$p->id]->price_minor) : null, 'version' => isset($prices[$p->id]) ? (int) $prices[$p->id]->version : 0, 'status' => $p->status]);
 
         return response()->json(['data' => $data, 'meta' => ['current_page' => $products->currentPage(), 'per_page' => $products->perPage(), 'total' => $products->total(), 'last_page' => $products->lastPage()]]);
     }

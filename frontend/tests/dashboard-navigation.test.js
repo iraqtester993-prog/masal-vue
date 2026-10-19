@@ -17,8 +17,9 @@ async function dashboard({cache=new Map(),request}={},activity=false){
  const watchers=[],calls=[],session={state:reactive({identity:{user:{id:9},account:{id:12,type:'pos'},membership:{kind:'owner'},permissions:['dashboard.view','sell.create','digital.view']}}),can:key=>session.state.identity?.permissions.includes(key)||false,api:{peekRequest:path=>structuredClone(cache.get(path)??null),hasFreshRequest:path=>cache.has(path),request:(path,options)=>{calls.push({path,options});return request?request(path,options):Promise.resolve(cache.get(path)??{data:{cards:[]}});}}};
  const source=await readFile(new URL(`../src/modules/dashboard/${activity?'DashboardActivity':'DashboardPage'}.vue`,import.meta.url),'utf8'),script=parse(source).descriptor.scriptSetup.content.replace(/^import[\s\S]*?;\r?$/gm,'');
  const scope={computed,reactive,ref,watch:(get,callback)=>watchers.push({get,callback}),onMounted(){},onBeforeUnmount(){},onServerPrefetch(){},defineAsyncComponent:()=>({}),usePortal:()=>({session}),useBalancePrivacy:()=>({hidden:ref(false),toggle(){}}),useUiLabelTranslator:()=>value=>value,usePreferencesTranslator:()=>value=>value,usePreferences:()=>({state:{language:'ar'}}),useRouter:()=>({getRoutes:()=>[]}),defineProps:()=>({compact:true,operations:[]}),createReportApi,createSalesApi,createDigitalApi,dashboardCompanies,dashboardSummaryPath,dashboardActivityPath,dashboardReadScope,dashboardCatalogSnapshot,dashboardTopupAvailable,AbortController,errorText:error=>error.message};
+ scope.useRouteRefresh=(callback,options)=>{scope.refreshRegistration={callback,options};};
  runInNewContext(script+`\nglobalThis.controls={${activity?'rows,nextCursor,loading,load':'data,companies,topupAvailable,companyError,busy,detail,load,loadCompanies,openDetails'}};`,scope);
- return {control:scope.controls,watchers,calls,session,cache};
+ return {control:scope.controls,watchers,calls,session,cache,refreshRegistration:scope.refreshRegistration};
 }
 
 test('POS home immediately restores company logos and Topup funds while background requests keep those values visible',async()=>{
@@ -63,4 +64,13 @@ test('home snapshot reads respect permissions and unknown or conflicting Topup b
  assert.deepEqual(dashboardCatalogSnapshot(api,()=>false),{products:[],offers:[]});assert.deepEqual(calls,[]);
  assert.equal(dashboardCatalogSnapshot(api,key=>key==='digital.view').offers.length,1);assert.deepEqual(calls,['/digital/offers?']);
  assert.equal(dashboardTopupAvailable([offer(2,null)]),null);assert.equal(dashboardTopupAvailable([offer(2),offer(3,'0.00')]),null);assert.equal(dashboardTopupAvailable([offer(2,'0.00')]),'0.00');
+});
+
+test('home pull refresh keeps its displayed balance and companies while bypassing all three read caches',async()=>{
+ const path=dashboardSummaryPath(),cache=new Map([[path,{data:{cards:[{key:'balance',value:'94000'}]}}],['/sales/products',{data:[product(1)]}],['/digital/offers?',{data:[offer(2)]}]]),waiting=[];
+ const page=await dashboard({cache,request:url=>new Promise(resolve=>waiting.push({url,resolve}))});
+ const pending=page.refreshRegistration.callback();assert.equal(page.control.data.value.cards[0].value,'94000');assert.equal(page.control.companies.value.length,2);
+ assert.equal(page.calls.length,3);assert.ok(page.calls.every(row=>row.options.fresh===true));
+ for(const request of waiting)request.resolve(request.url.startsWith('/dashboard')?{data:{cards:[{key:'balance',value:'83000'}]}}:request.url.startsWith('/sales')?{data:[product(3)]}:{data:[offer(4,'83000.00')]});
+ assert.equal(await pending,true);assert.equal(page.control.data.value.cards[0].value,'83000');assert.equal(page.control.companies.value.length,2);
 });

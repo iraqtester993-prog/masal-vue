@@ -36,3 +36,11 @@ test('previous identity and aborted refresh cannot republish counts after accoun
   const third = reader.refresh(); reader.dispose(); assert.equal(pending[2].signal.aborted, true);
   pending[2].resolve({ data: { unread: 100, sidebar_counts: {} } }); await third; assert.equal(value, null);
 });
+
+
+test('opening a page with no unread notices shares the pending summary and does not force a second fetch',async()=>{
+ const actor={user:{id:1}};let finish,reads=0,marks=0;
+ const notices=createNotificationCounts({identity:()=>actor,allowed:()=>true,publish(){},api:{request:()=>{reads++;return new Promise(resolve=>finish=()=>resolve({data:{unread:0,sidebar_counts:{}}}));},mutate:async()=>{marks++;return {data:{count:0}};}}});
+ const loading=notices.refresh();await notices.readPage('sales');finish();await loading;
+ assert.equal(marks,1);assert.equal(reads,1);
+});

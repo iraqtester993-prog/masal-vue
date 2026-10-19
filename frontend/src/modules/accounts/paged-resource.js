@@ -1,18 +1,23 @@
 import { reactive } from 'vue';
 export function createPagedResource(fetcher, onFailure = async (error) => error.message, {peek} = {}) {
   const state = reactive({ rows: [], meta: {current_page:1,last_page:1,total:0}, loading: false, error: '' });
-  let controller, revision = 0;
-  function hydrate(parameters={}) {
+  let controller, revision = 0,displayKey;
+  const keyFor=parameters=>JSON.stringify(Object.keys(parameters).sort().map(key=>[key,parameters[key]]));
+  function hydrate(parameters={}, {retain=false}={}) {
     const cached=peek?.(parameters);
-    state.rows = Array.isArray(cached?.data)?cached.data:[];
-    state.meta = cached?.meta || {current_page:1,last_page:1,total:state.rows.length};
+    const key=keyFor(parameters);
+    if(cached||!retain||key!==displayKey){
+      state.rows = Array.isArray(cached?.data)?cached.data:[];
+      state.meta = cached?.meta || {current_page:1,last_page:1,total:state.rows.length};
+    }
+    displayKey=key;
     return cached;
   }
   async function load(parameters = {}, {fresh=false} = {}) {
     controller?.abort();
     controller = new AbortController();
     const own = controller, expected = ++revision;
-    const cached=hydrate(parameters);
+    const cached=hydrate(parameters,{retain:true});
     state.error = ''; state.loading = fresh||!cached;
     try {
       const result = await fetcher(parameters, own.signal,{fresh});
@@ -26,6 +31,6 @@ export function createPagedResource(fetcher, onFailure = async (error) => error.
       if (expected === revision) state.error = message;
     } finally { if (expected === revision) state.loading = false; }
   }
-  function dispose() { revision += 1; controller?.abort(); state.rows = []; state.loading = false; }
+  function dispose() { revision += 1; controller?.abort(); displayKey=undefined;state.rows = []; state.loading = false; }
   return {state,hydrate,load,dispose};
 }

@@ -83,7 +83,7 @@ public final class AppearanceBackInstrumentation extends Instrumentation {
                 + "; actual_bridge_replies=" + replies + "; local_http_responses=" + locallyAnswered
                 + "; blocked_requests=" + deniedRequests + "; API=" + Build.VERSION.SDK_INT
                 + "; explicit/fallback colors, independent icons, inset bitmap, unchanged single-WebView geometry,"
-                + " handled/key/rapid back, busy guard, history fallback, exit confirmation/cancel/revalidation,"
+                + " handled/key/rapid back, busy guard, history fallback, double-back timing/revalidation,"
                 + " cookie/storage retention after reopening, legacy fallback and trusted-origin isolation;"
                 + " no print, Bluetooth, financial or external network request dispatched\n");
             finish(0, result);
@@ -135,8 +135,8 @@ public final class AppearanceBackInstrumentation extends Instrumentation {
         check(value.getBoolean("ok"), "Capabilities must acknowledge the trusted real bridge");
         check(value.getInt("appearanceVersion") == 2 && value.getInt("nativeBackVersion") == 1,
             "Appearance/back capabilities missing");
-        check(value.getInt("exitConfirmationVersion") == 1 && value.getString("appVersion").equals("1.4.6"),
-            "Home Back must advertise the native confirmation gate only in the new APK");
+        check(value.getInt("doubleBackExitVersion") == 1 && value.getString("appVersion").equals(BuildConfig.VERSION_NAME),
+            "Home Back must advertise the native double-back gate in the new APK");
         check(value.getInt("paperWidthMm") == 58 && value.getInt("receiptWidthPixels") == 384,
             "58mm/384px printing contract changed");
         check(!value.has("blocks") && !value.has("address") && !value.has("serial"),
@@ -317,44 +317,37 @@ public final class AppearanceBackInstrumentation extends Instrumentation {
             .put("statusBarColor", "#46512B").put("navigationBarColor", "#FFFFFF").put("backgroundColor", "#F5F7F6"));
         eval("window.qaBackCount=0;true");
         onUi(() -> { activity.onBackPressed(); activity.onBackPressed(); activity.onBackPressed(); });
-        AlertDialog first = awaitExitDialog();
-        check(!activity.isFinishing(), "Home Back must show a confirmation, not finish immediately");
-        check(eval("String(window.qaBackCount)").equals("1"), "Rapid home Back must create only one pending prompt");
-        check(eval("String(window.qaExitConfirmationVersion)").equals("1"), "Actual native event must advertise confirmation support");
-        checkDialogStyle(first, 0xffffffff, 0xff46512b);
-        captureDialog("exit-confirmation-light.png");
-        onUi(() -> first.getButton(AlertDialog.BUTTON_NEGATIVE).performClick());
-        awaitNoExitDialog(); check(!activity.isFinishing(), "Stay must leave the app open"); checkRetainedSession();
-
-        onUi(activity::onBackPressed); awaitExitDialog();
-        sendKeyDownUpSync(KeyEvent.KEYCODE_BACK); awaitNoExitDialog();
-        check(!activity.isFinishing(), "Android Back on the prompt must cancel, without leaving home"); checkRetainedSession();
-
-        request(new JSONObject().put("action", "appearance").put("theme", "dark").put("color", "#46512B")
-            .put("statusBarColor", "#46512B").put("navigationBarColor", "#142329").put("backgroundColor", "#0D171B"));
-        onUi(activity::onBackPressed); AlertDialog dark = awaitExitDialog();
-        checkDialogStyle(dark, 0xff142329, 0xff46512b); captureDialog("exit-confirmation-dark.png");
+        awaitJs("window.qaBackCount===1", "Rapid home Back must dispatch only one web decision");
+        check(!activity.isFinishing(), "First home Back must show a brief notice without closing the app");
+        check(eval("String(window.qaDoubleBackExitVersion)").equals("1"), "Actual event must advertise double-back support");
+        checkRetainedSession();
+        Thread.sleep(2100);
+        onUi(activity::onBackPressed); awaitJs("window.qaBackCount===2", "Expired notice must require another first Back");
+        check(!activity.isFinishing(), "An expired first Back may not close the app");
+        eval("window.qaExitGeneration=2;true");
+        onUi(activity::onBackPressed); awaitJs("window.qaBackCount===3", "Navigation generation must be checked again");
+        check(!activity.isFinishing(), "Leaving and returning home requires two new presses");
         Field field = MainActivity.class.getDeclaredField("busy"); field.setAccessible(true);
         AtomicBoolean busy = (AtomicBoolean) field.get(activity);
         try {
-            busy.set(true); onUi(() -> dark.getButton(AlertDialog.BUTTON_POSITIVE).performClick()); awaitNoExitDialog();
-            check(!activity.isFinishing(), "Print starting while prompt is open must prevent confirmation from closing the app");
+            busy.set(true); onUi(activity::onBackPressed);
+            check(!activity.isFinishing(), "Print starting after the first Back must prevent exit");
             checkRetainedSession();
         } finally { busy.set(false); }
-
-        onUi(activity::onBackPressed); AlertDialog blocked = awaitExitDialog();
-        eval("window.qaMode='handled';window.qaBackCount=0;true");
-        onUi(() -> blocked.getButton(AlertDialog.BUTTON_POSITIVE).performClick()); awaitNoExitDialog();
-        check(!activity.isFinishing(), "New web blocking state must be rechecked before confirmed exit");
-        check(eval("String(window.qaBackCount)").equals("1"), "Confirm must freshly consult the current web page");
-
-        eval("window.qaMode='exit';true"); onUi(activity::onBackPressed); awaitExitDialog();
-        loadFixture("/__appearance126/replaced"); awaitNoExitDialog();
-        check(!activity.isFinishing(), "Navigation while confirmation is open must cancel the old prompt");
+        onUi(activity::onBackPressed); awaitJs("window.qaBackCount===4", "The print guard must reset the first Back");
+        check(!activity.isFinishing(), "The first Back after printing only arms exit");
+        eval("window.qaMode='handled';true");
+        onUi(activity::onBackPressed); awaitJs("window.qaBackCount===5", "Second Back must freshly consult web blocking state");
+        check(!activity.isFinishing(), "A web layer or pending operation must reset exit");
+        eval("window.qaMode='exit';true");
+        onUi(activity::onBackPressed); awaitJs("window.qaBackCount===6", "A handled layer must reset the first Back");
+        check(!activity.isFinishing(), "Closing a layer must not reuse an earlier exit approval");
+        loadFixture("/__appearance126/replaced");
         checkRetainedSession();
-        eval("window.qaMode='exit';true"); onUi(activity::onBackPressed); AlertDialog confirmed = awaitExitDialog();
-        onUi(() -> confirmed.getButton(AlertDialog.BUTTON_POSITIVE).performClick());
-        awaitFinishing("Explicit positive confirmation must close the app");
+        eval("window.qaMode='exit';true"); onUi(activity::onBackPressed);
+        awaitJs("window.qaBackCount===1", "A replacement document must require a first Back");
+        check(!activity.isFinishing(), "A replacement document cannot inherit exit approval");
+        onUi(activity::onBackPressed); awaitFinishing("Two fresh home Back presses must close the app");
     }
 
     private void checkRetainedSession() throws Exception {
@@ -367,10 +360,10 @@ public final class AppearanceBackInstrumentation extends Instrumentation {
 
     private void checkLegacyExit() throws Exception {
         onUi(web::clearHistory); eval("window.qaMode='unhandled';true");
-        onUi(activity::onBackPressed); AlertDialog dialog = awaitExitDialog();
-        check(!activity.isFinishing(), "Old web without a native handler still needs a confirmation before no-history exit");
-        onUi(() -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick());
-        awaitFinishing("Confirmed legacy no-history exit must remain available");
+        eval("window.qaBackCount=0;true");onUi(activity::onBackPressed);
+        awaitJs("window.qaBackCount===1", "Legacy first Back must complete its web decision");
+        check(!activity.isFinishing(), "Old web without a handler still requires a second Back");
+        onUi(activity::onBackPressed);awaitFinishing("Legacy double-back no-history exit must remain available");
     }
 
     private AlertDialog exitDialog() {
@@ -481,6 +474,7 @@ public final class AppearanceBackInstrumentation extends Instrumentation {
             + "if(window.DananeerPrint)window.DananeerPrint.onmessage=e=>{var r=JSON.parse(e.data);window.qaReplies[r.requestId]=r;};"
             + "window.addEventListener('dananeer:native-back',e=>{window.qaBackCount++;"
             + "window.qaExitConfirmationVersion=e.detail.exitConfirmationVersion;"
+            + "window.qaDoubleBackExitVersion=e.detail.doubleBackExitVersion;e.detail.exitGeneration=window.qaExitGeneration||0;"
             + "if(window.qaMode==='unhandled')return;e.preventDefault();e.detail.result=window.qaMode==='exit'?'exit':'handled';});"
             + "window.qaReady=true;</script></body></html>";
     }

@@ -6,6 +6,7 @@ use App\Enums\AccountType;
 use App\Models\Account;
 use App\Models\User;
 use App\Services\AccountScope;
+use App\Services\ManagementAuthority;
 
 class AccountPolicy
 {
@@ -38,7 +39,7 @@ class AccountPolicy
     public function create(User $user): bool
     {
         return $user->isOperational()
-            && $user->membership->kind === 'owner'
+            && ($user->membership->kind === 'owner' || app(ManagementAuthority::class)->hasSystemScope($user))
             && $user->membership->account->type !== AccountType::Pos
             && in_array('account.create', $user->membership->permissions(), true);
     }

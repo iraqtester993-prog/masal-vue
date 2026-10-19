@@ -52,6 +52,16 @@ test('home requests native exit confirmation even with earlier pages, preserving
  }finally{old.dispose();}
 });
 
+test('double-back exit carries a stable generation only while the same authenticated navigation state remains active',async()=>{
+ const f=await fixture();
+ function exitGeneration(){const event=new Event('dananeer:native-back',{cancelable:true});event.detail={result:'unhandled',exitConfirmationVersion:1,doubleBackExitVersion:1};f.target.dispatchEvent(event);assert.equal(event.detail.result,'exit');return event.detail.exitGeneration;}
+ try{
+  const initial=exitGeneration();assert.equal(exitGeneration(),initial);
+  await f.router.push('/sell');await f.router.push('/dashboard');await flush();
+  assert.ok(exitGeneration()>initial,'leaving and returning home invalidates the prior first Back');
+ }finally{f.dispose();}
+});
+
 test('home closes its open layer first and blocks exit while work is pending',async()=>{
  const f=await fixture(),menu=ref(true),blocked=ref(false),release=registerPosBackLayer({state:()=>blocked.value?'blocked':menu.value?'open':'none',back:()=>menu.value=false});
  try{

@@ -1,11 +1,14 @@
 <script setup>
+import AppSelect from '../../shared/components/AppSelect.vue';
+import {westernDigits} from '../../shared/numbers.js';
+import CatalogModal from '../catalog/CatalogModal.vue';
 import {computed,inject,nextTick,onBeforeUnmount,onMounted,onServerPrefetch,reactive,ref,watch} from 'vue';
 import {useRouter} from 'vue-router';
-import {usePortal} from '../auth/session.js';
+import {identityScope,usePortal} from '../auth/session.js';
+import {useRouteRefresh} from '../../shared/route-refresh.js';
 import {createCompanyApi} from './company-api.js';
 import {COMPANY_SECTIONS,COMPANY_GALLERIES,displayProfile,moveCompanyItem,profilePayload,safeHttps,sectionVisible,companyTime} from './company-model.js';
 import ImageAttachment from './CompanyImage.vue';
-import AppSettings from './AppSettings.vue';
 import './company-parity.css';
 import './inquiries.css';
 import {inquiryTrackingUrl} from './inquiry-model.js';
@@ -15,7 +18,7 @@ const props=defineProps({management:Boolean,publicPage:Boolean});
 const {session}=usePortal(),router=useRouter(),api=createCompanyApi(session.api),sections=COMPANY_SECTIONS;
 const profileRoot=ref(null),introDialog=ref(null),themeButton=ref(null),record=ref(null);
 const trackingLink=ref(''),copyStatus=ref('');
-async function copyTracking(){try{await navigator.clipboard.writeText(trackingLink.value);copyStatus.value='تم نسخ رابط المتابعة.';}catch{copyStatus.value='تعذر النسخ؛ انسخ الرابط من الحقل.';}}
+async function copyTracking(){try{await navigator.clipboard.writeText(trackingLink.value);copyStatus.value='تم نسخ رابط المتابعة.';}catch{copyStatus.value='تعذر النسخ. حاول مرة أخرى.';}}
 const loading=ref(true),saveError=ref(''),success=ref(''),opening=ref(false),editing=ref(false),tab=ref('about'),draft=ref(null),index=ref(0),siteTheme=ref('light'),profileNavOpen=ref(false),paused=ref(false),autoplayPaused=ref(false),details=ref(null),sending=ref(false),sent=ref(false),saving=ref(false),resolving=ref(null);
 const busy=reactive({}),inquiry=reactive({name:'',contact:'',message:'',website_honeypot:''});
 const inbox=ref([]),inboxMeta=reactive({current_page:1,last_page:1,total:0,new_count:0}),inboxLoading=ref(false),inboxFilter=reactive({status:'',q:''});
@@ -28,10 +31,13 @@ const links=computed(()=>sections.filter(([key])=>key!=='slides'&&visible(key)))
 const tr=value=>value,formatTime=companyTime,safe=safeHttps;
 let reader,inboxReader,loadRevision=0,inboxRevision=0,alive=true,mounted=false,timer,introTimer,inquiryAttempt;
 const writer=new AbortController();
+let detailsOpener;
+function openDetails(item,event){detailsOpener=event?.currentTarget;details.value=item;}
+async function closeDetails(){details.value=null;await nextTick();if(alive&&detailsOpener?.isConnected)detailsOpener.focus();detailsOpener=null;}
 function visible(key){return sectionVisible(p.value,key);}
 function items(key){return (p.value?.[key]||[]).filter(item=>item.visible!==false);}
-function phone(value){return 'tel:'+String(value||'').replace(/[^+\d]/g,'');}
-function wa(){return 'https://wa.me/'+p.value.whatsapp.replace(/\D/g,'');}
+function phone(value){return 'tel:'+westernDigits(value).replace(/[^+\d]/g,'');}
+function wa(){return 'https://wa.me/'+westernDigits(p.value.whatsapp).replace(/\D/g,'');}
 function toggleSiteTheme(){siteTheme.value=siteTheme.value==='dark'?'light':'dark';}
 function endIntro(){clearTimeout(introTimer);introDialog.value?.close();opening.value=false;void nextTick(()=>themeButton.value?.focus());}
 function stop(){clearInterval(timer);clearTimeout(introTimer);introDialog.value?.close();opening.value=false;}
@@ -47,21 +53,21 @@ function edit(){if(!editable.value||!record.value)return;stop();saveError.value=
 function add(){if(!COMPANY_GALLERIES.includes(tab.value)||draft.value[tab.value].length>=30)return;draft.value[tab.value].push({title:'',caption:'',description:'',image:null,link:'',visible:true});}
 function move(i,amount){moveCompanyItem(draft.value[tab.value],i,amount);}
 function cancelEdit(){editing.value=false;draft.value=null;saveError.value='';success.value='';}
-async function load(){
+async function load({preserveView=false}={}){
   reader?.abort();reader=new AbortController();const expected=++loadRevision,signal=reader.signal;loading.value=true;saveError.value='';
   try{
     const response=await(editable.value?api.profile(signal):api.publicProfile(signal));
     if(!alive||expected!==loadRevision)return;
     if(!response?.data?.profile||!Array.isArray(response.data.profile.slides))throw new Error('تعذر قراءة موقع الشركة.');
-    record.value=response.data;index.value=0;
+    record.value=response.data;if(!preserveView)index.value=0;
     if(props.management&&editable.value)edit();else activate();
-  }catch(cause){if(alive&&expected===loadRevision&&cause.name!=='AbortError'){record.value=null;saveError.value=cause.status===404?'لم يُنشر موقع الشركة بعد.':cause.message;}}
+  }catch(cause){if(alive&&expected===loadRevision&&cause.name!=='AbortError'){if([401,403,404].includes(cause.status))record.value=null;saveError.value=cause.status===404?'لم يُنشر موقع الشركة بعد.':cause.message;}}
   finally{if(alive&&expected===loadRevision)loading.value=false;}
 }
 async function save(){
   if(pending.value||!editable.value)return;saving.value=true;saveError.value='';success.value='';
-  const actor=session.state.identity;
-  try{const response=await api.save({version:record.value.version,profile:profilePayload(draft.value)},writer.signal);if(!alive||session.state.identity!==actor)return;record.value=response.data;index.value=0;editing.value=false;draft.value=null;success.value='تم حفظ موقع الشركة.';}
+  const actor=identityScope(session.state.identity);
+  try{const response=await api.save({version:record.value.version,profile:profilePayload(draft.value)},writer.signal);if(!alive||identityScope(session.state.identity)!==actor)return;record.value=response.data;index.value=0;editing.value=false;draft.value=null;success.value='تم حفظ موقع الشركة.';}
   catch(cause){if(alive&&cause.name!=='AbortError')saveError.value=cause.message;}
   finally{if(alive)saving.value=false;}
 }
@@ -87,14 +93,14 @@ async function resolve(id){
 }
 function dismiss(){if(props.publicPage)return;if(router.hasRoute('dashboard'))void router.push({name:'dashboard'});}
 watch(tab,value=>{if(value==='inbox')void loadInbox();});
-watch(()=>session.state.identity,(identity,previous)=>{if(props.management&&identity!==previous){record.value=null;draft.value=null;editing.value=false;details.value=null;inbox.value=[];inboxReader?.abort();inboxRevision++;reader?.abort();loadRevision++;if(editable.value)void load();}});
+watch(()=>identityScope(session.state.identity),(scope,previous)=>{if(props.management&&scope!==previous){record.value=null;draft.value=null;editing.value=false;details.value=null;inbox.value=[];inboxReader?.abort();inboxRevision++;reader?.abort();loadRevision++;if(editable.value)void load();}});
+useRouteRefresh(async()=>{await load({preserveView:true});return !saveError.value;},{canRefresh:()=>!pending.value&&!editing.value&&!sending.value&&!opening.value&&!resolving.value});
 onServerPrefetch(load);
 onMounted(()=>{mounted=true;void load();});
 onBeforeUnmount(()=>{alive=false;mounted=false;loadRevision++;inboxRevision++;reader?.abort();inboxReader?.abort();writer.abort();stop();});
 </script>
 
 <template>
-  <AppSettings v-if="editable"/>
   <section
     ref="profileRoot"
     class="company-profile-page"
@@ -317,18 +323,18 @@ onBeforeUnmount(()=>{alive=false;mounted=false;loadRevision++;inboxRevision++;re
         <div v-else-if="tab === 'care'" class="formgrid">
           <label
             >{{ tr("الهاتف")
-            }}<input v-model="draft.phone" type="tel" dir="ltr" /></label
+            }}<input lang="en" v-model="draft.phone" type="tel" dir="ltr" /></label
           ><label
             >{{ tr("البريد الإلكتروني")
             }}<input v-model="draft.email" type="email" dir="ltr" /></label
           ><label
             >{{ tr("واتساب مع رمز الدولة")
-            }}<input v-model="draft.whatsapp" type="tel" dir="ltr" /></label
+            }}<input lang="en" v-model="draft.whatsapp" type="tel" dir="ltr" /></label
           ><label
             >{{ tr("أوقات خدمة العملاء") }}<input v-model="draft.hours"
           /></label>
         </div>
-        <div v-else-if="tab === 'inbox'"><div class="site-inbox-filters"><input v-model="inboxFilter.q" placeholder="بحث طلبات العملاء" aria-label="بحث طلبات العملاء" maxlength="200"><select v-model="inboxFilter.status" aria-label="حالة الطلب"><option value="">كل الحالات</option><option value="new">جديدة</option><option value="followed">تمت المتابعة</option></select><button type="button" class="btn" :disabled="inboxLoading" @click="loadInbox()">بحث</button></div><p class="read-loading" v-if="inboxLoading" role="status">جارٍ تحميل الطلبات…</p><div class="site-inbox-pagination"><button type="button" class="btn small" :disabled="inboxLoading || inboxMeta.current_page &lt;= 1" @click="loadInbox(inboxMeta.current_page - 1)">السابق</button><span>{{ inboxMeta.current_page }} / {{ inboxMeta.last_page }}</span><button type="button" class="btn small" :disabled="inboxLoading || inboxMeta.current_page &gt;= inboxMeta.last_page" @click="loadInbox(inboxMeta.current_page + 1)">التالي</button></div>
+        <div v-else-if="tab === 'inbox'"><div class="site-inbox-filters"><input v-model="inboxFilter.q" placeholder="بحث طلبات العملاء" aria-label="بحث طلبات العملاء" maxlength="200"><AppSelect v-model="inboxFilter.status" aria-label="حالة الطلب"><option value="">كل الحالات</option><option value="new">جديدة</option><option value="followed">تمت المتابعة</option></AppSelect><button type="button" class="btn" :disabled="inboxLoading" @click="loadInbox()">بحث</button></div><p class="read-loading" v-if="inboxLoading" role="status">جارٍ تحميل الطلبات…</p><div class="site-inbox-pagination"><button type="button" class="btn small" :disabled="inboxLoading || inboxMeta.current_page &lt;= 1" @click="loadInbox(inboxMeta.current_page - 1)">السابق</button><span>{{ inboxMeta.current_page }} / {{ inboxMeta.last_page }}</span><button type="button" class="btn small" :disabled="inboxLoading || inboxMeta.current_page &gt;= inboxMeta.last_page" @click="loadInbox(inboxMeta.current_page + 1)">التالي</button></div>
           <p v-if="!inboxLoading &amp;&amp; !inbox.length" class="empty">
             {{ tr("لا توجد طلبات") }}
           </p>
@@ -587,7 +593,7 @@ onBeforeUnmount(()=>{alive=false;mounted=false;loadRevision++;inboxRevision++;re
                 ><button
                   v-else-if="item.description"
                   class="site-text-link"
-                  @click="details = item"
+                  @click="openDetails(item,$event)"
                 >
                   {{ tr("عرض التفاصيل ↗") }}
                 </button>
@@ -644,7 +650,7 @@ onBeforeUnmount(()=>{alive=false;mounted=false;loadRevision++;inboxRevision++;re
             <div class="site-contact-links">
               <a v-if="p.phone" :href="phone(p.phone)"
                 ><small>{{ tr("اتصل بنا") }}</small
-                ><b dir="ltr">{{ tr(p.phone) }}</b></a
+                ><b dir="ltr">{{ westernDigits(p.phone) }}</b></a
               ><a v-if="p.email" :href="'mailto:' + p.email"
                 ><small>{{ tr("البريد الإلكتروني") }}</small
                 ><b>{{ p.email }}</b></a
@@ -699,27 +705,7 @@ onBeforeUnmount(()=>{alive=false;mounted=false;loadRevision++;inboxRevision++;re
           </button>
         </footer>
       </div>
-      <div
-        v-if="details&amp;&amp;!editing"
-        class="overlay"
-        @click.self="details = null"
-      >
-        <section
-          class="modal"
-          role="dialog"
-          aria-modal="true"
-          :aria-label="tr(details.title)"
-        >
-          <div class="cardhead">
-            <h2>{{ tr(details.title) }}</h2>
-            <button
-              class="iconbtn"
-              @click="details = null"
-              :aria-label="tr('إغلاق')"
-            >
-              ×
-            </button>
-          </div>
+      <CatalogModal v-if="details&amp;&amp;!editing" :title="tr(details.title)" content-class="company-profile-page company-details-dialog" @close="closeDetails">
           <img
             v-if="details.image"
             :src="details.image"
@@ -727,11 +713,14 @@ onBeforeUnmount(()=>{alive=false;mounted=false;loadRevision++;inboxRevision++;re
             class="site-detail-image"
           />
           <p class="site-copy">{{ tr(details.description) }}</p>
-          <button class="btn" @click="details = null">
+          <button class="btn" @click="closeDetails">
             {{ tr("إغلاق") }}
           </button>
-        </section>
-      </div>
+      </CatalogModal>
     </section>
   </section>
 </template>
+<style>
+.company-details-dialog{width:min(900px,calc(100vw - 24px))}
+.company-details-dialog :is(.dialog-icon,.dialog-section){display:none}
+</style>

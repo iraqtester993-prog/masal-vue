@@ -5,10 +5,14 @@ export function createDigitalApi(api) {
   const write=(path,method,payload,signal)=>api.mutate(`${base}${path}`,method,payload,signal,{timeoutMs:120000});
   return {
     recovery:signal=>read('/orders/recovery',{},signal),acknowledge:(id,signal)=>write(`/orders/${id}/acknowledge`,'POST',{},signal),
-    options:(signal,params={})=>read('/options',{compact:1,...params},signal),connections:(params,signal)=>read('/connections',params,signal),offers:(signal,options={})=>read('/offers',{},signal,options),
-    orders:(params,signal)=>read('/orders',params,signal),history:(params,signal)=>read('/history',params,signal),summary:(params,signal)=>read('/orders/summary',params,signal),show:(id,signal)=>read(`/orders/${id}`,{},signal),receipt:(id,signal)=>read(`/orders/${id}/receipt`,{},signal),printAuthorization:(id,signal)=>read(`/orders/${id}/print-authorization`,{},signal),
-    peekOffers:()=>api.peekRequest?.(`${base}/offers?`,120000),
-    peekHistory:(params={})=>api.peekRequest?.(`${base}/history?${queryString(params)}`,120000),
+    options:(signal,params={},options={})=>read('/options',{compact:1,...params},signal,options),connections:(params,signal,options={})=>read('/connections',params,signal,options),offers:(signal,options={})=>read('/offers',{},signal,options),
+    orders:(params,signal,options={})=>read('/orders',params,signal,options),history:(params,signal,options={})=>read('/history',params,signal,options),summary:(params,signal,options={})=>read('/orders/summary',params,signal,options),show:(id,signal)=>read(`/orders/${id}`,{},signal),receipt:(id,signal)=>read(`/orders/${id}/receipt`,{},signal),printAuthorization:(id,signal)=>read(`/orders/${id}/print-authorization`,{},signal),
+    peekOffers:()=>api.peekRequest?.(`${base}/offers?`),
+    peekHistory:(params={})=>api.peekRequest?.(`${base}/history?${queryString(params)}`),
+    peekOrders:(params={})=>api.peekRequest?.(`${base}/orders?${queryString(params)}`),
+    peekSummary:(params={})=>api.peekRequest?.(`${base}/orders/summary?${queryString(params)}`),
+    peekConnections:(params={})=>api.peekRequest?.(`${base}/connections?${queryString(params)}`),
+    credential:(id,payload,signal)=>write(`/connections/${id}/credential`,'PATCH',payload,signal),
     configure:(id,payload,signal)=>write(`/connections${id?`/${id}`:''}`,id?'PUT':'POST',payload,signal),sync:(id,version,signal)=>write(`/connections/${id}/sync`,'POST',{version},signal),syncCatalog:(id,version,signal)=>write(`/connections/${id}/sync`,'POST',{version,catalog_only:true},signal),catalog:(id,version,signal)=>write(`/connections/${id}/catalog`,'POST',{version},signal),balance:(id,signal)=>write(`/connections/${id}/balance`,'POST',{},signal),
     grant:(id,target,payload,signal)=>write(`/connections/${id}/grants/${target}`,'PUT',payload,signal),create:(payload,signal)=>write('/orders','POST',payload,signal),action:(id,action,payload,signal)=>write(`/orders/${id}/${action}`,'POST',payload,signal),heartbeat:(payload,signal)=>write('/device-session','POST',payload,signal),
     async export(params,signal) {

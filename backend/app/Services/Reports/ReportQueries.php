@@ -5,8 +5,10 @@ namespace App\Services\Reports;
 use App\Enums\AccountType;
 use App\Models\Digital\DigitalConnection;
 use App\Models\User;
+use App\Services\AccountPrivacy;
 use App\Services\AccountScope;
 use App\Services\Digital\DigitalAccess;
+use App\Services\Finance\FinanceServiceIdentity;
 use App\Services\Maps\MapAccess;
 use App\Services\Notifications\NotificationService;
 use App\Services\Operations\OperationAccess;
@@ -59,6 +61,20 @@ class ReportQueries
 
     private function dataset(Builder $query, array $schema, array $fields, array $minor = []): ReportDataset
     {
+        $schema['columns'] = array_values(array_filter($schema['columns'], fn (array $column): bool => ! ($column['protected'] ?? false)));
+        $identity = app(FinanceServiceIdentity::class);
+        if (isset($fields['service']) && in_array($fields['service'], ['w.service', 'r.service'], true)) {
+            $source = $fields['service'];
+            $fields['service'] = $identity->serviceSql($source);
+            $query->selectRaw($source.' AS _source_service');
+            $fields['source_label'] = 'CASE WHEN '.$source.'<>'.$fields['service']." THEN 'رصيد سابق' ELSE 'الرصيد الحالي' END";
+            $schema['columns'][] = ['key' => 'source_label', 'label' => 'مصدر المحفظة', 'type' => 'text'];
+        }
+        foreach (['provider.id' => 'provider.name', 'v.id' => 'v.name'] as $providerId => $providerName) {
+            if (($fields['provider'] ?? null) === $providerName) {
+                $fields['provider'] = $identity->providerSql($providerId, $providerName);
+            }
+        }
         $query->selectRaw($fields['_key'].' AS '.$query->getGrammar()->wrap('_key'));
         foreach ($schema['columns'] as &$column) {
             $key = $column['key'];
@@ -110,15 +126,12 @@ class ReportQueries
     public function unavailableReason(string $id): string
     {
         return match ($id) {
-            'wallets-legacy' => 'لم تُنقل أرصدة نقدية سابقة موثقة إلى قاعدة البيانات.',
-            'prices-policies' => 'لا توجد خدمة لتسجيل قواعد أسعار مؤجلة؛ الأسعار المعتمدة تظهر في تقرير الأسعار.',
             'sales-services' => 'يتطلب سجل الخدمات صلاحية عرض الخدمات الرقمية ومصدر طلباتها.',
             'operations-integrations' => 'يتطلب التقرير صلاحية عرض الربط أو الخدمات الرقمية.',
             'network-archive' => 'عرض الأرشيف يتطلب صلاحية الحسابات المؤرشفة ضمن نطاقك.',
             'network-presence' => 'عرض آخر حضور وموقع يتطلب صلاحية الخريطة ضمن نطاق المستخدمين المسموحين.',
             'users-times' => 'ضوابط أوقات المستخدمين لمالك حساب مدير النظام مع صلاحيات الأمن وضوابطه فقط.',
             'operations-security' => 'يتطلب سجل قرارات الإيقاف حساب النظام وصلاحيات عرض الأمن والتدقيق.',
-            'wallets-holds' => 'لا يوجد سجل حجز مستقل لطلبات التمويل؛ حجوزات البيع تظهر في تقرير حجوزات البطاقات.',
             default => 'مصدر هذا التقرير غير متاح للحساب أو لم يُفعّل بعد.',
         };
     }
@@ -170,7 +183,7 @@ class ReportQueries
         $q = DB::table('digital_orders as r')->whereIn('r.id', $this->digital->orders($actor)->select('digital_orders.id'))
             ->whereIn('r.account_id', $this->accounts($actor, $filters))->whereIn('r.product_id', $this->products($actor, $filters))
             ->join('catalog_products as product', 'product.id', '=', 'r.product_id')->join('catalog_providers as provider', 'provider.id', '=', 'product.provider_id')
-            ->leftJoinSub($this->access->accounts($actor)->select(['id', 'name']), 'main', 'main.id', '=', 'r.main_account_id');
+            ->leftJoinSub(app(AccountPrivacy::class)->accounts()->whereIn('id', $this->accounts($actor, [])), 'main', 'main.id', '=', 'r.main_account_id');
         if (($filters['currency'] ?? 'IQD') !== 'IQD') {
             $q->whereRaw('1=0');
         }
@@ -197,7 +210,7 @@ class ReportQueries
         $targets = $this->accounts($actor, $filters);
         $q = DB::table('digital_connections as r')->whereIn('r.id', $connections->select('digital_connections.id'))
             ->whereIn('r.account_id', DB::table('account_closure')->whereIn('descendant_id', $targets)->select('ancestor_id'))
-            ->join('accounts as a', 'a.id', '=', 'r.account_id')->leftJoin('catalog_providers as provider', 'provider.id', '=', 'r.provider_id');
+            ->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'r.account_id')->leftJoin('catalog_providers as provider', 'provider.id', '=', 'r.provider_id');
         if (! empty($filters['provider_id'])) {
             $q->where('r.provider_id', $filters['provider_id']);
         }
@@ -219,7 +232,7 @@ class ReportQueries
         }
         unset($column);
 
-        return $this->dataset($q, $schema, ['_key' => 'r.id', 'agent' => 'a.name', 'provider' => "COALESCE(provider.name,CASE r.provider WHEN 'rabiaa' THEN 'الرابعة' WHEN 'topup' THEN 'التعبئة المباشرة' ELSE NULL END)", 'environment' => "CASE r.provider WHEN 'rabiaa' THEN {$hosts['rabiaa']} WHEN 'topup' THEN {$hosts['topup']} ELSE NULL END"]);
+        return $this->dataset($q, $schema, ['_key' => 'r.id', 'agent' => 'a.name', 'provider' => "CASE r.provider WHEN 'topup' THEN 'Topup' ELSE COALESCE(provider.name,CASE r.provider WHEN 'rabiaa' THEN 'الرابعة' ELSE NULL END) END", 'environment' => "CASE r.provider WHEN 'rabiaa' THEN {$hosts['rabiaa']} WHEN 'topup' THEN {$hosts['topup']} ELSE NULL END"]);
     }
 
     private function archivedAccounts(User $actor, array $filters): \Illuminate\Database\Eloquent\Builder
@@ -244,7 +257,7 @@ class ReportQueries
             return null;
         }
         $q = DB::table('account_archives as r')->whereIn('r.id', $this->operations->archives($actor)->select('account_archives.id'))
-            ->whereIn('r.account_id', $this->archivedAccounts($actor, $filters))->join('accounts as a', 'a.id', '=', 'r.account_id')->leftJoin('users as u', 'u.id', '=', 'r.actor_id');
+            ->whereIn('r.account_id', $this->archivedAccounts($actor, $filters))->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'r.account_id')->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 'r.actor_id');
         $this->period($q, $filters, 'r.created_at');
 
         return $this->dataset($q, $schema, ['_key' => 'r.id', 'id' => 'r.id', 'entity' => 'r.account_id', 'name' => 'a.name', 'time' => 'r.created_at', 'user' => 'u.name', 'reason' => 'r.reason']);
@@ -261,7 +274,7 @@ class ReportQueries
             return null;
         }
         $visible = $this->maps->users($actor)->select('users.id')->reorder();
-        $q = DB::table('users as r')->whereIn('r.id', $visible)->join('account_memberships as m', 'm.user_id', '=', 'r.id')->join('accounts as a', 'a.id', '=', 'm.account_id')
+        $q = DB::table('users as r')->whereIn('r.id', $visible)->join('account_memberships as m', 'm.user_id', '=', 'r.id')->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'm.account_id')
             ->leftJoin('permission_profiles as profile', 'profile.id', '=', 'm.permission_profile_id')->whereIn('m.account_id', $this->accounts($actor, $filters));
         $latest = DB::table('user_presences as p')->whereNotExists(function ($newer): void {
             $newer->selectRaw('1')->from('user_presences as newer')->whereColumn('newer.user_id', 'p.user_id')->where(fn ($time) => $time->whereColumn('newer.last_seen_at', '>', 'p.last_seen_at')->orWhere(fn ($equal) => $equal->whereColumn('newer.last_seen_at', 'p.last_seen_at')->whereColumn('newer.id', '>', 'p.id')));
@@ -276,11 +289,11 @@ class ReportQueries
 
     private function timePolicies(User $actor, array $schema, array $filters): ?ReportDataset
     {
-        if (! Schema::hasTable('account_time_policies') || $actor->membership->account->type !== AccountType::System || $actor->membership->kind !== 'owner' || ! $this->access->allows($actor, 'security.view') || ! $this->access->allows($actor, 'security.policies')) {
+        if (! Schema::hasTable('account_time_policies') || $actor->membership->account->type !== AccountType::System || ! $this->access->allows($actor, 'security.view') || ! $this->access->allows($actor, 'security.time')) {
             return null;
         }
         $this->operations->requireSecurity($actor, false, true);
-        $q = DB::table('account_time_policies as policy')->join('users as r', 'r.id', '=', 'policy.user_id')->join('account_memberships as m', 'm.user_id', '=', 'r.id')->where('m.kind', 'employee')->whereIn('m.account_id', $this->accounts($actor, $filters));
+        $q = DB::table('account_time_policies as policy')->joinSub(app(AccountPrivacy::class)->users(), 'r', 'r.id', '=', 'policy.user_id')->join('account_memberships as m', 'm.user_id', '=', 'r.id')->where('m.kind', 'employee')->whereIn('m.account_id', $this->accounts($actor, $filters))->whereIn('m.id', $this->operations->timeMembers($actor)->select('account_memberships.id'));
         $fields = ['_key' => 'r.id', 'id' => 'r.id', 'name' => 'r.name', 'status' => 'CASE WHEN CAST('.$this->json('policy.policy', 'enabled')." AS CHAR) IN ('1','true') THEN 'مفعّل' ELSE 'معطّل' END"];
         foreach (['startAt' => 'dateEnabled', 'endAt' => 'dateEnabled', 'startTime' => 'hoursEnabled', 'endTime' => 'hoursEnabled', 'idleMinutes' => 'idleEnabled', 'sessionMinutes' => 'sessionEnabled'] as $column => $enabled) {
             $fields[$column] = 'CASE WHEN CAST('.$this->json('policy.policy', $enabled)." AS CHAR) IN ('1','true') THEN CAST(".$this->json('policy.policy', $column)." AS CHAR) ELSE 'غير مفعّل' END";
@@ -314,15 +327,15 @@ class ReportQueries
                     }));
             });
         }
-        $created = (clone $stops)->leftJoin('users as u', 'u.id', '=', 'r.creator_id');
+        $created = (clone $stops)->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 'r.creator_id');
         $this->period($created, $filters, 'r.created_at');
         $created = $this->securityRows($created, ['_key' => $this->concat(["'stop:'", 'r.id', "':create'"]), 'id' => $this->concat(["'stop:'", 'r.id']), 'time' => 'r.created_at', 'user' => 'u.name', 'action' => $this->concat(["'إيقاف — '", "CASE r.scope WHEN 'all' THEN 'جميع الحسابات' WHEN 'main' THEN 'الوكلاء الرئيسيون' WHEN 'branch' THEN 'الفروع' WHEN 'subbranch' THEN 'الفروع الفرعية' WHEN 'pos' THEN 'نقاط البيع' ELSE 'حسابات محددة' END", "' — '", 'r.reason'])]);
-        $resumed = (clone $stops)->leftJoin('users as u', 'u.id', '=', 'r.resumed_by')->whereNotNull('r.resumed_at');
+        $resumed = (clone $stops)->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 'r.resumed_by')->whereNotNull('r.resumed_at');
         $this->period($resumed, $filters, 'r.resumed_at');
         $resumed = $this->securityRows($resumed, ['_key' => $this->concat(["'stop:'", 'r.id', "':resume'"]), 'id' => $this->concat(["'stop:'", 'r.id']), 'time' => 'r.resumed_at', 'user' => 'u.name', 'action' => "'رفع الإيقاف'"]);
         $audit = $this->auditBase($actor, $filters)->whereNotIn('r.action', ['security.stop', 'security.resume'])->where(fn ($events) => $events->where('r.action', 'like', 'auth.%')->orWhere('r.action', 'like', 'security.%')->orWhere('r.action', 'like', 'sessions.%'));
         $audit = $this->securityRows($audit, ['_key' => $this->concat(["'audit:'", 'r.id']), 'id' => 'r.id', 'time' => 'r.created_at', 'user' => 'u.name', 'action' => 'r.action']);
-        $direct = DB::table('operation_direct_stops as r')->join('accounts as a', 'a.id', '=', 'r.account_id')->whereIn('r.account_id', $this->archivedAccounts($actor, $filters))->whereNotExists(function ($events): void {
+        $direct = DB::table('operation_direct_stops as r')->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'r.account_id')->whereIn('r.account_id', $this->archivedAccounts($actor, $filters))->whereNotExists(function ($events): void {
             $events->selectRaw('1')->from('audit_logs as direct_audit')->where('direct_audit.action', 'security.direct')->whereColumn('direct_audit.subject_account_id', 'r.account_id')->whereRaw($this->json('direct_audit.details', 'version').'=r.version');
         });
         $this->period($direct, $filters, 'r.updated_at');
@@ -342,7 +355,7 @@ class ReportQueries
         }
         $id = $schema['id'];
         $q = DB::table('sales as r')->whereIn('r.account_id', $this->accounts($actor, $filters))->whereIn('r.product_id', $this->products($actor, $filters))->where('r.currency', $filters['currency'] ?? 'IQD');
-        $q->join('accounts as a', 'a.id', '=', 'r.account_id')->join('catalog_products as p', 'p.id', '=', 'r.product_id')->join('catalog_providers as v', 'v.id', '=', 'r.provider_id')->leftJoin('users as u', 'u.id', '=', 'r.creator_id');
+        $q->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'r.account_id')->join('catalog_products as p', 'p.id', '=', 'r.product_id')->join('catalog_providers as v', 'v.id', '=', 'r.provider_id')->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 'r.creator_id');
         if ($id === 'inventory-reservations') {
             $q->whereNull('r.issued_at');
             $this->period($q, $filters, 'r.created_at');
@@ -361,7 +374,7 @@ class ReportQueries
             $key = $id === 'sales-products' ? 'r.product_id' : 'r.account_id';
             $name = $id === 'sales-products' ? 'p.name' : 'a.name';
             if ($id === 'sales-agents') {
-                $q->join('accounts as main', 'main.id', '=', 'r.main_account_id')->whereIn('main.id', $this->accounts($actor, []));
+                $q->joinSub(app(AccountPrivacy::class)->accounts(), 'main', 'main.id', '=', 'r.main_account_id')->whereIn('main.id', $this->accounts($actor, []));
                 $key = 'main.id';
                 $name = 'main.name';
             }
@@ -373,7 +386,7 @@ class ReportQueries
             return $this->dataset($q, $schema, ['_key' => $key, 'id' => $key, 'name' => $name, 'transactions' => 'COUNT(*)', 'quantity' => 'SUM(r.quantity)', 'sales' => "SUM($total)", 'cost' => 'SUM(r.cost_minor)', 'profit' => "SUM($profit)", 'margin' => "CASE WHEN SUM($total)>0 THEN 100.0*SUM($profit)/SUM($total) ELSE NULL END"], ['sales', 'cost', 'profit']);
         }
         if ($id === 'sales-printing') {
-            $q->join('sales_print_attempts as t', 't.sale_id', '=', 'r.id')->leftJoin('users as printer', 'printer.id', '=', 't.actor_id');
+            $q->join('sales_print_attempts as t', 't.sale_id', '=', 'r.id')->leftJoinSub(app(AccountPrivacy::class)->users(), 'printer', 'printer.id', '=', 't.actor_id');
 
             return $this->dataset($q, $schema, ['_key' => 't.id', 'sale' => 'r.id', 'time' => 't.started_at', 'user' => 'printer.name', 'status' => 't.status', 'reason' => 't.reason']);
         }
@@ -389,14 +402,14 @@ class ReportQueries
     private function wallets(User $actor, array $schema, array $filters): ?ReportDataset
     {
         $id = $schema['id'];
-        if (in_array($id, ['wallets-legacy', 'wallets-holds'], true) || ! Schema::hasTable('finance_wallets') || ! $this->access->allows($actor, 'wallets.view')) {
+        if (! Schema::hasTable('finance_wallets') || ! $this->access->allows($actor, 'wallets.view')) {
             return null;
         }
         $scope = $this->accounts($actor, $filters);
         $currency = $filters['currency'] ?? 'IQD';
         if ($id === 'wallets') {
             [$from,$to] = $this->dates($filters);
-            $q = DB::table('finance_wallets as r')->join('accounts as a', 'a.id', '=', 'r.account_id')->where('r.kind', 'account')->whereIn('r.account_id', $scope)->where('r.currency', $currency);
+            $q = DB::table('finance_wallets as r')->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'r.account_id')->where('r.kind', 'account')->whereIn('r.account_id', $scope)->where('r.currency', $currency);
             $entries = DB::table('finance_entries as e')->join('finance_transactions as t', 't.id', '=', 'e.transaction_id')->where('t.posted', true)->whereColumn('e.wallet_id', 'r.id');
             $opening = (clone $entries)->selectRaw('COALESCE(SUM(e.amount_minor),0)');
             if ($from === null) {
@@ -418,12 +431,12 @@ class ReportQueries
         if ($id === 'wallets-requests') {
             $q = DB::table('finance_funding_requests as r')->where(function ($where) use ($scope): void {
                 $where->whereIn('r.from_account_id', clone $scope)->orWhereIn('r.to_account_id', clone $scope);
-            })->where('r.currency', $currency)->join('accounts as f', 'f.id', '=', 'r.from_account_id')->join('accounts as t', 't.id', '=', 'r.to_account_id')->leftJoin('users as u', 'u.id', '=', 'r.creator_id')->leftJoin('users as approver', 'approver.id', '=', 'r.reviewer_id');
+            })->where('r.currency', $currency)->joinSub(app(AccountPrivacy::class)->accounts(), 'f', 'f.id', '=', 'r.from_account_id')->joinSub(app(AccountPrivacy::class)->accounts(), 't', 't.id', '=', 'r.to_account_id')->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 'r.creator_id')->leftJoinSub(app(AccountPrivacy::class)->users(), 'approver', 'approver.id', '=', 'r.reviewer_id');
             $this->period($q, $filters, 'r.created_at');
 
             return $this->dataset($q, $schema, ['_key' => 'r.id', 'id' => 'r.id', 'time' => 'r.created_at', 'from' => 'f.name', 'to' => 't.name', 'service' => 'r.service', 'amount' => 'r.amount_minor', 'status' => 'r.status', 'user' => 'u.name', 'approvedAmount' => "CASE WHEN r.status='approved' THEN r.amount_minor ELSE NULL END", 'purpose' => 'r.purpose', 'reason' => 'r.reason', 'reviewedAt' => 'r.reviewed_at', 'approver' => 'approver.name', 'transfer' => 'r.transaction_id', 'batch' => 'r.stock_batch_id', 'reference' => 'r.reference'], ['amount', 'approvedAmount']);
         }
-        $q = DB::table('finance_entries as r')->join('finance_wallets as w', 'w.id', '=', 'r.wallet_id')->join('finance_transactions as t', 't.id', '=', 'r.transaction_id')->join('accounts as a', 'a.id', '=', 'w.account_id')->leftJoin('users as u', 'u.id', '=', 't.actor_id')->where('w.kind', 'account')->where('t.posted', true)->whereIn('w.account_id', $scope)->where('w.currency', $currency);
+        $q = DB::table('finance_entries as r')->join('finance_wallets as w', 'w.id', '=', 'r.wallet_id')->join('finance_transactions as t', 't.id', '=', 'r.transaction_id')->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'w.account_id')->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 't.actor_id')->where('w.kind', 'account')->where('t.posted', true)->whereIn('w.account_id', $scope)->where('w.currency', $currency);
         $this->period($q, $filters, 'r.created_at');
         if ($id === 'wallets-ledger') {
             return $this->dataset($q, $schema, ['_key' => 'r.id', 'id' => 'r.id', 'group' => 't.reference', 'time' => 'r.created_at', 'account' => 'a.name', 'service' => 'w.service', 'kind' => 't.kind', 'amount' => 'r.amount_minor'], ['amount']);
@@ -432,16 +445,16 @@ class ReportQueries
             $q = DB::table('finance_entries as r')->join('finance_wallets as w', 'w.id', '=', 'r.wallet_id')->join('finance_transactions as t', 't.id', '=', 'r.transaction_id')
                 ->join('audit_logs as settlement', function ($join): void {
                     $join->on('t.id', '=', DB::raw($this->json('settlement.details', 'transaction_id')))->where('settlement.action', 'invoices.settle');
-                })->join('finance_invoices as invoice', 'invoice.id', '=', DB::raw($this->json('settlement.details', 'invoice_id')))->join('accounts as a', 'a.id', '=', 'invoice.account_id')->leftJoin('users as u', 'u.id', '=', 't.actor_id')
+                })->join('finance_invoices as invoice', 'invoice.id', '=', DB::raw($this->json('settlement.details', 'invoice_id')))->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'invoice.account_id')->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 't.actor_id')
                 ->where('invoice.kind', 'receivable')->whereIn('invoice.account_id', $scope)->where('t.kind', 'invoice-settlement')->where('t.posted', true)->where('r.amount_minor', '>', 0)->where('w.currency', $currency)->where('w.kind', 'account');
             $this->period($q, $filters, 'r.created_at');
 
             return $this->dataset($q, $schema, ['_key' => 'r.id', 'id' => 't.id', 'time' => 'r.created_at', 'account' => 'a.name', 'amount' => 'r.amount_minor', 'reference' => 't.reference', 'user' => 'u.name'], ['amount']);
         }
         if (in_array($id, ['wallets-transfers', 'wallets-groups'], true)) {
-            $q = DB::table('finance_entries as r')->join('finance_wallets as w', 'w.id', '=', 'r.wallet_id')->join('finance_transactions as t', 't.id', '=', 'r.transaction_id')->join('accounts as a', 'a.id', '=', 'w.account_id')->leftJoin('users as u', 'u.id', '=', 't.actor_id')->where('w.kind', 'account')->where('t.posted', true)->where('w.currency', $currency)->whereIn('t.kind', ['transfer', 'funding'])->where('r.amount_minor', '>', 0)->join('finance_entries as debit', function ($join): void {
+            $q = DB::table('finance_entries as r')->join('finance_wallets as w', 'w.id', '=', 'r.wallet_id')->join('finance_transactions as t', 't.id', '=', 'r.transaction_id')->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'w.account_id')->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 't.actor_id')->where('w.kind', 'account')->where('t.posted', true)->where('w.currency', $currency)->whereIn('t.kind', ['transfer', 'funding'])->where('r.amount_minor', '>', 0)->join('finance_entries as debit', function ($join): void {
                 $join->on('debit.transaction_id', '=', 't.id')->where('debit.amount_minor', '<', 0);
-            })->join('finance_wallets as source', 'source.id', '=', 'debit.wallet_id')->leftJoin('accounts as f', 'f.id', '=', 'source.account_id')->where(function ($where) use ($scope): void {
+            })->join('finance_wallets as source', 'source.id', '=', 'debit.wallet_id')->leftJoinSub(app(AccountPrivacy::class)->accounts(), 'f', 'f.id', '=', 'source.account_id')->where(function ($where) use ($scope): void {
                 $where->whereIn('w.account_id', clone $scope)->orWhereIn('source.account_id', clone $scope);
             });
             $this->period($q, $filters, 'r.created_at');
@@ -470,7 +483,7 @@ class ReportQueries
         if ($id === 'inventory-providers') {
             $q = DB::table('catalog_providers as r')->whereIn('r.id', $this->access->products($actor, $filters)->select('provider_id'));
 
-            return $this->dataset($q, $schema, ['_key' => 'r.id', 'id' => 'r.id', 'name' => 'r.name', 'supplier' => 'r.supplier', 'connection' => 'r.connection', 'active' => $this->active('r.status')]);
+            return $this->dataset($q, $schema, ['_key' => 'r.id', 'id' => 'r.id', 'name' => app(FinanceServiceIdentity::class)->providerSql('r.id', 'r.name'), 'supplier' => 'r.supplier', 'connection' => 'r.connection', 'active' => $this->active('r.status')]);
         }
         if ($id === 'inventory-copies') {
             $q = $this->auditBase($actor, $filters)->where('r.action', 'inventory.export');
@@ -480,9 +493,9 @@ class ReportQueries
         $table = match ($id) {
             'inventory-cards' => 'stock_cards','claims' => 'stock_claims','claims-exports','claims-requests' => 'stock_withdrawals','inventory-cancellations' => 'stock_adjustments','inventory-orders' => 'stock_orders',default => 'stock_batches'
         };
-        $q = DB::table($table.' as r')->join('accounts as a', 'a.id', '=', 'r.account_id')->whereIn('r.account_id', $this->accounts($actor, $filters));
+        $q = DB::table($table.' as r')->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'r.account_id')->whereIn('r.account_id', $this->accounts($actor, $filters));
         if ($table === 'stock_orders') {
-            $q->leftJoin('catalog_providers as v', 'v.id', '=', 'r.provider_id')->leftJoin('users as u', 'u.id', '=', 'r.creator_id')->leftJoin('users as reviewer', 'reviewer.id', '=', 'r.reviewer_id')->whereIn('r.provider_id', $this->access->products($actor, $filters)->select('provider_id'));
+            $q->leftJoin('catalog_providers as v', 'v.id', '=', 'r.provider_id')->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 'r.creator_id')->leftJoinSub(app(AccountPrivacy::class)->users(), 'reviewer', 'reviewer.id', '=', 'r.reviewer_id')->whereIn('r.provider_id', $this->access->products($actor, $filters)->select('provider_id'));
             $this->period($q, $filters, 'r.created_at');
 
             return $this->dataset($q, $schema, ['_key' => 'r.id', 'id' => 'r.id', 'time' => 'r.created_at', 'agent' => 'a.name', 'provider' => 'v.name', 'city' => 'r.city', 'quantity' => 'r.quantity', 'rejected' => 'r.rejected', 'status' => 'r.status', 'user' => 'u.name', 'reviewed' => 'r.reviewed_at', 'reviewer' => 'reviewer.name', 'reason' => 'r.reason']);
@@ -503,7 +516,7 @@ class ReportQueries
             return $this->dataset($q, $schema, $base + ['value' => 'r.credit_minor', 'reason' => 'r.reason', 'replacement' => 'r.replacement_batch_id', 'settled' => 'r.reviewed_at', 'compensation' => "CASE WHEN r.status='compensate' THEN r.quantity*b.load_price_minor ELSE NULL END", 'remaining' => "CASE WHEN r.status='pending' THEN r.quantity ELSE 0 END", 'replacedQuantity' => "CASE WHEN r.status='replace' THEN r.quantity ELSE 0 END", 'rejectedQuantity' => "CASE WHEN r.status='reject' THEN r.quantity ELSE 0 END", 'soldBefore' => '(SELECT COUNT(*) FROM stock_cards old_cards JOIN sales old_sale ON old_sale.id=old_cards.sale_id WHERE old_cards.batch_id=r.batch_id AND old_sale.issued_at IS NOT NULL AND old_sale.issued_at<=r.created_at)'], ['value', 'compensation']);
         }
         if (in_array($id, ['claims-exports', 'claims-requests'], true)) {
-            $q->leftJoin('users as u', 'u.id', '=', 'r.creator_id')->leftJoin('users as reviewer', 'reviewer.id', '=', 'r.reviewer_id')->join('stock_claims as claim', 'claim.id', '=', 'r.claim_id');
+            $q->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 'r.creator_id')->leftJoinSub(app(AccountPrivacy::class)->users(), 'reviewer', 'reviewer.id', '=', 'r.reviewer_id')->join('stock_claims as claim', 'claim.id', '=', 'r.claim_id');
             if ($id === 'claims-exports') {
                 $q->whereNotNull('r.downloaded_at');
             }
@@ -542,11 +555,11 @@ class ReportQueries
             return $this->presence($actor, $schema, $filters);
         }
         if ($id === 'network-categories') {
-            $q = DB::table('pos_types as r')->leftJoin('pos_reference_profiles as profile', 'profile.pos_type_id', '=', 'r.id')->leftJoin('accounts as a', 'a.id', '=', 'profile.account_id')->whereIn('a.id', $this->accounts($actor, $filters))->groupBy('r.id', 'r.name');
+            $q = DB::table('pos_types as r')->leftJoin('pos_reference_profiles as profile', 'profile.pos_type_id', '=', 'r.id')->leftJoinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'profile.account_id')->whereIn('a.id', $this->accounts($actor, $filters))->groupBy('r.id', 'r.name');
 
             return $this->dataset($q, $schema, ['_key' => 'r.id', 'id' => 'r.id', 'name' => 'r.name', 'count' => 'COUNT(a.id)']);
         }
-        $q = DB::table('accounts as r')->whereIn('r.id', $this->accounts($actor, $filters))->leftJoinSub($this->access->accounts($actor)->select(['id', 'name']), 'parent', 'parent.id', '=', 'r.parent_id');
+        $q = DB::table('accounts as r')->whereIn('r.id', $this->accounts($actor, $filters))->leftJoinSub(app(AccountPrivacy::class)->accounts()->whereIn('id', $this->accounts($actor, [])), 'parent', 'parent.id', '=', 'r.parent_id');
         if ($id === 'network-pos') {
             $q->where('r.type', 'pos');
 
@@ -559,15 +572,15 @@ class ReportQueries
 
     private function prices(User $actor, array $schema, array $filters): ?ReportDataset
     {
-        if ($schema['id'] === 'prices-policies' || ! $this->access->allows($actor, 'prices.view')) {
+        if (! $this->access->allows($actor, 'prices.view')) {
             return null;
         }
         if ($schema['id'] === 'prices') {
-            $q = DB::table('accounts as a')->whereIn('a.id', $this->accounts($actor, $filters))->join('account_closure as ancestry', 'ancestry.descendant_id', '=', 'a.id')->join('accounts as main', 'main.id', '=', 'ancestry.ancestor_id')->where('main.type', 'main_agent')->join('finance_prices as r', 'r.account_id', '=', 'main.id')->join('catalog_products as p', 'p.id', '=', 'r.product_id')->whereIn('r.product_id', $this->products($actor, $filters))->where('r.currency', $filters['currency'] ?? 'IQD');
+            $q = DB::table('accounts as a')->whereIn('a.id', $this->accounts($actor, $filters))->join('account_closure as ancestry', 'ancestry.descendant_id', '=', 'a.id')->joinSub(app(AccountPrivacy::class)->accounts(), 'main', 'main.id', '=', 'ancestry.ancestor_id')->where('main.type', 'main_agent')->join('finance_prices as r', 'r.account_id', '=', 'main.id')->join('catalog_products as p', 'p.id', '=', 'r.product_id')->whereIn('r.product_id', $this->products($actor, $filters))->where('r.currency', $filters['currency'] ?? 'IQD');
 
             return $this->dataset($q, $schema, ['_key' => $this->concat(['a.id', "':'", 'r.product_id']), 'agent' => 'a.name', 'product' => 'p.name', 'price' => 'r.price_minor', 'effective' => 'r.updated_at'], ['price']);
         }
-        $q = DB::table('finance_price_requests as r')->join('accounts as a', 'a.id', '=', 'r.account_id')->leftJoin('users as u', 'u.id', '=', 'r.creator_id')->leftJoin('users as approver', 'approver.id', '=', 'r.reviewer_id')->whereIn('r.account_id', $this->accounts($actor, $filters));
+        $q = DB::table('finance_price_requests as r')->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'r.account_id')->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 'r.creator_id')->leftJoinSub(app(AccountPrivacy::class)->users(), 'approver', 'approver.id', '=', 'r.reviewer_id')->whereIn('r.account_id', $this->accounts($actor, $filters));
         $this->period($q, $filters, 'r.created_at');
         if ($schema['id'] === 'prices-approvals') {
             return $this->dataset($q, $schema, ['_key' => 'r.id', 'id' => 'r.id', 'time' => 'r.created_at', 'creator' => 'u.name', 'approver' => 'approver.name', 'status' => 'r.status', 'changes' => (DB::getDriverName() === 'sqlite' ? 'JSON_ARRAY_LENGTH' : 'JSON_LENGTH').'(r.changes)']);
@@ -585,7 +598,8 @@ class ReportQueries
     {
         $owner = "COALESCE((SELECT own.id FROM account_memberships own WHERE own.account_id=m.account_id AND own.kind='owner' AND own.status='active'),-1)";
         $ownerRole = "COALESCE((SELECT own.role_id FROM account_memberships own WHERE own.id=$owner),-1)";
-        $base = "((m.kind='owner' AND EXISTS(SELECT 1 FROM role_permissions rp WHERE rp.role_id=m.role_id AND rp.permission_id=permission.id)) OR (m.kind='employee' AND EXISTS(SELECT 1 FROM permission_profiles prof JOIN permission_profile_permissions pp ON pp.permission_profile_id=prof.id WHERE prof.id=m.permission_profile_id AND prof.account_id=m.account_id AND prof.status='active' AND pp.permission_id=permission.id) AND (EXISTS(SELECT 1 FROM role_permissions rp WHERE rp.role_id=$ownerRole AND rp.permission_id=permission.id) OR EXISTS(SELECT 1 FROM membership_permissions op WHERE op.membership_id=$owner AND op.permission_id=permission.id AND op.allowed=1)) AND NOT EXISTS(SELECT 1 FROM membership_permissions op WHERE op.membership_id=$owner AND op.permission_id=permission.id AND op.allowed=0)))";
+        $explicitMap = "(permission.name IN ('map.view','staff.password_reset') AND EXISTS(SELECT 1 FROM account_permission_rules explicit_rule WHERE explicit_rule.target_account_id=m.account_id AND explicit_rule.permission_id=permission.id AND explicit_rule.allowed=1))";
+        $base = "((m.kind='owner' AND (EXISTS(SELECT 1 FROM role_permissions rp WHERE rp.role_id=m.role_id AND rp.permission_id=permission.id) OR $explicitMap)) OR (m.kind='employee' AND $owner>0 AND EXISTS(SELECT 1 FROM permission_profiles prof JOIN permission_profile_permissions pp ON pp.permission_profile_id=prof.id WHERE prof.id=m.permission_profile_id AND prof.account_id=m.account_id AND prof.status='active' AND pp.permission_id=permission.id) AND (EXISTS(SELECT 1 FROM role_permissions rp WHERE rp.role_id=$ownerRole AND rp.permission_id=permission.id) OR $explicitMap OR EXISTS(SELECT 1 FROM membership_permissions op WHERE op.membership_id=$owner AND op.permission_id=permission.id AND op.allowed=1)) AND NOT EXISTS(SELECT 1 FROM membership_permissions op WHERE op.membership_id=$owner AND op.permission_id=permission.id AND op.allowed=0)))";
 
         return "CASE WHEN (($base OR (m.kind='owner' AND override.allowed=1)) AND NOT(m.kind='owner' AND COALESCE(override.allowed,1)=0) AND NOT EXISTS(SELECT 1 FROM account_permission_rules deny_rule JOIN account_closure closure ON closure.ancestor_id=deny_rule.target_account_id WHERE closure.descendant_id=m.account_id AND deny_rule.permission_id=permission.id AND deny_rule.allowed=0)) THEN 'مسموح' ELSE 'ممنوع' END";
     }
@@ -598,15 +612,27 @@ class ReportQueries
         if (! $this->access->allows($actor, 'users.view')) {
             return null;
         }
-        $q = DB::table('users as r')->join('account_memberships as m', 'm.user_id', '=', 'r.id')->join('accounts as a', 'a.id', '=', 'm.account_id')->join('roles as role', 'role.id', '=', 'm.role_id')->leftJoin('permission_profiles as profile', 'profile.id', '=', 'm.permission_profile_id')->whereIn('r.id', $this->users($actor, $filters));
+        $q = DB::table('users as r')->join('account_memberships as m', 'm.user_id', '=', 'r.id')->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'm.account_id')->join('roles as role', 'role.id', '=', 'm.role_id')->leftJoin('permission_profiles as profile', 'profile.id', '=', 'm.permission_profile_id')->whereIn('r.id', $this->users($actor, $filters));
+        $q->where(fn ($members) => $members->where('m.kind', '<>', 'owner')->orWhere('a.type', '<>', 'system'));
+        $visiblePermissions = $actor->membership->permissions();
         if ($schema['id'] === 'users') {
-            $granted = '(SELECT COUNT(*) FROM permissions permission LEFT JOIN membership_permissions override ON override.membership_id=m.id AND override.permission_id=permission.id WHERE '.$this->effectivePermission()."='مسموح')";
+            $granted = DB::table('permissions as permission')->leftJoin('membership_permissions as override', function ($join): void {
+                $join->on('override.membership_id', '=', 'm.id')->on('override.permission_id', '=', 'permission.id');
+            })->whereIn('permission.name', $visiblePermissions)->whereRaw($this->effectivePermission()."='مسموح'")->selectRaw('COUNT(*)');
+            $q->selectSub($granted, '_visible_granted');
+            foreach (['allows' => 1, 'denies' => 0] as $name => $allowed) {
+                $overrides = DB::table('membership_permissions as o')->join('permissions as p', 'p.id', '=', 'o.permission_id')->whereColumn('o.membership_id', 'm.id')->where('o.allowed', $allowed)->whereIn('p.name', $visiblePermissions)->selectRaw('COUNT(*)');
+                $q->selectSub($overrides, '_visible_'.$name);
+            }
 
-            return $this->dataset($q, $schema, ['_key' => 'r.id', 'id' => 'r.id', 'name' => 'r.name', 'role' => 'role.name', 'email' => 'r.email', 'permissionType' => "CASE WHEN m.kind='employee' THEN profile.name ELSE 'صلاحيات المالك' END", 'active' => "CASE WHEN r.status='active' AND m.status='active' THEN 'مفعل' ELSE 'موقوف' END", 'scope' => 'a.name', 'granted' => $granted, 'allows' => '(SELECT COUNT(*) FROM membership_permissions o WHERE o.membership_id=m.id AND o.allowed=1)', 'denies' => '(SELECT COUNT(*) FROM membership_permissions o WHERE o.membership_id=m.id AND o.allowed=0)']);
+            $q->addSelect(['r.id', 'r.name', 'r.email', 'role.name as role_name', 'm.kind', 'profile.name as profile_name', 'r.status as user_status', 'm.status as member_status', 'a.name as account_name']);
+            $members = DB::query()->fromSub($q, 'member_rows');
+
+            return $this->dataset($members, $schema, ['_key' => 'member_rows.id', 'id' => 'member_rows.id', 'name' => 'member_rows.name', 'role' => 'member_rows.role_name', 'email' => 'member_rows.email', 'permissionType' => "CASE WHEN member_rows.kind='employee' THEN member_rows.profile_name ELSE 'صلاحيات المالك' END", 'active' => "CASE WHEN member_rows.user_status='active' AND member_rows.member_status='active' THEN 'مفعل' ELSE 'موقوف' END", 'scope' => 'member_rows.account_name', 'granted' => 'member_rows._visible_granted', 'allows' => 'member_rows._visible_allows', 'denies' => 'member_rows._visible_denies']);
         }
         $q->crossJoin('permissions as permission')->leftJoin('membership_permissions as override', function ($join): void {
             $join->on('override.membership_id', '=', 'm.id')->on('override.permission_id', '=', 'permission.id');
-        });
+        })->whereIn('permission.name', $visiblePermissions);
         if ($schema['id'] === 'users-overrides') {
             $q->whereNotNull('override.permission_id')->where('m.kind', 'owner');
         }
@@ -626,18 +652,18 @@ class ReportQueries
             });
         }
         if ($schema['id'] === 'support-contacts') {
-            $q = DB::table('support_phone_profiles as r')->join('accounts as a', 'a.id', '=', 'r.account_id')->whereIn('r.account_id', $this->accounts($actor, $filters));
+            $q = DB::table('support_phone_profiles as r')->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'r.account_id')->whereIn('r.account_id', $this->accounts($actor, $filters));
             $index = $this->each($q, 'r.phones', 'phone_row');
 
             return $this->dataset($q, $schema, ['_key' => $this->concat(['r.account_id', "':'", $index]), 'account' => 'a.name', 'label' => $this->json('phone_row.value', 'label'), 'phone' => $this->json('phone_row.value', 'phone')]);
         }
         if ($schema['id'] === 'support-replies') {
-            $q = DB::table('support_messages as r')->leftJoin('users as u', 'u.id', '=', 'r.user_id')->whereIn('r.ticket_id', $tickets)->whereIn('r.id', $this->support->messages($actor)->where('is_opening', false)->select('support_messages.id'));
+            $q = DB::table('support_messages as r')->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 'r.user_id')->whereIn('r.ticket_id', $tickets)->whereIn('r.id', $this->support->messages($actor)->where('is_opening', false)->select('support_messages.id'));
             $this->period($q, $filters, 'r.created_at');
 
             return $this->dataset($q, $schema, ['_key' => 'r.id', 'ticket' => 'r.ticket_id', 'time' => 'r.created_at', 'user' => 'u.name', 'body' => 'r.body']);
         }
-        $q = DB::table('support_tickets as r')->join('accounts as a', 'a.id', '=', 'r.origin_id')->leftJoin('users as sender', 'sender.id', '=', 'r.sender_id')->leftJoin('accounts as recipient', 'recipient.id', '=', 'r.recipient_id')->whereIn('r.id', $tickets);
+        $q = DB::table('support_tickets as r')->joinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'r.origin_id')->leftJoinSub(app(AccountPrivacy::class)->users(), 'sender', 'sender.id', '=', 'r.sender_id')->leftJoinSub(app(AccountPrivacy::class)->accounts(), 'recipient', 'recipient.id', '=', 'r.recipient_id')->whereIn('r.id', $tickets);
         $this->period($q, $filters, 'r.created_at');
         $replies = $this->support->messages($actor)->where('is_opening', false)->whereColumn('ticket_id', 'r.id')->selectRaw('COUNT(*)');
         $q->selectSub($replies, '_replies')->addSelect(['r.id', 'r.created_at', 'r.title', 'r.description', 'r.attachment_id', 'r.status', 'a.name as agent_name', 'sender.name as sender_name', 'recipient.name as recipient_name']);
@@ -649,13 +675,13 @@ class ReportQueries
     private function auditBase(User $actor, array $filters): Builder
     {
         $scope = $this->accounts($actor, $filters);
-        $q = DB::table('audit_logs as r')->leftJoin('users as u', 'u.id', '=', 'r.user_id')->leftJoin('accounts as a', 'a.id', '=', 'r.subject_account_id')->where(function ($where) use ($scope): void {
+        $q = DB::table('audit_logs as r')->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 'r.user_id')->leftJoinSub(app(AccountPrivacy::class)->accounts(), 'a', 'a.id', '=', 'r.subject_account_id')->where(function ($where) use ($scope): void {
             $where->whereIn('r.subject_account_id', clone $scope)->orWhere(function ($own) use ($scope): void {
                 $own->whereNull('r.subject_account_id')->whereIn('r.account_id', clone $scope);
             });
         });
 
-        return $this->period($q, $filters, 'r.created_at');
+        return $this->period(app(AuditVisibility::class)->apply($q, $actor), $filters, 'r.created_at');
     }
 
     private function administration(User $actor, array $schema, array $filters): ?ReportDataset
@@ -686,7 +712,7 @@ class ReportQueries
             return $this->dataset($q, $schema, $fields);
         }
         if ($id === 'operations-notifications' && Schema::hasTable('notices') && $this->access->allows($actor, 'notifications.view')) {
-            $q = DB::table('notices as r')->leftJoin('users as u', 'u.id', '=', 'r.sender_id')->whereIn('r.id', $this->notifications->visible($actor)->select('notices.id'));
+            $q = DB::table('notices as r')->leftJoinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 'r.sender_id')->whereIn('r.id', $this->notifications->visible($actor)->select('notices.id'));
             $this->period($q, $filters, 'r.created_at');
             $counts = DB::table('notice_recipients')->whereIn('user_id', $this->users($actor, $filters))->select('notice_id')->groupBy('notice_id')->selectRaw('SUM(CASE WHEN read_at IS NOT NULL THEN 1 ELSE 0 END) as readers')->selectRaw('SUM(CASE WHEN read_at IS NULL THEN 1 ELSE 0 END) as unread');
             $q->leftJoinSub($counts, 'counts', 'counts.notice_id', '=', 'r.id');
@@ -694,7 +720,7 @@ class ReportQueries
             return $this->dataset($q, $schema, ['_key' => 'r.id', 'id' => 'r.id', 'time' => 'r.created_at', 'user' => 'u.name', 'title' => 'r.title', 'body' => 'r.body', 'attachment' => "CASE WHEN r.attachment_id IS NOT NULL THEN 'مرفقة' ELSE 'لا يوجد' END", 'target' => 'r.page', 'readers' => 'COALESCE(counts.readers,0)', 'unread' => 'COALESCE(counts.unread,0)']);
         }
         if ($id === 'operations-sessions' && $this->access->allows($actor, 'users.view')) {
-            $q = DB::table('sessions as r')->join('users as u', 'u.id', '=', 'r.user_id')->whereIn('r.user_id', $this->users($actor, $filters));
+            $q = DB::table('sessions as r')->joinSub(app(AccountPrivacy::class)->users(), 'u', 'u.id', '=', 'r.user_id')->whereIn('r.user_id', $this->users($actor, $filters));
             [$from,$to] = $this->dates($filters);
             if ($from !== null) {
                 $q->where('r.last_activity', '>=', strtotime($from.' UTC'));
@@ -710,7 +736,7 @@ class ReportQueries
         if ($id === 'operations-printing' && $this->access->allows($actor, 'printing.view') && Schema::hasTable('sales_print_rules')) {
             $q = DB::table('sales_print_rules as r');
             $this->each($q, 'r.targets', 'target_row');
-            $q->join('accounts as target_account', 'target_account.id', '=', DB::raw($this->json('target_row.value', 'id')))->whereIn('target_account.id', $this->accounts($actor, $filters))->groupBy('r.id', 'r.name', 'r.active', 'r.policy');
+            $q->joinSub(app(AccountPrivacy::class)->accounts(), 'target_account', 'target_account.id', '=', DB::raw($this->json('target_row.value', 'id')))->whereIn('target_account.id', $this->accounts($actor, $filters))->groupBy('r.id', 'r.name', 'r.active', 'r.policy');
 
             return $this->dataset($q, $schema, ['_key' => 'r.id', 'id' => 'r.id', 'name' => 'r.name', 'targets' => 'GROUP_CONCAT(DISTINCT target_account.name)', 'status' => "CASE WHEN r.active=1 THEN 'مفعل' ELSE 'موقوف' END", 'failedRetries' => $this->json('r.policy', 'failed_retries'), 'maxCards' => $this->json('r.policy', 'max_cards'), 'intervalSeconds' => $this->json('r.policy', 'interval_seconds'), 'dailyCards' => $this->json('r.policy', 'daily_cards'), 'dailyMode' => $this->json('r.policy', 'daily_mode')]);
         }

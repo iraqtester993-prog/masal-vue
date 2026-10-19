@@ -1,3 +1,4 @@
+import {hasOwnerAuthority} from './capabilities.js';
 export function passwordResetState(value) {
   const data = value?.data?.password_reset || value?.data || value?.password_reset || value;
   return typeof data?.required === 'boolean' && Number.isSafeInteger(data.version) && data.version >= 0
@@ -14,7 +15,7 @@ export function newPasswordError(password, confirmation) {
 }
 
 export function canResetAccountPassword(identity, account) {
-  return identity?.membership?.kind === 'owner' && ['system','main_agent','sub_agent','sub_branch'].includes(identity?.account?.type)
+  return hasOwnerAuthority(identity) && ['system','main_agent','sub_agent','sub_branch'].includes(identity?.account?.type)
     && identity?.permissions?.includes('account.password_reset')
     && account?.can_reset_password === true && account.id !== identity.account.id && account.type !== 'system';
 }
@@ -63,17 +64,20 @@ export function createPasswordResetMonitor(session, environment = {}) {
   const setTimer = environment.setInterval ?? globalThis.setInterval;
   const clearTimer = environment.clearInterval ?? globalThis.clearInterval;
   let disposed = false, pending = null;
+  const saving = () => session.state.busy || session.api.hasPendingMutation?.();
+  const current = (identity, version) => !disposed && !saving()
+    && session.state.identity === identity && (session.state.identity?.password_reset?.version ?? -1) === version;
   async function refresh() {
-    if (disposed || !session.state.identity || document?.visibilityState === 'hidden') return;
+    if (disposed || !session.state.identity || saving() || document?.visibilityState === 'hidden') return;
     if (pending) return pending;
-    const actor = session.state.identity.user.id, account = session.state.identity.account.id;
+    const identity = session.state.identity, version = identity.password_reset?.version ?? -1;
     pending = (async () => {
       try {
         const response = await session.api.passwordResetStatus();
-        if (!disposed && session.state.identity?.user.id === actor && session.state.identity?.account.id === account)
+        if (current(identity, version))
           await session.applyPasswordResetStatus(response);
       } catch (error) {
-        if (!disposed && session.state.identity?.user.id === actor && [401,403].includes(error.status)
+        if (current(identity, version) && [401,403].includes(error.status)
           && error.code !== 'PASSWORD_CHANGE_REQUIRED') await session.refresh();
       } finally { pending = null; }
     })();

@@ -1,25 +1,17 @@
 <script setup>
-import { computed, inject, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
+import { computed, inject, nextTick, onBeforeUnmount, onMounted, provide, reactive, ref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { usePortal } from "../modules/auth/session.js";
+import { identityScope, usePortal } from "../modules/auth/session.js";
 import { useTheme } from "../shared/composables/theme.js";
 import LanguagePicker from "../modules/preferences/LanguagePicker.vue";
 import { usePreferences, usePreferencesTranslator } from "../modules/preferences/preferences-state.js";
 import { navigationGroups, navIconPath, newNavigationState, synchronizeNavigation, toggleNavGroup, toggleSidebar } from "./navigation.js";
 import { createNotificationCounts } from "./notification-counts.js";
 import { createRoutePrefetch } from '../router/prefetch.js';
+import {routeAllowed} from '../router/access.js';
 import QuickActions from './QuickActions.vue';
 import {presenceContextKey} from '../modules/maps/presence-context.js';
 import "./shell-parity.css";
-import "./pos-app.css";
-import "./pos-design.css";
-import "./pos-refresh.css";
-import "./pos-polish.css";
-import "./pos-calm.css";
-import "./pos-experience.css";
-import "./pos-adopted.css";
-import "./pos-consistency.css";
-import "./pos-refined.css";
 import {useBalancePrivacy} from '../shared/composables/balance-privacy.js';
 import {ensurePosDeviceSession,clearPosDeviceSession} from '../shared/pos-device-session.js';
 import {posBrandStyle} from './pos-brand.js';
@@ -27,6 +19,7 @@ import {posSystemAppearance} from './pos-system-appearance.js';
 import {registerPosBackLayer} from '../shared/pos-back-navigation.js';
 import PwaInstall from './PwaInstall.vue';
 import {installPullRefresh,refreshBlocked} from '../shared/pull-refresh.js';
+import {createRouteRefreshCoordinator,routeRefreshContextKey} from '../shared/route-refresh.js';
 import {hasNativePrinter,getNativePrinterCapabilities,nativeRequest,configurePrinterRegistry,syncNativePrinterRegistry} from '../shared/native-print.js';
 
 defineProps({ scopeLabel: { type: String, required: true } });
@@ -34,10 +27,7 @@ const { session } = usePortal();
 const presence=inject(presenceContextKey,null);
 const preferences = usePreferences(), t = usePreferencesTranslator();
 const router = useRouter(), route = useRoute();
-const prefetchRoute = createRoutePrefetch(router, target => !!session.state.identity
-  && (!target.meta.permission || session.can(target.meta.permission))
-  && (!target.meta.accountTypes || target.meta.accountTypes.includes(session.state.identity.account.type))
-  && (!target.meta.membershipKinds || target.meta.membershipKinds.includes(session.state.identity.membership.kind)));
+const prefetchRoute = createRoutePrefetch(router, target => !!session.state.identity&&routeAllowed(target,session));
 const navigation = reactive(newNavigationState());
 const error = ref(""), sidebar = ref(null), menuToggle = ref(null), mobileMenuToggle=ref(null);
 const { dark, toggleTheme } = useTheme();
@@ -51,43 +41,47 @@ function registerCurrentDevice(){const own=identity.value?.account;if(own?.type=
 
 async function syncPrinterRegistry(){if(identity.value?.account.type!=='pos'||!hasNativePrinter())return;releasePrinterRegistry?.();releasePrinterRegistry=configurePrinterRegistry(session.api);try{await syncNativePrinterRegistry();}catch{/* The print action retries registry validation before sending any receipt. */}}
 const pullProgress=ref(0),pullRefreshing=ref(false),pullFinished=ref(false);let pullFinishTimer;
+const routeRefresh=createRouteRefreshCoordinator();provide(routeRefreshContextKey,routeRefresh);
 const saleSearchExpanded=ref(false);
 function toggleSaleSearch(){window.dispatchEvent(new Event('dananeer:toggle-sale-search'));}
 function saleSearchState(event){saleSearchExpanded.value=event.detail?.expanded===true;}let removePull;
-function canPullRefresh(){return identity.value?.account.type==='pos'&&!navigation.menuOpen&&!pullRefreshing.value&&!refreshBlocked({pendingMutation:session.api.hasPendingMutation?.(),dialogOpen:!!document.querySelector('dialog[open],.digital-receipt,[data-operation-uncertain="true"]')});}
-async function pullRefresh(){if(!canPullRefresh())return;pullRefreshing.value=true;try{if(hasNativePrinter()){const capability=await getNativePrinterCapabilities().catch(()=>null);if(capability?.busy){pullRefreshing.value=false;return;}}if(session.api.hasPendingMutation?.()){pullRefreshing.value=false;return;}try{sessionStorage.setItem('dananeer:pull-refreshed',String(Date.now()));}catch{}window.location.reload();}catch{pullRefreshing.value=false;}}
+function canPullRefresh(){return !!identity.value&&!navigation.menuOpen&&!pullRefreshing.value&&routeRefresh.canRefresh()&&!refreshBlocked({pendingMutation:session.api.hasPendingMutation?.(),dialogOpen:!!document.querySelector('dialog[open],[role="dialog"][aria-modal="true"],.digital-receipt,[data-operation-uncertain="true"]')});}
+async function pullRefresh(){
+ if(!canPullRefresh())return;pullRefreshing.value=true;pullFinished.value=false;clearTimeout(pullFinishTimer);
+ const page=route.fullPath,actor=identity.value?.account.id;error.value='';
+ try{
+  if(hasNativePrinter()){const capability=await getNativePrinterCapabilities();if(capability?.busy)return;}
+  // A write or modal may have started while the native status was being read.
+  if(page!==route.fullPath||actor!==identity.value?.account.id||session.api.hasPendingMutation?.()||!routeRefresh.canRefresh()||document.querySelector('dialog[open],.digital-receipt,[data-operation-uncertain="true"]'))return;
+  const refreshed=await routeRefresh.refresh();
+  if(refreshed&&page===route.fullPath&&actor===identity.value?.account.id){pullFinished.value=true;pullFinishTimer=setTimeout(()=>pullFinished.value=false,1100);refreshNotifications();}
+ }catch(failure){if(failure.name!=='AbortError')error.value=failure.message||'تعذر تحديث الصفحة. حاول مرة أخرى.';}
+ finally{pullRefreshing.value=false;}
+}
+watch(()=>[route.fullPath,identity.value?.user.id,identity.value?.account.id],()=>{routeRefresh.cancel();pullProgress.value=0;pullFinished.value=false;clearTimeout(pullFinishTimer);});
 const posFullscreenDialog=ref(false);let appearanceObserver;
 function refreshAppearanceOverlay(){
  if(identity.value?.account.type!=='pos'){posFullscreenDialog.value=false;return;}
  const dialog=[...document.querySelectorAll('dialog[open]')].at(-1),box=dialog?.getBoundingClientRect();
  posFullscreenDialog.value=!!box&&box.top<=1&&box.bottom>=window.innerHeight-1;
 }
-const posAppearance=computed(()=>identity.value?.account.type==='pos'?posSystemAppearance({home:route.name==='dashboard',dark:dark.value,hero:brandStyle.value['--pos-hero'],overlay:posFullscreenDialog.value||navigation.menuOpen}):null);
-const posChromeColor=computed(()=>posAppearance.value?.statusBarColor||null);
-watch([posChromeColor,dark],([chromeColor])=>{if(typeof document==='undefined'||!chromeColor)return;document.querySelector('meta[name="theme-color"]')?.setAttribute('content',chromeColor);if(hasNativePrinter())nativeRequest(posAppearance.value,{timeoutMs:3000}).catch(()=>{});},{immediate:true});
+const posAppearance=computed(()=>identity.value?.account.type==='pos'?posSystemAppearance({home:route.name==='dashboard',dark:dark.value,hero:brandStyle.value['--pos-hero'],accent:brandStyle.value[dark.value?'--pos-link-dark':'--pos-link-light'],overlay:posFullscreenDialog.value||navigation.menuOpen}):null);
+watch(posAppearance,appearance=>{if(typeof document==='undefined'||!appearance)return;document.querySelector('meta[name="theme-color"]')?.setAttribute('content',appearance.statusBarColor);if(hasNativePrinter())nativeRequest(appearance,{timeoutMs:3000}).catch(()=>{});},{immediate:true});
 const userName = computed(() => identity.value?.user.name || "");
 const initial = computed(() => Array.from(userName.value)[0] || "");
 const allGroups = computed(() => navigationGroups({
   routes: router.getRoutes(), identity: identity.value, can: session.can,
 }));
 const pageTitle = computed(() => identity.value?.account.type==='pos' && router.currentRoute.value.name==='sales' ? 'سجل العمليات' : identity.value?.account.type==='pos' && router.currentRoute.value.name==='sell' ? 'البيع' : router.currentRoute.value.meta.title || allGroups.value.flatMap(group => group.items).find(item => item.routeName === router.currentRoute.value.name)?.label || 'لوحة التحكم');
-const searchResults = computed(() => {
-  const query = navigation.search.trim().toLocaleLowerCase();
-  return query ? allGroups.value.flatMap(group => group.items).filter(item => `${item.label} ${t(item.label)}`.toLocaleLowerCase().includes(query)) : [];
-});
-const searchOpen = ref(false);
-function navigateSearch(item = searchResults.value[0]) { if (!item) return; searchOpen.value = false; navigation.search = ''; closeMenu(); router.push(item.to); }
 watch(()=>t(pageTitle.value),title=>{if(typeof document!=='undefined')document.title=title;},{immediate:true});
 const posLinks = computed(() => allGroups.value.flatMap(group => group.items).filter(item => ['dashboard','sell','sales','reports'].includes(item.id)).sort((a,b)=>['dashboard','sell','sales','reports'].indexOf(a.id)-['dashboard','sell','sales','reports'].indexOf(b.id)));
 function posTabIcon(id){return id==='sell'?navIconPath('products'):id==='sales'?'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0M12 7v5l3 2':navIconPath(id);}
 const posTypeName = computed(()=>identity.value?.account.name || identity.value?.account.pos_type_name || t('نقطة بيع'));
 watch(brandStyle,style=>{if(typeof document==='undefined')return;for(const key of brandKeys){if(style)document.documentElement.style.setProperty(key,style[key]);else document.documentElement.style.removeProperty(key);}},{immediate:true});
-const navGroups = computed(() => navigationGroups({
-  routes: router.getRoutes(), identity: identity.value, can: session.can, search: navigation.search, labelFor: t,
-}));
+const navGroups = allGroups;
 const notifications = computed(() => allGroups.value.flatMap((group) => group.items).find((item) => item.id === "notifications"));
 const notificationSummary = ref(null);
-const notificationCounts = createNotificationCounts({ api: session.api, identity: () => identity.value, allowed: () => session.can('notifications.view'), publish: (value) => { notificationSummary.value = value; } });
+const notificationCounts = createNotificationCounts({ api: session.api, identity: () => identity.value ? identityScope(identity.value) : null, allowed: () => session.can('notifications.view'), publish: (value) => { notificationSummary.value = value; } });
 const itemCount = (item) => notificationSummary.value?.counts[item.id] || 0;
 const groupCount = (group) => group.items.reduce((total, item) => total + itemCount(item), 0);
 const refreshNotifications = () => { void notificationCounts.refresh(); };
@@ -143,23 +137,14 @@ async function signOut() {
   try { await session.logout(); await router.replace({ name: "login" }); }
   catch (failure) { error.value = failure.message; }
 }
-async function readPageNotices(name){const page=['agents','pos','users','staff'].includes(name)?'accounts':name;if(!session.can('notifications.view')||!['support','import','inventory','claims','exports','wallets','invoices','prices','sales','exceptions','accounts','security','branding'].includes(page))return;try{await session.api.mutate('/notifications/read-page','POST',{page});await notificationCounts.refresh({force:true});}catch{}}
+async function readPageNotices(name){const page=['agents','pos','users','staff'].includes(name)?'accounts':name;if(!session.can('notifications.view')||!['support','import','inventory','claims','exports','wallets','invoices','prices','sales','exceptions','accounts','security','branding'].includes(page))return;try{await notificationCounts.readPage(page);}catch{}}
 watch(() => route.name, () => {
   if(route.name!=='sell')saleSearchExpanded.value=false;
   synchronizeNavigation(navigation, allGroups.value, route.name);
   navigation.hoverOpen = false;
   if (countsMounted) {void readPageNotices(route.name);void notificationCounts.refresh({ force: false });}
 }, { immediate: true });
-watch(identity, () => { notificationCounts.clear(); if (countsMounted) refreshNotifications(); });
-watch(() => navigation.search, (query) => {
-  if (!query.trim()) {
-    synchronizeNavigation(navigation, allGroups.value, route.name);
-    return;
-  }
-  for (const group of navGroups.value) {
-    if (!group.direct) navigation.collapsedGroups[group.id] = false;
-  }
-});
+watch(() => identityScope(identity.value), () => { notificationCounts.clear(); if (countsMounted) refreshNotifications(); });
 watch(() => navigation.menuOpen, async (open, previous) => {
   if (typeof document !== 'undefined') document.documentElement.classList.toggle('pos-menu-open', identity.value?.account.type==='pos' && open);
   if (!open && previous && navigation.mobile) {
@@ -177,7 +162,6 @@ onMounted(() => {
   }
   void syncPrinterRegistry();
   registerCurrentDevice();devicePulse=setInterval(registerCurrentDevice,30000);document.addEventListener('visibilitychange',registerCurrentDevice);
-  try{const at=Number(sessionStorage.getItem('dananeer:pull-refreshed'));sessionStorage.removeItem('dananeer:pull-refreshed');if(at&&Date.now()-at<20000){pullFinished.value=true;pullFinishTimer=setTimeout(()=>pullFinished.value=false,1100);}}catch{}
   removePull=installPullRefresh({canStart:canPullRefresh,onRefresh:pullRefresh,onProgress:value=>pullProgress.value=value});
   countsMounted = true;
   void readPageNotices(route.name);
@@ -197,6 +181,7 @@ onBeforeUnmount(() => {
   clearInterval(devicePulse);clearPosDeviceSession();document.removeEventListener('visibilitychange',registerCurrentDevice);
   releasePrinterRegistry?.();
   removePull?.();clearTimeout(pullFinishTimer);
+  routeRefresh.cancel();
   if(typeof document!=='undefined')for(const key of brandKeys)document.documentElement.style.removeProperty(key);
   countsMounted = false;
   sidebarMedia?.removeEventListener("change", updateViewport);
@@ -256,12 +241,12 @@ onBeforeUnmount(() => {
             </div>
           </div>
         </section>
-        <p v-if="!navGroups.length" class="navigation-empty" role="status">{{ t(navigation.search ? "لا توجد نتائج مطابقة" : "لا توجد وحدات مسموحة لهذا الحساب") }}</p>
+        <p v-if="!navGroups.length" class="navigation-empty" role="status">{{ t("لا توجد وحدات مسموحة لهذا الحساب") }}</p>
       </nav>
       <div v-if="navigation.mobile && identity?.account.type==='pos'" class="pos-mobile-preferences"><LanguagePicker/><button type="button" class="btn small" @click="toggleTheme">{{t(dark?'الوضع النهاري':'الوضع الليلي')}}</button><button v-if="presence" type="button" class="btn small" :disabled="presence.state.checking" @click="presence.state.sharing?presence.stopLocationSharing():presence.startLocationSharing()">{{t(presence.state.sharing?'إيقاف مشاركة موقعي':'مشاركة موقعي مع الإدارة')}}</button><PwaInstall/></div>
       <div class="sidebar-account">
         <span class="account-avatar">{{ initial }}</span>
-        <div><strong><RouterLink v-if="profileRoute" class="account-profile-link" :to="profileRoute" @click="closeMenu">{{ userName }}</RouterLink><template v-else>{{ userName }}</template></strong><small>الحساب الحالي</small></div>
+        <div><strong><RouterLink v-if="profileRoute" class="account-profile-link" :to="profileRoute" :title="t('تعديل حسابي')" :aria-label="t('تعديل حسابي') + ' · ' + userName" @click="closeMenu" @pointerenter="prefetchRoute(profileRoute)" @focus="prefetchRoute(profileRoute)">{{ userName }}</RouterLink><template v-else>{{ userName }}</template></strong></div>
         <button type="button" class="sidebar-logout" :disabled="session.state.busy" aria-label="تسجيل الخروج" title="تسجيل الخروج" @click="signOut">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4H4v16h5M10 12h11m-4-4 4 4-4 4"></path></svg>
         </button>
@@ -269,7 +254,7 @@ onBeforeUnmount(() => {
       </div>
     </aside>
     <div class="portal-content main" :data-page="route.meta.navigationId || route.name" :inert="navigation.mobile && navigation.menuOpen ? true : null">
-      <div v-if="identity?.account.type==='pos'&&(pullProgress||pullRefreshing||pullFinished)" class="pos-pull-indicator" role="status" :style="{'--pull-offset':pullProgress+'px'}"><span class="pos-pull-glyph" :class="{spinning:pullRefreshing,ready:pullProgress>=64}" :style="{'--pull-turn':Math.min(180,pullProgress*2)+'deg'}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path v-if="pullFinished" d="m5 12 4 4L19 6"/><path v-else d="M20 7v5h-5M4 17v-5h5M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 18 17"/></svg></span>{{t(pullFinished?'تم تحديث التطبيق':pullRefreshing?'جارٍ تحديث التطبيق…':pullProgress>=64?'اترك للتحديث':'اسحب للتحديث')}}</div>
+      <div v-if="pullProgress||pullRefreshing||pullFinished" class="pos-pull-indicator" role="status" :style="{'--pull-offset':pullProgress+'px'}"><span class="pos-pull-glyph" :class="{spinning:pullRefreshing,ready:pullProgress>=64}" :style="{'--pull-turn':Math.min(180,pullProgress*2)+'deg'}" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path v-if="pullFinished" d="m5 12 4 4L19 6"/><path v-else d="M20 7v5h-5M4 17v-5h5M6.1 7a7 7 0 0 1 11.6-1L20 9M4 15l2.3 3A7 7 0 0 0 18 17"/></svg></span>{{t(pullFinished?'تم تحديث الصفحة':pullRefreshing?'جارٍ تحديث الصفحة…':pullProgress>=64?'اترك للتحديث':'اسحب للتحديث')}}</div>
       <header v-if="identity?.account.type==='pos'" class="pos-mobile-header">
         <RouterLink :to="{name:'posMore'}" class="pos-header-identity" :aria-label="t('حسابي')"><span class="pos-header-avatar" aria-hidden="true">{{initial || 'د'}}</span><span class="pos-header-title"><small>{{route.name==='dashboard'?t('أهلاً بك في')+' '+(brand?.name||'دنانير'):posTypeName}}</small><strong>{{route.name==='dashboard'?posTypeName:t(pageTitle)}}</strong></span></RouterLink>
         <button v-if="route.name==='sell'" class="pos-header-button pos-search-toggle" type="button" aria-label="بحث الفئات" :aria-expanded="saleSearchExpanded" :aria-controls="saleSearchExpanded?'pos-sale-search':undefined" @click="toggleSaleSearch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg></button>
@@ -288,21 +273,10 @@ onBeforeUnmount(() => {
             <svg v-if="!dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M20.5 14A8.5 8.5 0 0 1 10 3.5 8.5 8.5 0 1 0 20.5 14Z"></path></svg>
             <svg v-else viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"></path></svg>
           </button>
-          <div class="portal-search" @focusout="event => { if (!event.currentTarget.contains(event.relatedTarget)) searchOpen = false; }">
-            <input v-model="navigation.search" type="search" class="search" placeholder="ابحث في وحدات النظام…" aria-label="بحث الوحدات" autocomplete="off" maxlength="200" :aria-expanded="searchOpen && !!navigation.search.trim()" aria-controls="portal-search-results" @focus="searchOpen=true" @input="searchOpen=true" @keydown.enter.prevent="navigateSearch()" @keydown.esc="searchOpen=false" />
-            <div v-if="searchOpen && navigation.search.trim()" id="portal-search-results" class="portal-search-results">
-              <button v-for="item in searchResults" :key="item.id" type="button" @click="navigateSearch(item)">{{ t(item.label) }}</button>
-              <p v-if="!searchResults.length" role="status">{{ t('لا توجد نتائج مطابقة') }}</p>
-            </div>
-          </div>
           <RouterLink v-if="notifications" class="iconbtn notification-bell" :to="notifications.to" :aria-label="t(notificationSummary?.unread ? 'الإشعارات: ' + notificationSummary.unread + ' غير مقروءة' : 'الإشعارات')" title="الإشعارات">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path :d="navIconPath('notifications')"></path></svg>
             <span v-if="notificationSummary?.unread" class="notification-count">{{ notificationSummary.unread }}</span>
           </RouterLink>
-          <RouterLink v-if="profileRoute" class="avatar" :to="profileRoute" aria-label="حسابي" :title="userName">{{ initial }}</RouterLink>
-          <div v-else class="avatar" :title="userName">{{ initial }}</div>
-          <RouterLink v-if="profileRoute" class="profile-picker account-identity" :to="profileRoute" :title="userName + ' · ' + t(scopeLabel)">{{ userName }}</RouterLink>
-          <span v-else class="profile-picker account-identity" :title="userName + ' · ' + t(scopeLabel)">{{ userName }}</span>
         </div>
       </header>
       <main id="main-content" class="portal-main">

@@ -7,6 +7,7 @@ use App\Http\Requests\Support\AttachmentRequest;
 use App\Http\Requests\Support\SupportRequest;
 use App\Http\Resources\Support\SupportResource;
 use App\Models\Support\SupportAttachment;
+use App\Services\AccountPrivacy;
 use App\Services\Notifications\NotificationService;
 use App\Services\Operations\MutationGuard;
 use App\Services\Support\SupportAccess;
@@ -29,10 +30,11 @@ class SupportController extends Controller
         $contacts = $this->access->contacts($actor)->orderBy('id')->limit(10001)->get();
         abort_if($contacts->count() > 10000, 422, 'ضيّق نطاق الحسابات.');
         $operational = $this->access->operationalAccounts($contacts->pluck('id')->all());
-        $recipients = $contacts->filter(fn ($a) => isset($operational[$a->id]))->map(fn ($a) => ['id' => $a->id, 'name' => $a->name, 'type' => $a->type->value, 'phones' => $this->workflow->phones($actor, $a->id)['phones']])->values()->all();
+        $privacy = app(AccountPrivacy::class);
+        $recipients = $contacts->filter(fn ($a) => isset($operational[$a->id]))->map(fn ($a) => ['id' => $a->id, 'name' => $privacy->accountName($a, 'الدعم الفني'), 'type' => $a->type->value, 'phones' => $this->workflow->phones($actor, $a->id)['phones']])->values()->all();
         $own = $actor->membership->account;
 
-        return response()->json(['data' => ['identity' => ['id' => $own->id, 'name' => $own->name, 'type' => $own->type->value], 'recipients' => $recipients, 'broadcast_users' => $this->access->allows($actor, 'support.broadcast') ? $this->access->audience($actor, true) : [], 'site_inquiries_count' => $own->type->value === 'system' ? DB::table('company_inquiries')->where('status', 'new')->count() : 0, 'can_edit_phones' => $this->workflow->phones($actor, $own->id)['can_edit']]]);
+        return response()->json(['data' => ['identity' => ['id' => $own->id, 'name' => $privacy->accountName($own, 'الدعم الفني'), 'type' => $own->type->value], 'recipients' => $recipients, 'broadcast_users' => $this->access->allows($actor, 'support.broadcast') ? $this->access->audience($actor, true) : [], 'site_inquiries_count' => $own->type->value === 'system' ? DB::table('company_inquiries')->where('status', 'new')->count() : 0, 'can_edit_phones' => $this->workflow->phones($actor, $own->id)['can_edit']]]);
     }
 
     public function index(SupportRequest $request): JsonResponse
@@ -49,7 +51,7 @@ class SupportController extends Controller
         if ($term = trim($request->input('query', ''))) {
             $term = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $term).'%';
             $q->where(function ($search) use ($term): void {
-                $search->whereRaw("title LIKE ? ESCAPE '!'", [$term])->orWhereHas('origin', fn ($a) => $a->whereRaw("name LIKE ? ESCAPE '!'", [$term]))->orWhereHas('recipient', fn ($a) => $a->whereRaw("name LIKE ? ESCAPE '!'", [$term]));
+                $search->whereRaw("title LIKE ? ESCAPE '!'", [$term])->orWhereHas('origin', fn ($a) => $a->where('type', '<>', 'system')->whereRaw("name LIKE ? ESCAPE '!'", [$term]))->orWhereHas('recipient', fn ($a) => $a->where('type', '<>', 'system')->whereRaw("name LIKE ? ESCAPE '!'", [$term]));
             });
         }
         $q->select('support_tickets.*')->selectSub((clone $visible)->selectRaw('MAX(created_at)'), 'visible_latest_at')->orderByDesc('visible_latest_at')->orderByDesc('id');

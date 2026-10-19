@@ -9,12 +9,12 @@ function instant(value) {
   const date=new Date(/Z$|[+-]\d\d:\d\d$/.test(raw)?raw:raw+'Z');
   return Number.isNaN(date.getTime())?null:date;
 }
-function day(date){return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Baghdad',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);}
+function day(date){return new Intl.DateTimeFormat('en-CA', {numberingSystem:'latn',timeZone:'Asia/Baghdad',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);}
 export function notificationGroups(rows,{now=new Date(),language='ar'}={}) {
   const today=day(now),yesterday=day(new Date(now.getTime()-86400000)),locale={ar:'ar-IQ',en:'en-GB',ckb:'ckb-IQ'}[language]||'ar-IQ',groups=new Map();
   for(const notice of rows){
     const date=instant(notice.time),key=date?day(date):'unknown';
-    const label=key===today?'اليوم':key===yesterday?'أمس':date?new Intl.DateTimeFormat(locale,{timeZone:'Asia/Baghdad',dateStyle:'medium'}).format(date):'تاريخ غير متوفر';
+    const label=key===today?'اليوم':key===yesterday?'أمس':date?new Intl.DateTimeFormat(locale, {numberingSystem:'latn',timeZone:'Asia/Baghdad',dateStyle:'medium'}).format(date):'تاريخ غير متوفر';
     if(!groups.has(key))groups.set(key,{key,label,rows:[]});
     groups.get(key).rows.push(notice);
   }

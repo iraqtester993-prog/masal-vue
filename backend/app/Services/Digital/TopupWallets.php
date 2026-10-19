@@ -12,6 +12,7 @@ use App\Models\Finance\Wallet;
 use App\Models\User;
 use App\Services\Finance\Ledger;
 use App\Services\Finance\Money;
+use App\Services\ManagementAuthority;
 use App\Support\RequestReadCache;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\DB;
@@ -38,7 +39,8 @@ class TopupWallets
     public function bootstrap(TopupGrant $grant, User $actor): Wallet
     {
         abort_unless(DB::transactionLevel() > 0 && $grant->connection_id !== null && $grant->target_account_id === $grant->main_account_id, 409, 'حصة Topup غير صالحة للتمويل.');
-        abort_unless($actor->membership->account_id === $grant->from_account_id && $actor->membership->account->type === AccountType::System && $actor->membership->kind === 'owner', 403, 'تهيئة رصيد Topup من مدير النظام المالك للحصة فقط.');
+        app(ManagementAuthority::class)->systemAccess($actor, 'topup.allocate');
+        abort_unless($actor->membership->account_id === $grant->from_account_id, 403);
         if ($this->initialized($grant)) {
             return $this->bound($grant, $grant->target_account_id, 'main');
         }

@@ -1,10 +1,10 @@
+import {routeAllowed} from '../../router/access.js';
+import {hasSystemScope} from '../auth/capabilities.js';
+
 export function allowedReportRoute(routes, name, identity, can) {
   const route = routes.find((candidate) => candidate.name === name && !candidate.redirect);
   if (!route || !identity?.account || !identity?.membership) return null;
-  const meta = route.meta || {};
-  if (meta.permission && !can(meta.permission)) return null;
-  if (meta.accountTypes && !meta.accountTypes.includes(identity.account.type)) return null;
-  if (meta.membershipKinds && !meta.membershipKinds.includes(identity.membership.kind)) return null;
+  if(!routeAllowed(route,{state:{identity},can}))return null;
   return route;
 }
 
@@ -23,7 +23,7 @@ export function reportDestination(sectionId, routes, identity, can, filters = {}
   };
   const prefix = sectionId.split('-')[0];
   const general = { network: sectionId === 'network-pos' ? 'pos' : 'agents', inventory: 'inventory', claims: 'claims', wallets: 'wallets', sales: 'sales', prices: 'prices', support: 'support', users: 'staff', audit: 'audit', operations: 'security' };
-  const setup = identity?.account?.type === 'system' && identity?.membership?.kind === 'owner' && can('integrations.edit');
+  const setup = hasSystemScope(identity)&&can('integrations.edit');
   const names = (special[sectionId] || [general[prefix]]).filter((name) => name !== 'integrations' || setup);
   const route = names.map((name) => allowedReportRoute(routes, name, identity, can)).find(Boolean);
   if (!route) return null;

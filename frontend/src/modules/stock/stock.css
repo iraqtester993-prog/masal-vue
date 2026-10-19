@@ -732,12 +732,5 @@ html[data-theme] .stock-workspace .price-mode-tabs .btn{flex: 1;
     font-size: 14px;
     border: 1px solid var(--line);
     border-radius: 10px;
-    white-space: normal;}
-:where(.stock-workspace,.stock-modal) html:not([data-theme="dark"]) .pos-mobile-app :is( .pos-phone-products > button, .pos-phone-companies > button, .wallet-navigation-tabs button, .wallet-service-cards button, .wallet-funding-body > .tabs button ){background: #fff;
-    color: #163247;
-    border-color: #becfdb;
-    box-shadow: 0 2px 6px #183c5110;}
-:where(.stock-workspace,.stock-modal) html:not([data-theme="dark"]) .pos-mobile-app :is( .pos-phone-companies > button.active, .wallet-navigation-tabs button.active, .wallet-service-cards button.active, .wallet-funding-body > .tabs button.active ){background: var(--accent);
-    color: #fff;
-    border-color: var(--accent);}}
+    white-space: normal;}}
 .stock-fieldset{border:0;padding:0;margin:0;min-width:0}.stock-workspace .text-danger{color:var(--red,#b91c1c)}.stock-workspace .order-preview-edit small{display:block}.stock-workspace .inventory-controls{margin-bottom:18px}.stock-workspace fieldset:disabled{opacity:.75}

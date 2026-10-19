@@ -2,5 +2,4 @@
 **/build/
 local.properties
 *.jks
-app/libs/*.jar
 emulator-*.log

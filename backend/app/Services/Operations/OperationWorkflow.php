@@ -60,10 +60,10 @@ class OperationWorkflow
 
     public function createStop(User $actor, array $data, Request $request): array
     {
-        $this->access->requireSecurity($actor, true);
+        $this->access->requireActions($actor, $data['actions']);
 
         return $this->execute($actor, 'security.stop', $data, function () use ($actor, $data, $request): array {
-            $this->access->requireSecurity($actor, true);
+            $this->access->requireActions($actor, $data['actions']);
             $ids = $data['account_ids'] ?? [];
             if ($ids) {
                 abort_unless($this->access->accounts($actor)->whereIn('id', $ids)->count() === count($ids), 404);
@@ -85,11 +85,12 @@ class OperationWorkflow
     public function resume(User $actor, int $id, array $data, Request $request): array
     {
         $this->access->requireSecurity($actor, true);
-        $this->access->stops($actor)->findOrFail($id);
+        $this->access->requireActions($actor, $this->access->stops($actor)->findOrFail($id)->actions);
 
         return $this->execute($actor, 'security.resume:'.$id, $data, function () use ($actor, $id, $data, $request): array {
             $this->access->requireSecurity($actor, true);
             $stop = $this->access->stops($actor)->lockForUpdate()->findOrFail($id);
+            $this->access->requireActions($actor, $stop->actions);
             abort_unless($stop->active && $stop->version === (int) $data['version'], 409, 'تغير قرار التوقيف؛ أعد فتحه.');
             $stop->update(['active' => false, 'version' => $stop->version + 1, 'resumed_by' => $actor->id, 'resumed_at' => now()]);
             $this->audit->record('security.resume', $request, $actor, null, ['stop_id' => $id]);
@@ -101,6 +102,7 @@ class OperationWorkflow
     public function direct(User $actor, int $id, array $data, Request $request, bool $global = false): array
     {
         $this->access->requireSecurity($actor, true);
+        $this->access->requireActions($actor, $global ? OperationGuard::KEYS : array_keys($data['stops']));
         if ($global) {
             abort_unless($this->access->canRestoreGlobal($actor), 403, 'إلغاء التوقيف العام يتطلب صلاحياته ونطاق النظام كاملًا.');
         }
@@ -110,15 +112,16 @@ class OperationWorkflow
 
         return $this->execute($actor, 'security.direct:'.$id, $data, function () use ($actor, $id, $data, $request, $global): array {
             $this->access->requireSecurity($actor, true);
+            $this->access->requireActions($actor, $global ? OperationGuard::KEYS : array_keys($data['stops']));
             if ($global) {
                 abort_unless($this->access->canRestoreGlobal($actor), 403);
             }
             $account = $global ? $actor->membership->account : $this->access->accounts($actor)->lockForUpdate()->findOrFail($id);
             $record = DirectStop::where('account_id', $account->id)->lockForUpdate()->first();
             abort_unless(($record?->version ?? 0) === (int) $data['version'], 409, 'تغيرت ضوابط الحساب؛ أعد فتحها.');
-            $stops = [];
-            foreach ($global ? OperationGuard::KEYS : ['login', 'sales', 'printing', 'import'] as $name) {
-                $stops[$name] = $global ? false : (bool) ($data['stops'][$name] ?? false);
+            $stops = $record?->stops ?? [];
+            foreach ($global ? OperationGuard::KEYS : array_keys($data['stops']) as $name) {
+                $stops[$name] = $global ? false : (bool) $data['stops'][$name];
             }
             $record = DirectStop::updateOrCreate(['account_id' => $id], ['stops' => $stops, 'version' => ($record?->version ?? 0) + 1]);
             $this->audit->record('security.direct', $request, $actor, $id, ['stops' => $stops, 'version' => $record->version]);
@@ -130,7 +133,7 @@ class OperationWorkflow
     public function timeUser(User $actor, int $id, bool $lock = false): User
     {
         $this->access->requireSecurity($actor, false, true);
-        $query = User::whereIn('id', AccountMembership::where('kind', 'employee')->whereIn('account_id', $this->scope->query($actor)->select('id'))->select('user_id'));
+        $query = User::whereIn('id', $this->access->timeMembers($actor)->select('user_id'));
 
         return ($lock ? $query->lockForUpdate() : $query)->findOrFail($id);
     }

@@ -46,11 +46,18 @@
  html[data-portal=pos][data-theme=dark] .portal-shell.pos-app .tabs>button.active{background:#b8e5d8;border-color:#b8e5d8;color:#0d2c30}
  html[data-portal=pos][data-theme] .portal-shell.pos-app .notice{font-size:12px;line-height:1.8;border-radius:12px;overflow-wrap:anywhere}
  html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-page{max-width:760px;margin-inline:auto}
- html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-page h1{font-size:25px;margin:0 0 18px}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-profile{display:flex;align-items:center;gap:14px;padding:18px;margin-bottom:18px;border:1px solid var(--line);border-radius:18px;background:var(--panel)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-avatar{display:grid;place-items:center;flex:none;width:68px;height:68px;overflow:hidden;border:1px solid var(--line);border-radius:18px;background:var(--accent-soft);color:var(--pos-accent);font-size:28px}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-avatar img{width:100%;height:100%;object-fit:cover}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-profile-text{display:grid;gap:4px;min-width:0;overflow-wrap:anywhere}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-profile-text>strong{font-size:16px}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-profile-text>span{font-size:12px;color:var(--muted)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-profile-text>small{font-size:11px;color:var(--muted)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-profile-text>small>b{color:var(--ink)}
  html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-list{display:grid;gap:0;border:1px solid var(--line);border-radius:18px;overflow:hidden;background:var(--panel)}
  html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-list>a,html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-list>button{display:flex;align-items:center;gap:12px;min-height:58px;margin:0;padding:13px 16px;border:0;border-bottom:1px solid var(--soft-line);border-radius:0;color:var(--ink);background:transparent;font-size:13px;text-decoration:none;width:100%;text-align:start}
  html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-list>*:last-child{border-bottom:0}
- html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-list svg{width:21px;height:21px;color:var(--pos-accent)}
+ html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-list svg{width:21px;height:21px;flex:none;color:var(--pos-accent);stroke-linecap:round;stroke-linejoin:round}
  html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-list>*>span:nth-child(2){flex:1}
  html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-list .pos-more-logout,html[data-portal=pos][data-theme] .portal-shell.pos-app .pos-more-list .pos-more-delete{color:#b25345}
  html[data-portal=pos][data-theme] .portal-shell.pos-app :is(.pos-tab,.pos-header-button,.pos-more-list>a,button):focus-visible{outline:2px solid var(--pos-accent);outline-offset:3px}

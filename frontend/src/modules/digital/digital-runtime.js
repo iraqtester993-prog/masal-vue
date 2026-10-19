@@ -4,10 +4,20 @@ import { createDigitalApi } from './digital-api.js';
 import { createMutationKey,errorText } from './digital-model.js';
 export function useDigitalRuntime() {
   const {session}=usePortal(),api=createDigitalApi(session.api),identity=computed(()=>session.state.identity),ownId=computed(()=>Number(identity.value?.account.id)),pos=computed(()=>identity.value?.account.type==='pos');
-  const state=reactive({options:{accounts:[],products:[],providers:[],gateway:null},connections:[],connectionsMeta:{current_page:1,last_page:1,total:0},offers:[],loading:false,busy:false,error:'',notice:'',uncertain:false}),receipt=ref(null),writer=new AbortController();
+  const optionsSnapshot=session.api.peekRequest?.('/digital/options?compact=1'),connectionsSnapshot=api.peekConnections?.({page:1,per_page:25}),offersSnapshot=pos.value?api.peekOffers?.():null;
+  const state=reactive({options:optionsSnapshot?.data??{accounts:[],products:[],providers:[],gateway:null},connections:connectionsSnapshot?.data??[],connectionsMeta:connectionsSnapshot?.meta??{current_page:1,last_page:1,total:0},offers:offersSnapshot?.data??[],loading:false,busy:false,error:'',notice:'',uncertain:false}),receipt=ref(null),writer=new AbortController();
+  let connectionPage=1;
   let reader,receiptReader,revision=0,receiptRevision=0;
   async function failure(error){if([401,403].includes(error.status))await session.refresh();return errorText(error);}
-  async function load(page=state.connectionsMeta.current_page,{withOffers=true}={}){reader?.abort();reader=new AbortController();const expected=++revision;state.loading=true;state.error='';try{const [options,connections,offers]=await Promise.all([api.options(reader.signal),api.connections({page,per_page:25},reader.signal),pos.value&&withOffers?api.offers(reader.signal):Promise.resolve({data:[]})]);if(expected!==revision)return;state.options=options.data;state.connections=connections.data;state.connectionsMeta=connections.meta;state.offers=offers.data;}catch(error){if(error.name!=='AbortError'&&expected===revision)state.error=await failure(error);}finally{if(expected===revision)state.loading=false;}}
+  async function load(page=state.connectionsMeta.current_page,{withOffers=true,fresh=false}={}){
+    reader?.abort();reader=new AbortController();const expected=++revision,parameters={page,per_page:25},cached=api.peekConnections?.(parameters);
+    if(cached){state.connections=cached.data;state.connectionsMeta=cached.meta;}
+    else if(page!==connectionPage){state.connections=[];state.connectionsMeta={current_page:page,last_page:page,total:0};}
+    connectionPage=page;state.loading=!cached;state.error='';
+    try{const [options,connections,offers]=await Promise.all([api.options(reader.signal,{}, {fresh}),api.connections(parameters,reader.signal,{fresh:true}),pos.value&&withOffers?api.offers(reader.signal,{fresh}):Promise.resolve({data:state.offers})]);if(expected!==revision)return;state.options=options.data;state.connections=connections.data;state.connectionsMeta=connections.meta;state.offers=offers.data;}
+    catch(error){if(error.name!=='AbortError'&&expected===revision)state.error=await failure(error);}
+    finally{if(expected===revision)state.loading=false;}
+  }
   async function execute(payload,key,action,notice='تم حفظ العملية.') {
     if(state.busy)return null;state.busy=true;state.error='';state.notice='';state.uncertain=false;
     try{const result=await action({...payload,idempotency_key:key.for(payload)},writer.signal);key.clear();state.notice=notice;return result.data;}catch(error){if(error.name!=='AbortError'){state.uncertain=!error.status||error.status>=500;state.error=await failure(error);}return null;}finally{state.busy=false;}

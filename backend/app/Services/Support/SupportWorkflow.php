@@ -141,13 +141,13 @@ class SupportWorkflow
             $phones = array_map(fn ($number) => ['label' => 'الدعم الفني', 'number' => $number], array_slice(array_unique($matches[0]), 0, 5));
         }
 
-        return ['account_id' => $id, 'phones' => $account->type === AccountType::Pos ? [] : $phones, 'version' => $profile?->version ?? 0, 'can_edit' => $id === $own && $actor->membership->kind === 'owner' && $account->type !== AccountType::Pos && $this->access->allows($actor, 'support.create')];
+        return ['account_id' => $id, 'phones' => $account->type === AccountType::Pos ? [] : $phones, 'version' => $profile?->version ?? 0, 'can_edit' => $id === $own && ($actor->membership->kind === 'owner' || $this->access->isSystemOwner($actor)) && $account->type !== AccountType::Pos && $this->access->allows($actor, 'support.create')];
     }
 
     public function savePhones(User $actor, int $id, array $data, Request $request): array
     {
         $this->access->require($actor, 'support.create');
-        abort_unless($id === $actor->membership->account_id && $actor->membership->kind === 'owner' && $actor->membership->account->type !== AccountType::Pos, 403);
+        abort_unless($id === $actor->membership->account_id && ($actor->membership->kind === 'owner' || $this->access->isSystemOwner($actor)) && $actor->membership->account->type !== AccountType::Pos, 403);
 
         return $this->operations->execute($actor, 'support.phones', $data, function () use ($actor, $id, $data, $request): array {
             Account::whereKey($id)->lockForUpdate()->firstOrFail();

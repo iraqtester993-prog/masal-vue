@@ -19,7 +19,7 @@ class EnsureOperationalRequest
         $user = $request->user();
         app(AccountTimeGuard::class)->enforce($user, $request, $request->isMethod('POST') && $request->is('api/v1/operations/activity'));
         $systemOwner = $user->membership->kind === 'owner' && $user->membership->account->type === AccountType::System;
-        $recoveryAuthority = $systemOwner || ($user->membership->account->type === AccountType::System && in_array('security.view', $user->membership->permissions(), true) && in_array('security.policies', $user->membership->permissions(), true) && app(OperationAccess::class)->canRestoreGlobal($user));
+        $recoveryAuthority = $systemOwner || ($user->membership->account->type === AccountType::System && in_array('security.view', $user->membership->permissions(), true) && app(OperationAccess::class)->canRestoreGlobal($user));
         $recovery = $recoveryAuthority
             && ($request->is('api/v1/auth/me') || $request->is('api/v1/operations/security', 'api/v1/operations/security/*'));
         if (! $recovery && ($reason = app(OperationGuard::class)->reason($user->membership->account_id, 'login') ?? app(OperationGuard::class)->reason($user->membership->account_id, 'app'))) {

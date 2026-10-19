@@ -13,6 +13,7 @@ use App\Services\AccountScope;
 use App\Services\AuditLogger;
 use App\Services\Backups\BackupCoordination;
 use App\Services\CatalogAccess;
+use App\Services\Finance\FinanceServiceIdentity;
 use App\Services\ManagementAuthority;
 use App\Services\Operations\MutationGuard;
 use Carbon\CarbonImmutable;
@@ -56,9 +57,12 @@ class CatalogController extends Controller
         if (! empty($input['query'])) {
             $term = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $input['query']).'%';
             $columns = $providers ? ['name', 'id', 'supplier', 'connection'] : ['name', 'id', 'kind', 'currency', 'face_value', 'minimum_price', 'daily_quantity', 'daily_amount', 'import_codes', 'receipt_header', 'receipt_footer', 'allowed_cities'];
-            $query->where(function ($search) use ($term, $columns): void {
+            $query->where(function ($search) use ($term, $columns, $providers, $input): void {
                 foreach ($columns as $column) {
                     $search->orWhereRaw($column." LIKE ? ESCAPE '!'", [$term]);
+                }
+                if ($providers && stripos('Topup', $input['query']) !== false) {
+                    $search->orWhereIn('id', app(FinanceServiceIdentity::class)->topupProviderIds());
                 }
             });
         }
@@ -104,7 +108,7 @@ class CatalogController extends Controller
             $providers->whereIn('id', $this->access->products($actor)->select('provider_id'));
         }
 
-        return response()->json(['data' => ['providers' => (clone $providers)->get(['id', 'name', 'status', 'version']), 'suppliers' => (clone $providers)->distinct()->pluck('supplier'), 'connections' => (clone $providers)->distinct()->pluck('connection'), 'kinds' => $this->access->products($actor)->distinct()->pluck('kind'), 'cities' => DB::table('account_cities')->where('active', true)->pluck('name'), 'catalog_version' => (int) DB::table('catalog_meta')->where('id', 1)->value('version')]]);
+        return response()->json(['data' => ['providers' => (clone $providers)->get(['id', 'name', 'status', 'version'])->map(fn ($provider): array => array_replace($provider->toArray(), ['name' => app(FinanceServiceIdentity::class)->providerName($provider)])), 'suppliers' => (clone $providers)->distinct()->pluck('supplier'), 'connections' => (clone $providers)->distinct()->pluck('connection'), 'kinds' => $this->access->products($actor)->distinct()->pluck('kind'), 'cities' => DB::table('account_cities')->where('active', true)->pluck('name'), 'catalog_version' => (int) DB::table('catalog_meta')->where('id', 1)->value('version')]]);
     }
 
     private function change(CatalogRequest $request, string $class, string $permission, ?int $id): Model
@@ -125,6 +129,10 @@ class CatalogController extends Controller
                     throw ValidationException::withMessages(['image' => 'فئة Topup تابعة للشركة؛ يمكن تعديل صورتها فقط من صفحة فئات Topup.']);
                 }
                 $data = $request->validated();
+                if (! $providers && $id && isset($data['provider_id']) && (int) $data['provider_id'] !== (int) $record->provider_id
+                    && DigitalOffer::where('product_id', $id)->whereHas('connection', fn ($connections) => $connections->where('provider', 'topup'))->exists()) {
+                    throw ValidationException::withMessages(['provider_id' => 'فئة Topup مرتبطة بهوية الخدمة؛ لا يمكن تغيير شركة الفئة وفصل هوية المحفظة.']);
+                }
                 if ($id) {
                     $this->authority->version($record, $data['version']);
                 }
@@ -308,17 +316,17 @@ class CatalogController extends Controller
     {
         $actor = $request->user();
         $target = $this->authority->account($actor, $id, 'account.view');
-        $canManage = $actor->membership->kind === 'owner' && $actor->membership->account_id !== $id && $target->type !== AccountType::System && in_array('agents.categories', $actor->membership->permissions(), true);
+        $canManage = ($actor->membership->kind === 'owner' || $this->authority->hasSystemScope($actor)) && $actor->membership->account_id !== $id && $target->type !== AccountType::System && in_array('agents.categories', $actor->membership->permissions(), true);
         $selected = $this->access->forAccount($id)->pluck('id')->all();
         $rows = ($canManage ? $this->access->options($actor, $target) : $this->access->forAccount($id))->with('provider')->orderBy('display_order')->orderBy('id')->get();
 
-        return response()->json(['data' => ['account_id' => $id, 'account_version' => $target->version, 'catalog_version' => (int) DB::table('catalog_meta')->where('id', 1)->value('version'), 'can_manage' => $canManage, 'selected_ids' => $selected, 'products' => $rows->map(static fn ($p): array => ['id' => $p->id, 'name' => $p->name, 'provider_id' => $p->provider_id, 'provider_name' => $p->provider->name, 'face_value' => $p->face_value, 'currency' => $p->currency, 'status' => $p->status])]]);
+        return response()->json(['data' => ['account_id' => $id, 'account_version' => $target->version, 'catalog_version' => (int) DB::table('catalog_meta')->where('id', 1)->value('version'), 'can_manage' => $canManage, 'selected_ids' => $selected, 'products' => $rows->map(static fn ($p): array => ['id' => $p->id, 'name' => $p->name, 'provider_id' => $p->provider_id, 'provider_name' => app(FinanceServiceIdentity::class)->providerName($p->provider), 'face_value' => $p->face_value, 'currency' => $p->currency, 'status' => $p->status])]]);
     }
 
     public function saveCategories(CatalogRequest $request, int $id): JsonResponse
     {
         $actor = $request->user();
-        abort_unless($actor->membership->kind === 'owner', 403);
+        abort_unless($actor->membership->kind === 'owner' || $this->authority->hasSystemScope($actor), 403);
         DB::transaction(function () use ($request, $id, $actor): void {
             app(MutationGuard::class)->lock($request->user());
             $meta = DB::table('catalog_meta')->where('id', 1)->lockForUpdate()->first();

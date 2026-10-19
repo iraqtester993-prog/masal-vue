@@ -8,11 +8,13 @@ use App\Http\Resources\AccountResource;
 use App\Models\Account;
 use App\Models\AccountMembership;
 use App\Models\User;
+use App\Services\AccountPrivacy;
 use App\Services\AuditLogger;
 use App\Services\ManagementAuthority;
 use App\Services\PermissionCatalog;
 use App\Services\ReferencePosProfile;
 use App\Services\SessionRevoker;
+use App\Support\AccountPhone;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -53,7 +55,10 @@ class AccountManagementController extends Controller
 
                 return $account;
             });
-        } catch (UniqueConstraintViolationException) {
+        } catch (UniqueConstraintViolationException $failure) {
+            if (AccountPhone::duplicateViolation($failure)) {
+                throw ValidationException::withMessages(['phone' => 'رقم الهاتف مستخدم في حساب آخر؛ أدخل رقمًا مختلفًا.']);
+            }
             throw ValidationException::withMessages(['serial' => 'الرقم التسلسلي مستخدم مسبقاً.']);
         }
 
@@ -90,6 +95,7 @@ class AccountManagementController extends Controller
             $authority->version($account, $data['version']);
             $owner = AccountMembership::where('account_id', $id)->where('kind', 'owner')->firstOrFail();
             $before = $owner->permissions();
+            $data['permissions'] = $authority->preserveHiddenPermissions($actor, $before, $data['permissions'], $owner);
             $authority->grants($actor, $data['permissions'], false, $before, $owner);
             $changedKeys = $authority->permissionChanges($actor, $before, $data['permissions'], $owner);
             $added = array_values(array_diff($data['permissions'], $before));
@@ -136,7 +142,7 @@ class AccountManagementController extends Controller
             $account = DB::transaction(function () use ($request, $id, $authority, $audit, $revoker) {
                 $actor = $request->user();
                 $account = $authority->account($actor, $id, 'account.login', false, true);
-                abort_unless($actor->membership->account->type === AccountType::System && $actor->membership->kind === 'owner', 403);
+                $authority->systemAccess($actor, 'account.login');
                 $data = $request->validated();
                 $authority->version($account, $data['version']);
                 $account->version++;
@@ -156,13 +162,14 @@ class AccountManagementController extends Controller
     {
         $actor = $request->user();
         $authority->require($actor, 'account.login');
-        abort_unless($actor->membership->account->type === AccountType::System && $actor->membership->kind === 'owner', 403);
+        $authority->systemAccess($actor, 'account.login');
         $id = $account->id;
         try {
             $identifier = mb_strtolower(trim($data['login']));
             $email = str_contains($identifier, '@');
             Validator::make(['login' => $identifier], ['login' => $email ? ['required', 'email', 'max:190'] : ['required', 'regex:/^[a-z][a-z0-9._-]{2,63}$/']])->validate();
             $owner = AccountMembership::where('account_id', $id)->where('kind', 'owner')->lockForUpdate()->firstOrFail();
+            abort_if($actor->membership->kind === 'employee' && array_diff($owner->permissions(), $actor->membership->permissions()), 403);
             $user = $owner->user()->lockForUpdate()->firstOrFail();
             $column = $email ? 'email' : 'login';
             if (User::where($column, $identifier)->where('id', '<>', $user->id)->exists()) {
@@ -188,8 +195,20 @@ class AccountManagementController extends Controller
         return response()->json(['data' => ['cities' => DB::table('account_cities')->where('active', true)->orderBy('id')->pluck('name')]]);
     }
 
-    public function catalog(): JsonResponse
+    public function catalog(Request $request, ManagementAuthority $authority): JsonResponse
     {
-        return response()->json(['data' => PermissionCatalog::rows()]);
+        $data = $request->validate(['account_id' => ['sometimes', 'integer', 'min:1'], 'context' => ['sometimes', 'in:account,profile']]);
+        $actor = $request->user();
+        $managementPermissions = array_intersect(['account.permissions', 'account.create', 'permission_profile.view', 'permission_profile.create', 'permission_profile.update', 'staff.create', 'staff.role'], $actor->membership->permissions());
+        if (isset($data['account_id'])) {
+            abort_if($managementPermissions === [], 403);
+        }
+        $account = isset($data['account_id']) ? $authority->account($actor, (int) $data['account_id'], array_values($managementPermissions)[0]) : $actor->membership->account;
+        $owner = AccountMembership::where('account_id', $account->id)->where('kind', 'owner')->firstOrFail();
+        $permissions = ($data['context'] ?? 'profile') === 'account'
+            ? $authority->permissionLimits($actor, $owner)
+            : $authority->profilePermissions($actor, $owner);
+
+        return response()->json(['data' => PermissionCatalog::rows($permissions, $account->type), 'meta' => ['account_id' => $account->id, 'account_name' => app(AccountPrivacy::class)->accountName($account), 'account_version' => $account->version, 'grantable_permissions' => $permissions]]);
     }
 }

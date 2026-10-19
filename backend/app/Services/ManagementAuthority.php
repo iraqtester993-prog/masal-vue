@@ -9,6 +9,7 @@ use App\Models\AccountMembership;
 use App\Models\User;
 use App\Services\Operations\MutationGuard;
 use App\Support\AccountPhone;
+use App\Support\RequestReadCache;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
@@ -21,6 +22,34 @@ class ManagementAuthority
     public function require(User $actor, string $permission): void
     {
         abort_unless($actor->isOperational() && in_array($permission, $actor->membership->permissions(), true), 403);
+    }
+
+    public function hasSystemScope(User $actor): bool
+    {
+        return RequestReadCache::remember('ManagementAuthority.systemScope:'.$actor->id, fn (): bool => $actor->isOperational() && $actor->membership->account->type === AccountType::System
+            && $this->scope->query($actor)->whereKey($actor->membership->account_id)->exists());
+    }
+
+    public function hasFullSystemScope(User $actor): bool
+    {
+        return RequestReadCache::remember('ManagementAuthority.fullSystemScope:'.$actor->id, fn (): bool => $this->hasSystemScope($actor)
+            && ($actor->membership->kind === 'owner' || ! Account::whereNotIn('id', $this->scope->query($actor, true)->select('accounts.id'))->exists()));
+    }
+
+    public function systemAccess(User $actor, string $permission): void
+    {
+        $this->require($actor, $permission);
+        abort_unless($this->hasSystemScope($actor), 403);
+    }
+
+    public function profilePermissions(User $actor, AccountMembership $owner): array
+    {
+        return array_values(array_filter(array_intersect($actor->membership->permissions(), $owner->permissions()), fn (string $permission): bool => PermissionCatalog::employeeAllowed($permission, $owner->account->type)));
+    }
+
+    public function preserveHiddenPermissions(User $actor, array $before, array $submitted, ?AccountMembership $owner = null): array
+    {
+        return array_values(array_unique(array_merge($submitted, array_diff($before, $this->delegablePermissions($actor, $owner)))));
     }
 
     public function account(User $actor, int $id, string $permission, bool $allowSelf = true, bool $lock = false): Account
@@ -64,8 +93,12 @@ class ManagementAuthority
     public function roleCeiling(AccountMembership $owner): array
     {
         $permissions = DB::table('role_permissions')->join('permissions', 'permissions.id', '=', 'permission_id')->where('role_id', $owner->role_id)->pluck('permissions.name')->all();
-        if (in_array(DB::table('roles')->where('id', $owner->role_id)->value('name'), ['agent', 'pos'], true)) {
+        $roleName = DB::table('roles')->where('id', $owner->role_id)->value('name');
+        if (in_array($roleName, ['agent', 'pos'], true)) {
             $permissions[] = 'map.view';
+        }
+        if ($roleName === 'agent') {
+            $permissions[] = 'staff.password_reset';
         }
 
         return array_values(array_unique($permissions));
@@ -75,30 +108,26 @@ class ManagementAuthority
     {
         $permissions = $actor->membership->permissions();
         if ($owner?->account->type === AccountType::Pos && in_array('digital.assign', $permissions, true)) {
-            $permissions = array_merge($permissions, ['digital.create', 'digital.receipt']);
+            $permissions = array_merge($permissions, ['digital.create', 'digital.receipt', 'digital.print']);
         }
 
         return array_values(array_unique($permissions));
     }
 
     /** @param array<string> $permissions */
-    public function grants(User $actor, array $permissions, bool $requireView = true, array $existing = [], ?AccountMembership $owner = null): void
+    public function grants(User $actor, array $permissions, bool $requireView = true, array $existing = [], ?AccountMembership $owner = null, ?Account $employer = null): void
     {
         $unknown = array_diff($permissions, array_keys(PermissionCatalog::LABELS));
         $excess = array_diff($permissions, $this->delegablePermissions($actor, $owner), $existing);
-        if ($unknown || $excess || ($requireView && ! in_array('account.view', $permissions, true))) {
-            throw ValidationException::withMessages(['permissions' => 'اختر صلاحيات معروفة تملكها، مع صلاحية عرض الحسابات.']);
+        if ($unknown || $excess) {
+            throw ValidationException::withMessages(['permissions' => 'تعذر اعتماد مجموعة الصلاحيات المطلوبة.']);
         }
         foreach ($permissions as $permission) {
-            $module = explode('.', $permission)[0];
-            if ($module === 'sell' && ! in_array('sales.view', $permissions, true)) {
-                throw ValidationException::withMessages(['permissions' => 'عرض المبيعات مطلوب قبل إجراءات البيع والطباعة.']);
-            }
-            if ($permission === 'agents.archive' && ! in_array('agents.archiveView', $permissions, true)) {
-                throw ValidationException::withMessages(['permissions' => 'عرض الأرشيف مطلوب قبل أرشفة الحسابات.']);
-            }
-            if (! str_ends_with($permission, '.view') && in_array($module, ['staff', 'permission_profile', 'products', 'providers', 'governorates', 'sources', 'posTypes', 'representatives', 'wallets', 'ledger', 'invoices', 'prices', 'import', 'inventory', 'claims', 'exports', 'sales', 'exceptions', 'branding', 'support', 'notifications', 'reports', 'digital', 'integrations', 'company', 'backup'], true) && ! in_array($module.'.view', $permissions, true)) {
+            if (array_diff(PermissionCatalog::dependencies($permission), $permissions)) {
                 throw ValidationException::withMessages(['permissions' => 'صلاحية العرض مطلوبة قبل إجراءات القسم.']);
+            }
+            if ($requireView && ! PermissionCatalog::employeeAllowed($permission, $employer?->type ?? $actor->membership->account->type) && ! in_array($permission, $existing, true)) {
+                throw ValidationException::withMessages(['permissions' => 'هذه الصلاحية محصورة بمالك الحساب ولا تمنح للموظف.']);
             }
         }
     }
@@ -132,6 +161,7 @@ class ManagementAuthority
     {
         if ($mutation) {
             abort_if($member->user_id === $actor->id || $member->kind !== 'employee', 403, 'هذا المستخدم محمي من التعديل.');
+            abort_if($actor->membership->kind === 'employee' && array_diff(array_unique(array_merge($member->permissions(), $member->profile?->permissions() ?? [])), $actor->membership->permissions()), 403);
         }
         if ($member->kind === 'employee') {
             $this->scope($actor, $member->account, $member->scopeRoots(), $member->include_descendants);
@@ -171,8 +201,16 @@ class ManagementAuthority
         }
 
         if (isset($data['phone'])) {
+            $legacyUnchanged = $old && $data['phone'] === $old->phone && preg_match('/^9647[78][0-9]{8}$/D', AccountPhone::key($old->phone) ?? '');
+            if (! $legacyUnchanged) {
+                $phone = AccountPhone::local($data['phone']);
+                if ($phone === null) {
+                    throw ValidationException::withMessages(['phone' => 'أدخل رقم هاتف من 11 رقمًا يبدأ بـ 077 أو 078 فقط.']);
+                }
+                $data['phone'] = $phone;
+            }
             $key = AccountPhone::key($data['phone']);
-            if ($key !== null && (! $old || $key !== AccountPhone::key($old->phone)) && Account::where('phone_key', $key)->when($old, fn ($query) => $query->where('id', '<>', $old->id))->exists()) {
+            if ($key !== null && Account::where('phone_key', $key)->when($old, fn ($query) => $query->where('id', '<>', $old->id))->exists()) {
                 throw ValidationException::withMessages(['phone' => 'رقم الهاتف مستخدم في حساب آخر؛ أدخل رقمًا مختلفًا.']);
             }
         }

@@ -1,4 +1,5 @@
 <script setup>
+import AppSelect from '../../shared/components/AppSelect.vue';
 import FilterBar from '../../shared/components/FilterBar.vue';
 import TablePanel from '../../shared/components/TablePanel.vue';
 
@@ -9,6 +10,7 @@ import {computed, onBeforeUnmount, onMounted, reactive, ref, watch} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 
 import {usePortal} from '../auth/session.js';
+import {useRouteRefresh} from '../../shared/route-refresh.js';
 
 import {createStockApi} from './stock-api.js';
 
@@ -46,13 +48,13 @@ async function failure(cause) {
 
 }
 
-async function load(page = 1, withOptions = false) {
+async function load(page = 1, withOptions = false, fresh = false) {
 
   reader?.abort(); reader = new AbortController(); const expected = ++revision; state.busy = true; state.error = '';
 
   try {
 
-    const [response, options] = await Promise.all([api.list('orders',{page,per_page:20,query:state.query,status:state.status,account_id:route.query.account_id || ''},reader.signal),withOptions ? api.options(reader.signal) : Promise.resolve(null)]);
+    const [response, options] = await Promise.all([api.list('orders',{page,per_page:20,query:state.query,status:state.status,account_id:route.query.account_id || ''},reader.signal,{fresh}),withOptions ? api.options(reader.signal,{fresh}) : Promise.resolve(null)]);
 
     if (expected !== revision) return; state.rows = response.data; state.meta = response.meta; if (options) state.options = options.data;
 
@@ -96,6 +98,7 @@ function quickImport(){if(route.query.quick==='import' && session.can('import.pr
 
 watch(()=>route.query.quick,quickImport);
 
+useRouteRefresh(async()=>{await load(state.meta.current_page??state.meta.page??1,true,true);return !state.error;},{canRefresh:()=>!state.saving&&!selected.value&&tab.value==='records'});
 onMounted(() => {quickImport();return load(1,true);});
 
 onBeforeUnmount(() => {clearTimeout(timer); reader?.abort(); detailsReader?.abort(); writer.abort(); selected.value = null;});
@@ -114,7 +117,7 @@ onBeforeUnmount(() => {clearTimeout(timer); reader?.abort(); detailsReader?.abor
 
     <section v-show="tab === 'records'" class="card multi-orders order-history"><header class="order-history-heading"><h3>سجل الطلبيات متعددة الملفات</h3><span class="badge">{{state.meta.total}} طلبية</span><button type="button" class="btn" :aria-expanded="expanded" @click="expanded = !expanded">{{expanded ? 'إغلاق الجدول' : 'عرض الجدول'}}</button></header>
 
-      <template v-if="expanded"><FilterBar class="toolbar"><input v-model="state.query" placeholder="بحث بالطلبية أو الوكيل أو الفئة" aria-label="بحث الطلبيات"><select v-model="state.status" aria-label="حالة الطلبية"><option value="">جميع الحالات</option><option v-for="value in ['pending','approved','returned','rejected']" :key="value" :value="value">{{stockStatus(value)}}</option></select><button type="button" class="btn" :disabled="state.busy" @click="load(state.meta.page,true)">تحديث</button></FilterBar>
+      <template v-if="expanded"><FilterBar class="toolbar"><input v-model="state.query" placeholder="بحث بالطلبية أو الوكيل أو الفئة" aria-label="بحث الطلبيات"><AppSelect v-model="state.status" aria-label="حالة الطلبية"><option value="">جميع الحالات</option><option v-for="value in ['pending','approved','returned','rejected']" :key="value" :value="value">{{stockStatus(value)}}</option></AppSelect><button type="button" class="btn" :disabled="state.busy" @click="load(state.meta.page,true)">تحديث</button></FilterBar>
 
         <TablePanel class="tablewrap"><table><thead><tr><th>الطلبية</th><th>تاريخ الإرسال</th><th>الوكيل</th><th>الملفات</th><th>صالحة / مرفوضة</th><th>القيمة</th><th>الحالة</th><th>الإجراءات</th></tr></thead><tbody><tr v-for="row in state.rows" :key="row.id"><td>{{row.id}}</td><td>{{printableTime(row.created_at)}}</td><td>{{row.account_name}}</td><td>{{row.summary.lines.length}}</td><td>{{row.quantity}} / {{row.rejected}}</td><td>{{amountText(row.summary.amounts)}}</td><td><span class="badge">{{stockStatus(row.status)}}</span></td><td><div class="actions"><button type="button" class="btn small" @click="selected?.id === row.id ? closeDetails() : inspect(row)">معاينة</button><template v-if="isAdmin && session.can('import.approve') && row.status === 'pending'"><button type="button" class="btn small primary" @click="inspect(row,'approve')">اعتماد</button><button type="button" class="btn small" @click="inspect(row,'return')">إعادة للتصحيح</button><button type="button" class="btn small danger" @click="inspect(row,'reject')">رفض</button></template><button v-if="row.status === 'returned' && row.creator_id === session.state.identity?.user.id && session.can('import.preview') && session.can('data.pin')" type="button" class="btn small" @click="inspect(row).then(edit)">تصحيح</button><button v-if="row.status === 'approved' && session.can('inventory.view')" type="button" class="btn small" @click="router.push({name:'inventory',query:{account_id:row.account_id}})">المخزون</button></div></td></tr></tbody></table></TablePanel>
 

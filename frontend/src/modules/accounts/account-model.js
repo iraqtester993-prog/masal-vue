@@ -10,6 +10,19 @@ export const profileFields = [
   "app_version",
   "notes",
 ];
+export const accountPhonePattern = '07[78][0-9]{8}';
+export function normalizeAccountPhoneDigits(value) {
+  return String(value ?? '').replace(/[٠-٩۰-۹]/g, digit => String('٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹'.indexOf(digit) % 10));
+}
+export function unchangedAccountPhone(value, original) {
+  if (original == null || String(value ?? '') !== String(original)) return false;
+  const local = normalizeAccountPhoneDigits(original).replace(/[\s()+-]/gu, '').replace(/^(?:00964|964|0)/, '');
+  return /^7[78][0-9]{8}$/.test(local);
+}
+export function accountPhoneError(value, original) {
+  return unchangedAccountPhone(value, original) || new RegExp(`^${accountPhonePattern}$`).test(normalizeAccountPhoneDigits(value))
+    ? '' : 'أدخل رقم هاتف من 11 رقمًا يبدأ بـ 077 أو 078 فقط.';
+}
 export function accountDraft(account = {}) {
   return {...Object.fromEntries(
     ["name", ...profileFields].map((key) => [
@@ -45,6 +58,7 @@ export function accountPayload(
   const payload = Object.fromEntries(
     fields.map((key) => [key, String(draft[key] ?? "").trim()]),
   );
+  payload.phone = unchangedAccountPhone(draft.phone, account?.phone) ? String(account.phone) : normalizeAccountPhoneDigits(payload.phone);
   if(type==='pos')payload.device_lock_enabled=draft.device_lock_enabled??true;
   if (type === 'pos' && reference) {
     if (canType) payload.pos_type_id = reference.pos_type_id ? Number(reference.pos_type_id) : null;
@@ -77,7 +91,11 @@ export function displayLogin(user) {
   return user?.login || user?.email || "—";
 }
 export async function initialAccountContext(identity, api, signal) {
+  const managed=identity.capabilities?.management_account;
+  if(Number.isSafeInteger(managed?.id)&&managed.id>0)return managed;
+  if(Object.hasOwn(identity.capabilities||{},'management_account_id'))throw new Error('لا يوجد حساب متاح للإدارة حاليًا.');
   if (identity.membership?.kind !== "employee") return identity.account;
+  if(Array.isArray(identity.permissions)&&!identity.permissions.includes('account.view'))throw new Error('لا يوجد حساب متاح للإدارة حاليًا.');
   const page = await api.accounts({ page: 1, per_page: 1 }, signal);
   if (!page.data?.length)
     throw new Error("لا توجد حسابات متاحة ضمن نطاقك الحالي.");
@@ -96,17 +114,21 @@ export function selectedPermissions(catalog, selected) {
   const keys = new Set(selected);
   return catalog.filter((item) => keys.has(item.key)).map((item) => item.key);
 }
-export function grantablePermissions(catalog, authority, can) {
+export function grantablePermissions(catalog, authority, can, profile = false) {
   const limits = new Set(authority || []);
-  return catalog.filter((item) => limits.has(item.key) && (can(item.key) || (can('digital.assign') && ['digital.create', 'digital.receipt'].includes(item.key))));
+  return catalog.filter((item) => (!profile || item.employee_allowed !== false) && limits.has(item.key) && (can(item.key) || (can('digital.assign') && ['digital.create', 'digital.receipt', 'digital.print'].includes(item.key))));
 }
-export function permissionDependencies(key, profile = false) {
+export function permissionDependencies(key, profile = false, catalog = []) {
+  const row = catalog.find(item => item.key === key);
+  if (Array.isArray(row?.dependencies)) return [...new Set(row.dependencies)];
   const module = key.split(".")[0];
+  if (key === 'digital.print') return [...(profile ? ['account.view'] : []), 'digital.view','digital.receipt','data.pin'];
+  if (key === 'integrations.balance') return [...(profile ? ['account.view'] : []), 'digital.view'];
   return [
     ...(module === 'sell' ? ['sales.view'] : []),
     ...(key === 'agents.archive' ? ['agents.archiveView', 'account.view'] : []),
     ...(profile && key !== "account.view" ? ["account.view"] : []),
-    ...(["staff", "permission_profile", "products", "providers", "governorates", "sources", "posTypes", "representatives", "wallets", "ledger", "invoices", "prices", "import", "inventory", "claims", "exports", "sales", "exceptions", "branding", "support", "notifications", "reports", "digital", "integrations", "company"].includes(
+    ...(["staff", "permission_profile", "products", "providers", "governorates", "sources", "posTypes", "representatives", "wallets", "ledger", "invoices", "prices", "import", "inventory", "claims", "exports", "sales", "exceptions", "branding", "support", "notifications", "reports", "digital", "integrations", "company", "backup", "topup", ...(key.startsWith('security.') && !['security.fundingRequests','security.fundingRecovery'].includes(key) ? ['security'] : [])].includes(
       module,
     ) && key !== `${module}.view`
       ? [`${module}.view`]
@@ -119,10 +141,11 @@ export function changePermission(
   checked,
   available,
   profile = false,
+  catalog = [],
 ) {
   const allowed = new Set(available);
   if (!allowed.has(key)) return [...selected];
-  const dependencies = permissionDependencies(key, profile);
+  const dependencies = permissionDependencies(key, profile, catalog);
   if (checked) {
     if (
       dependencies.some(
@@ -134,7 +157,7 @@ export function changePermission(
     return [...new Set([...selected, ...dependencies, key])];
   }
   const dependent = selected.filter((entry) =>
-    permissionDependencies(entry, profile).includes(key),
+    permissionDependencies(entry, profile, catalog).includes(key),
   );
   if (dependent.some((entry) => !allowed.has(entry))) return [...selected];
   return selected.filter(
@@ -167,6 +190,7 @@ export function permissionGroups(catalog, search = "") {
         sales: "المبيعات", sell: "البيع والطباعة", exceptions: "استثناءات الطباعة", branding: "تصميم البطاقة",
         support: "الدعم الفني", notifications: "الإشعارات", reports: "التقارير", dashboard: "لوحة التحكم",
         digital: "الخدمات الرقمية", integrations: "الربط مع الشركات", company: "موقع الشركة", map: "خريطة المستخدمين",
+        topup: "Topup والتخصيص", app: "إعدادات التطبيق", printers: "الطابعات المعتمدة", backup: "النسخ الاحتياطية",
       }[item.group] ||
       item.group ||
       "الصلاحيات";

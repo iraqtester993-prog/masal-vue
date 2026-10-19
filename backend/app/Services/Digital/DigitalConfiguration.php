@@ -12,10 +12,12 @@ use App\Models\Digital\DigitalOrder;
 use App\Models\Digital\TopupCategory;
 use App\Models\Digital\TopupGrant;
 use App\Models\User;
+use App\Services\AccountPrivacy;
 use App\Services\AuditLogger;
 use App\Services\Finance\FinanceOperations;
 use App\Services\Finance\Money;
 use App\Services\Operations\MutationGuard;
+use App\Support\RequestReadCache;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -34,6 +36,9 @@ class DigitalConfiguration
     {
         $data = ['id' => $offer->id, 'product_id' => $offer->product_id, 'product_provider_id' => $offer->product->provider_id, 'product_provider_name' => $offer->product->provider->name, 'name' => $offer->topup_category_id ? $offer->remote_name : $offer->product->name, 'remote_id' => $offer->remote_id, 'remote_name' => $offer->remote_name, 'province_id' => $offer->province_id, 'province' => $offer->province_name, 'bein_province_id' => $offer->bein_province_id, 'package_type' => $offer->package_type, 'type' => $offer->type, 'retail' => Money::decimal($offer->retail_minor), 'active' => $offer->active, 'version' => $offer->version, 'catalog_snapshot_id' => $offer->catalog_snapshot_id];
         $data['image_url'] = $offer->product->image_path ? '/api/v1/topup/offers/'.$offer->id.'/image?v='.$offer->product->version : null;
+        if ($offer->connection->provider === 'topup') {
+            $data['product_provider_name'] = 'Topup';
+        }
         if ($offer->connection->provider === 'topup' && $actor->membership->account->type !== AccountType::System) {
             $data['retail'] = Money::decimal(app(TopupAccounting::class)->retail($offer, $actor->membership->account));
             if ($actor->membership->account->type === AccountType::Pos) {
@@ -56,8 +61,12 @@ class DigitalConfiguration
         if ($connection->provider === 'topup') {
             $offers = $offers->filter(fn ($offer): bool => $offer->manual_category_version === null && ($offer->topup_category_id === null || $offer->catalog_snapshot_id !== null));
         }
-        $grantTargets = $this->access->accounts($actor)->pluck('id')->all();
-        $data = ['id' => $connection->id, 'account_id' => $connection->account_id, 'account_name' => $connection->account->name, 'provider_id' => $connection->provider_id, 'provider_name' => $connection->company?->name ?? ($connection->provider === 'rabiaa' ? 'الرابعة' : 'Topup'), 'provider' => $connection->provider, 'active' => $connection->active, 'version' => $connection->version, 'credential_present' => (bool) $connection->credential, 'gateway' => $this->gateway->status($connection), 'bein_provinces' => $connection->bein_provinces ?? [], 'offers' => $offers->map(fn (DigitalOffer $offer): array => $this->offerDto($offer, $actor))->values()->all(), 'grants' => $connection->grants->filter(fn ($grant): bool => in_array($grant->target_account_id, $grantTargets, true) && ($system || $grant->from_account_id === $own->id))->map(fn ($grant): array => $this->grantDto($grant))->values()->all(), 'updated_at' => $connection->updated_at->toISOString()];
+        $grantTargets = RequestReadCache::remember('DigitalConfiguration.grantTargets:'.$actor->id, fn (): array => $this->access->accounts($actor)->pluck('id')->all());
+        $data = ['id' => $connection->id, 'account_id' => $connection->account_id, 'account_name' => app(AccountPrivacy::class)->accountName($connection->account), 'provider_id' => $connection->provider_id, 'provider_name' => $connection->company?->name ?? ($connection->provider === 'rabiaa' ? 'الرابعة' : 'Topup'), 'provider' => $connection->provider, 'active' => $connection->active, 'version' => $connection->version, 'credential_present' => (bool) $connection->credential, 'gateway' => $this->gateway->status($connection), 'bein_provinces' => $connection->bein_provinces ?? [], 'offers' => $offers->map(fn (DigitalOffer $offer): array => $this->offerDto($offer, $actor))->values()->all(), 'grants' => $connection->grants->filter(fn ($grant): bool => in_array($grant->target_account_id, $grantTargets, true) && ($system || $grant->from_account_id === $own->id))->map(fn ($grant): array => $this->grantDto($grant))->values()->all(), 'updated_at' => $connection->updated_at->toISOString()];
+        if ($connection->provider === 'topup') {
+            $data['provider_name'] = 'Topup';
+        }
+        $data['readiness'] = app(DigitalReadiness::class)->connection($connection, $actor, $offers);
         if (in_array($own->type, [AccountType::System, AccountType::MainAgent], true) && in_array($own->id, $grantTargets, true)) {
             $data += ['company_balance' => $connection->company_balance_minor === null ? null : Money::decimal($connection->company_balance_minor), 'balance_updated_at' => $connection->balance_updated_at?->toISOString()];
             if ($connection->provider === 'topup') {
@@ -67,7 +76,7 @@ class DigitalConfiguration
                 } elseif ($grant = app(TopupAccounting::class)->grant($own)) {
                     $wallet = app(TopupWallets::class)->balance($own);
                     $data['main_account_id'] = $grant->main_account_id;
-                    $data['main_account_name'] = app(TopupDistribution::class)->main($own)->name;
+                    $data['main_account_name'] = app(AccountPrivacy::class)->accountName(app(TopupDistribution::class)->main($own));
                     $data['account_name'] = $data['main_account_name'];
                     $data['company_balance'] = Money::decimal($wallet['balance']);
                     $data['allocation_available'] = Money::decimal($wallet['available']);
@@ -78,7 +87,7 @@ class DigitalConfiguration
             }
         }
         if ($connection->provider === 'topup' && ($system || $connection->account_id === $own->id)) {
-            $snapshot = CatalogSnapshot::where('connection_id', $connection->id)->where('credential_hash', self::credentialHash($connection->credential))->latest('id')->first();
+            $snapshot = app(DigitalReadiness::class)->catalog($connection);
             $data += ['catalog_count' => $snapshot ? count($snapshot->catalog) : null, 'catalog_updated_at' => $snapshot?->created_at?->toISOString(), 'excluded_catalog' => $snapshot?->excluded_catalog, 'excluded_count' => $snapshot?->excluded_catalog === null ? null : count($snapshot->excluded_catalog)];
         }
         if (in_array($own->type, [AccountType::MainAgent, AccountType::SubAgent, AccountType::SubBranch], true)) {
@@ -90,15 +99,22 @@ class DigitalConfiguration
 
     public function grantDto(DigitalGrant $grant): array
     {
-        return ['id' => $grant->id, 'connection_id' => $grant->connection_id, 'from_account_id' => $grant->from_account_id, 'target_account_id' => $grant->target_account_id, 'target_name' => $grant->target?->name, 'kind' => $grant->target?->type === AccountType::Pos ? 'pos' : 'agent', 'offer_ids' => $grant->offer_ids, 'active' => $grant->active, 'version' => $grant->version];
+        return ['id' => $grant->id, 'connection_id' => $grant->connection_id, 'from_account_id' => $grant->from_account_id, 'target_account_id' => $grant->target_account_id, 'target_name' => app(AccountPrivacy::class)->accountName($grant->target), 'kind' => $grant->target?->type === AccountType::Pos ? 'pos' : 'agent', 'offer_ids' => $grant->offer_ids, 'active' => $grant->active, 'version' => $grant->version];
     }
 
     public function save(User $actor, ?int $id, array $data, Request $request): array
     {
-        $this->access->owner($actor);
+        $this->access->system($actor, 'integrations.edit');
+        if (array_key_exists('credential', $data) || $id === null) {
+            $this->access->require($actor, 'integrations.credentials');
+        }
 
         try {
             return $this->operations->execute($actor, 'integrations.edit', $data + ['connection_id' => $id], function () use ($actor, $id, $data, $request): array {
+                $this->access->system($actor, 'integrations.edit');
+                if (array_key_exists('credential', $data) || $id === null) {
+                    $this->access->require($actor, 'integrations.credentials');
+                }
                 $account = $this->access->accounts($actor)->where('type', $data['provider'] === 'topup' && $data['account_id'] === $actor->membership->account_id ? AccountType::System : AccountType::MainAgent)->lockForUpdate()->findOrFail($data['account_id']);
                 abort_unless($account->isOperational(), 409, 'اختر وكيلًا رئيسيًا مفعّلًا.');
                 $connection = $id ? $this->access->connection($actor, $id, 'integrations.edit', true) : null;
@@ -129,6 +145,9 @@ class DigitalConfiguration
                 $remoteKeys = [];
                 foreach ($data['offers'] as $offer) {
                     $synced = $oldOffers->get($offer['product_id']);
+                    if ($connection->provider === 'topup' && ($synced === null || DigitalMoney::minor($offer['retail'], 'retail') !== $synced->retail_minor || $offer['active'] !== $synced->active)) {
+                        $this->access->require($actor, 'topup.prices');
+                    }
                     if ($synced !== null && $synced->topup_category_id !== null) {
                         abort_unless(($offer['id'] ?? null) === $synced->id && ($offer['remote_id'] ?? '') === $synced->remote_id, 422);
 
@@ -192,13 +211,40 @@ class DigitalConfiguration
         }
     }
 
+    public function credential(User $actor, int $id, array $data, Request $request): array
+    {
+        $this->access->system($actor, 'integrations.credentials');
+
+        return DB::transaction(function () use ($actor, $id, $data, $request): array {
+            app(MutationGuard::class)->lock($actor, [], 'integrations.credentials');
+            $connection = $this->access->connection($actor, $id, 'integrations.credentials', true);
+            $this->access->authority->version($connection, $data['version']);
+            if (hash_equals((string) $connection->credential, $data['credential'])) {
+                return $this->dto($connection, $actor);
+            }
+            abort_if(DigitalOrder::where('connection_id', $id)->where(fn ($q) => $q->where('reservation_active', true)->orWhereIn('status', ['pending', 'review']))->exists(), 409, 'تحقق من العمليات المعلقة قبل تغيير مفتاح الربط.');
+            abort_if($connection->provider === 'topup' && TopupGrant::where('connection_id', $id)->where('balance_minor', '>', 0)->exists(), 409, 'استرجع حصص الوكلاء قبل استبدال التوكن المركزي.');
+            if ($connection->provider === 'topup') {
+                $this->topupBalanceFence($connection);
+                $data['credential'] = trim($data['credential']);
+                if (DigitalConnection::where('topup_credential_hash', self::credentialHash($data['credential']))->whereKeyNot($id)->exists()) {
+                    throw ValidationException::withMessages(['credential' => 'هذا التوكن محفوظ مسبقًا؛ استخدم الربط الحالي.']);
+                }
+            }
+            $connection->update(['credential' => $data['credential'], 'company_balance_minor' => null, 'balance_updated_at' => null, 'version' => $connection->version + 1]);
+            $this->audit->record('integrations.credentials', $request, $actor, $connection->account_id, ['connection_id' => $id, 'reason' => $data['reason']]);
+
+            return $this->dto($connection, $actor);
+        });
+    }
+
     public function catalog(User $actor, int $id, int $version, Request $request): array
     {
-        $this->access->owner($actor);
-        $connection = $this->access->connection($actor, $id, 'integrations.edit');
+        $this->access->system($actor, 'integrations.sync');
+        $connection = $this->access->connection($actor, $id, 'integrations.sync');
         $this->access->authority->version($connection, $version);
         $credentialHash = self::credentialHash($connection->credential);
-        $result = $this->gateway->call($connection, 'catalog');
+        $result = $this->gateway->read($connection, 'catalog');
         $rows = $connection->provider === 'topup' ? ($result['products'] ?? null) : ($result['data'] ?? null);
         abort_unless(is_array($rows) && array_is_list($rows) && count($rows) <= 5000, 422, 'قائمة الشركة لا تطابق عقد الربط.');
         $directTopup = $this->gateway->directTopup($connection);
@@ -229,8 +275,8 @@ class DigitalConfiguration
         $excludedCatalog = $directTopup ? $result['excluded_catalog'] : [];
 
         return DB::transaction(function () use ($actor, $id, $version, $credentialHash, $catalog, $provinces, $request, $excluded, $excludedCatalog): array {
-            app(MutationGuard::class)->lock($actor, [], 'integrations.edit');
-            $current = $this->access->connection($actor, $id, 'integrations.edit', true);
+            app(MutationGuard::class)->lock($actor, [], 'integrations.sync');
+            $current = $this->access->connection($actor, $id, 'integrations.sync', true);
             $this->access->authority->version($current, $version);
             abort_unless(self::credentialHash($current->credential) === $credentialHash, 409, 'تغير التوكن أثناء جلب القائمة.');
             $snapshot = CatalogSnapshot::create(['connection_id' => $id, 'actor_id' => $actor->id, 'credential_hash' => $credentialHash, 'catalog' => $catalog, 'bein_provinces' => $provinces, 'created_at' => now()]);
@@ -249,23 +295,23 @@ class DigitalConfiguration
 
     public function balance(User $actor, int $id, Request $request): array
     {
-        $this->access->require($actor, 'digital.view');
+        $this->access->require($actor, 'integrations.balance');
         abort_if($actor->membership->account->type === AccountType::Pos, 403);
-        $connection = $this->access->connection($actor, $id);
+        $connection = $this->access->connection($actor, $id, 'integrations.balance');
         $hash = self::credentialHash($connection->credential);
         $snapshot = $connection->provider === 'topup' ? DB::transaction(function () use ($actor, $id, $hash): array {
             app(MutationGuard::class)->lock($actor, [], 'app');
-            $current = $this->access->connection($actor, $id, 'digital.view', true);
+            $current = $this->access->connection($actor, $id, 'integrations.balance', true);
             abort_unless(self::credentialHash($current->credential) === $hash, 409, 'تغير التوكن أثناء تحديث الرصيد.');
 
             return ['version' => $current->version, 'attempt' => $this->topupBalanceFence($current)];
         }) : null;
-        $result = $this->gateway->call($connection, 'inventory');
+        $result = $this->gateway->read($connection, 'inventory');
         $balance = DigitalMoney::minor($result['remaining_balance'] ?? null, 'remaining_balance', true);
 
         return DB::transaction(function () use ($actor, $connection, $hash, $balance, $snapshot, $request): array {
             app(MutationGuard::class)->lock($actor, [], 'app');
-            $current = $this->access->connection($actor, $connection->id, 'digital.view', true);
+            $current = $this->access->connection($actor, $connection->id, 'integrations.balance', true);
             abort_unless(self::credentialHash($current->credential) === $hash, 409, 'تغير التوكن أثناء تحديث الرصيد.');
             if ($current->provider === 'topup') {
                 $attempt = $this->topupBalanceFence($current);
@@ -301,6 +347,9 @@ class DigitalConfiguration
             $target = $this->access->accounts($actor)->where('parent_id', $own->id)->lockForUpdate()->findOrFail($targetId);
             abort_unless($target->isOperational(), 409, 'اختر تابعًا مفعّلًا ضمن نطاقك.');
             $connection = $this->access->connection($actor, $connectionId, 'digital.assign', true);
+            if ($connection->provider === 'topup') {
+                $this->access->require($actor, 'topup.assign');
+            }
             $grant = DigitalGrant::where('connection_id', $connectionId)->where('target_account_id', $targetId)->lockForUpdate()->first();
             $available = $this->access->offers($connection, $own)->pluck('id')->all();
             $unchanged = $grant && $grant->offer_ids === $data['offer_ids'];

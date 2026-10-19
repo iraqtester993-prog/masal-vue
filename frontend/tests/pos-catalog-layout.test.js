@@ -1,3 +1,4 @@
+import {topupKind,topupKinds} from '../src/modules/digital/pos-topup-context.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
@@ -31,11 +32,11 @@ test('actual POS sell renders one safe family then explicit denomination, quanti
   assert.ok(filtered.includes('>15,250<'));assert.ok(!filtered.includes('>5,250<'),'filtered tile cannot advertise another denomination price');
   const picker=await render(controls=>{controls.openFamily(controls.shownFamilies.value[0]);assert.equal(controls.selectedId.value,'','a family never implicitly selects a denomination');});
   assert.ok(picker.includes('البطاقة الأصلية 5000'));assert.ok(picker.includes('البطاقة الأصلية 15000'));
-  assert.ok(picker.includes('اختر الفئة أعلاه'));assert.ok(!picker.includes('pos-sale-checkout-dock'));
+  assert.ok(!picker.includes('اختر الفئة أعلاه'));assert.ok(picker.includes('pos-sale-denomination-select'));assert.ok(!picker.includes('pos-sale-checkout-dock'));
   const checkout=await render(controls=>{controls.openFamily(controls.shownFamilies.value[0]);controls.choose(controls.familyChoices.value[1]);controls.quantity.value=2;controls.retail.value='16000.00';});
   assert.ok(checkout.includes('عدد البطاقات'));assert.ok(checkout.includes('سعر البيع للزبون'));
   assert.ok(checkout.includes('30,500'));assert.ok(checkout.includes('32,000'));
-  assert.ok(checkout.includes('إصدار ومعاينة الوصل'));assert.ok(checkout.includes('تتوفر خيارات الطباعة داخل الوصل'));
+  assert.ok(checkout.includes('إصدار ومعاينة الوصل'));assert.ok(!checkout.includes('تتوفر خيارات الطباعة داخل الوصل'));
   assert.match(checkout,/<form id="pos-voucher-sale-form"[\s>]/);
   assert.match(checkout,/<button type="submit" form="pos-voucher-sale-form" class="btn primary pos-sale-print"/,'the persistent action still uses native form validation and the original submit handler');
   assert.ok(checkout.indexOf('</form>')<checkout.indexOf('class="pos-sale-checkout-dock"'),'the tablet sticky dock is bounded by the full checkout, not the lower form start');
@@ -46,6 +47,7 @@ async function handlers(){
  const source=await readFile(new URL('../src/modules/sales/SellPage.vue',import.meta.url),'utf8'),script=parse(source).descriptor.scriptSetup.content.replace(/^import .*;\r?$/gm,'');
  const calls=[],runtime={session:{api:{}},pos:ref(true),ownId:ref(12),can:()=>true,receipt:ref(null),receiptLoading:ref(false),state:reactive({products:products(),options:{},busy:false,error:'',notice:'',uncertain:false}),key:()=>createMutationKey(()=>'same-attempt'),api:{create:async payload=>{calls.push(payload);return {data:{id:91}};}},refreshProducts:async()=>{},openReceipt:async()=>{},clearReceipt(){},async execute(payload,key,action){if(this.state.busy)return null;this.state.busy=true;try{return (await action({...payload,idempotency_key:key.for(payload)})).data;}finally{this.state.busy=false;}}};
  const searchEvents=[],focus={input:0,header:0,scroll:0},context={usePreferencesTranslator:()=>value=>value,ref,computed,defineAsyncComponent,nextTick:async()=>{},watch(){},onMounted(){},onBeforeUnmount(){},useRoute:()=>({query:{}}),useSalesRuntime:()=>runtime,createDigitalApi:()=>({}),salePayload,multiply,money,stockUnavailableReason,digitalCatalogProduct,catalogCompanyMatches,catalogFamilies,visibleCatalogFamilies,readCategoryFavorites:()=>[],saveCategoryFavorites(){},CustomEvent:class{constructor(type,{detail}){this.type=type;this.detail=detail;}},window:{dispatchEvent:event=>searchEvents.push({type:event.type,expanded:event.detail.expanded})},document:{querySelector:selector=>{assert.equal(selector,'.pos-search-toggle');return {focus(){focus.header++;}};}}};
+ context.useRouteRefresh=()=>{};context.topupKind=topupKind;context.topupKinds=topupKinds;
  runInNewContext(script+'\nglobalThis.controls={families,shownFamilies,familyChoices,openFamily,choose,selectedId,quantity,retail,query,searchVisible,searchInput,toggleSaleSearch,closeSaleSearch,printSelected,backToCatalog,uncertainSale,issuedSale,digitalSelected,saleBackState,saleBack};',context);
  context.controls.searchInput.value={focus(){focus.input++;},scrollIntoView(){focus.scroll++;}};
  return {...context.controls,runtime,calls,searchEvents,focus};

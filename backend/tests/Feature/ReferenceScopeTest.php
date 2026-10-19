@@ -101,12 +101,12 @@ class ReferenceScopeTest extends TestCase
         $this->assertDatabaseCount('pos_types', 3);
     }
 
-    public function test_governorate_management_is_denied_to_system_employee_even_with_full_system_scope_and_grant(): void
+    public function test_governorate_management_can_be_delegated_with_system_scope_and_explicit_grant(): void
     {
         $system = $this->account(AccountType::System);
         $this->asPortalUser($this->employee($system, $system, ['account.view', 'governorates.view', 'governorates.toggle']));
 
-        $this->getJson('/api/v1/reference/governorates')->assertForbidden();
+        $this->getJson('/api/v1/reference/governorates')->assertOk();
 
         $this->assertDatabaseMissing('audit_logs', ['action' => 'governorates.toggle']);
     }

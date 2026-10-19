@@ -40,7 +40,7 @@ test('actual reports/dashboard pages and report table load scoped API data and r
         throw new Error('Unexpected API request '+path);
       },mutate:()=>{throw new Error('Render must not mutate data');}}};
       for(const [component,props,label] of [[reports,{},'المبيعات والأرباح'],[dashboard,{},'1,234.56'],[details,{section,filters:{currency:'IQD'},api:createReportApi(session.api)},'1,234.56']]){
-        const router=createRouter({history:createMemoryHistory(),routes:[{path:'/reports',name:'reports',component:{render:()=>null},meta:{permission:'reports.view'}},{path:'/sales',name:'sales',component:{render:()=>null},meta:{permission:'sales.view'}}]});await router.push('/reports');
+        const router=createRouter({history:createMemoryHistory(),routes:[{path:'/reports',name:'reports',component:{render:()=>null},meta:{permission:'reports.view'}},{path:'/sales',name:'sales',component:{render:()=>null},meta:{permission:'sales.view'}},{path:'/activity',name:'posActivity',component:{render:()=>null},meta:{permission:'dashboard.view'}}]});await router.push('/reports');
         const app=createSSRApp({render:()=>h(component,props)});app.provide(portalContextKey,{session,portal:{id:type==='system'?'admin':type==='pos'?'pos':'agents'},config:{}});app.use(router);
         const html=await renderToString(app);assert.ok(html.includes(label),type+' must render '+label);assert.ok(!html.includes('undefined'));assert.ok(!html.includes('NaN'));
       }
@@ -65,4 +65,26 @@ test('dashboard balance timestamps interpret SQL UTC values in Baghdad time',asy
  const {balanceTime}=await import('../src/modules/dashboard/dashboard-time.js');
  assert.equal(balanceTime('2026-10-07 11:25:00'),balanceTime('2026-10-07T11:25:00Z'));
  assert.equal(balanceTime(null),'—');
+});
+
+test('report details distinguish failed requests from a successfully empty report',async()=>{
+  const server=await createServer({root:fileURLToPath(new URL('../',import.meta.url)),mode:'admin',logLevel:'error',server:{middlewareMode:true,hmr:false},appType:'custom'});
+  try{
+    const {portalContextKey}=await server.ssrLoadModule('/src/modules/auth/session.js');
+    const details=(await server.ssrLoadModule('/src/modules/reports/ReportDetails.vue')).default;
+    const section={id:'wallets',title:'أرصدة المحافظ',columns:[{key:'name',label:'الاسم',type:'text'}]};
+    const render=async(rows)=>{
+      const router=createRouter({history:createMemoryHistory(),routes:[{path:'/reports',name:'reports',component:{render:()=>null}}]});await router.push('/reports');
+      const session={state:reactive({identity:{account:{id:1,type:'system'},membership:{kind:'owner'}}}),can:()=>false};
+      const app=createSSRApp({render:()=>h(details,{section,filters:{},api:{rows}})});
+      app.provide(portalContextKey,{session,portal:{id:'admin'},config:{}});app.use(router);
+      return renderToString(app);
+    };
+    const failed=await render(async()=>{throw new Error('تعذر الاتصال بمصدر التقرير');});
+    assert.ok(failed.includes('تعذر الاتصال بمصدر التقرير'));
+    assert.ok(!failed.includes('لا توجد سجلات مطابقة.'));
+    const empty=await render(async()=>({data:[],columns:section.columns,meta:{total:0,last_page:1}}));
+    assert.ok(empty.includes('لا توجد سجلات مطابقة.'));
+    assert.ok(!empty.includes('تعذر الاتصال بمصدر التقرير'));
+  }finally{await server.close();}
 });

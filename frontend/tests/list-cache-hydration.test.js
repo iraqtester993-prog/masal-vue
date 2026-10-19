@@ -17,8 +17,9 @@ function memoryApi(cache=new Map()){
 async function controls(page,api,names){
  const source=await readFile(new URL(`../src/modules/${page}.vue`,import.meta.url),'utf8'),script=parse(source).descriptor.scriptSetup.content.replace(/^import[\s\S]*?;\r?$/gm,'');
  const session={state:reactive({identity:{user:{id:9},account:{id:12,type:'system'},membership:{kind:'owner'},permissions:[]}}),can:()=>true,api};
- const scope={...catalogModel,...stockModel,...reportModel,computed,reactive,ref,watch(){},provide(){},onMounted(){},onBeforeUnmount(){},onServerPrefetch(){},usePortal:()=>({session}),useRoute:()=>({name:'inventory',query:{},meta:{catalog:'products'}}),useRouter:()=>({}),useUiLabelTranslator:()=>value=>value,usePreferencesTranslator:()=>value=>value,createCatalogApi,createStockApi,createReportApi,AbortController,setTimeout,clearTimeout};
- runInNewContext(script+`\nglobalThis.controls={${names}};`,scope);return scope.controls;
+ const scope={...catalogModel,...stockModel,...reportModel,computed,reactive,ref,useListNavigation:()=>({saved:null,remember(){},restoreScroll:async()=>{}}),watch(){},provide(){},onMounted(){},onBeforeUnmount(){},onServerPrefetch(){},usePortal:()=>({session}),useRoute:()=>({name:'inventory',query:{},meta:{catalog:'products'}}),useRouter:()=>({}),useUiLabelTranslator:()=>value=>value,usePreferencesTranslator:()=>value=>value,createCatalogApi,createStockApi,createReportApi,AbortController,setTimeout,clearTimeout};
+ scope.useRouteRefresh=(callback,options)=>{scope.refreshRegistration={callback,options};};
+ runInNewContext(script+`\nglobalThis.controls={${names}};`,scope);return {...scope.controls,refreshRegistration:scope.refreshRegistration};
 }
 
 test('metadata API peek helpers use the exact filter query and explicit refresh reaches the request boundary',async()=>{
@@ -53,4 +54,16 @@ test('report groups hydrate from allowed options and a selected group restores o
  const page=await controls('reports/ReportsPage',api,'options,sections,groups,group,filters,load,summaryFilters');assert.equal(page.groups.value.length,1);assert.equal(page.sections.value[0].id,'sales');assert.equal(api.reads.length,0);
  page.group.value='sales';let summaryPath;const capture={peekRequest:key=>{summaryPath=key;return null;}};createReportApi(capture).peekSummary(page.summaryFilters());cache.set(summaryPath,{data:{sections:[{id:'sales',title:'Sales',available:true,count:27}]}});
  const pending=page.load();assert.equal(page.sections.value[0].count,27);await pending;assert.equal(page.sections.value[0].count,27);
+});
+
+test('catalog pull refresh keeps the selected page and filters visible until fresh rows and options arrive',async()=>{
+ const parameters='query=chosen&page=2&per_page=10',cache=new Map([[`/catalog/products?${parameters}`,{data:[{id:2,name:'Visible category',version:1}],meta:{current_page:2,last_page:3,total:30,per_page:10}}]]),api=memoryApi(cache);
+ const page=await controls('catalog/CatalogPage',api,'vm,load');page.vm.filters.query='chosen';await page.load(2);
+ const finish=[];api.request=(path,options)=>{api.reads.push({path,options});return new Promise(resolve=>finish.push({path,resolve}));};api.reads.length=0;
+ const pending=page.refreshRegistration.callback();
+ assert.equal(page.vm.rows[0].name,'Visible category');assert.equal(page.vm.meta.current_page,2);assert.equal(page.vm.filters.query,'chosen');
+ assert.equal(api.reads.length,2);assert.ok(api.reads.every(row=>row.options.fresh===true));
+ for(const request of finish)request.resolve(request.path==='/catalog/options'?{data:{providers:[],cities:[]}}:{data:[{id:3,name:'Fresh category',version:2}],meta:{current_page:2,last_page:3,total:30,per_page:10}});
+ assert.equal(await pending,true);assert.equal(page.vm.rows[0].name,'Fresh category');assert.equal(page.vm.meta.current_page,2);assert.equal(page.vm.filters.query,'chosen');
+ page.vm.modal={kind:'edit'};assert.equal(page.refreshRegistration.options.canRefresh(),false,'an open editor keeps its unsaved form');
 });

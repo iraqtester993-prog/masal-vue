@@ -4,10 +4,12 @@ namespace App\Services\Digital;
 
 use App\Models\Digital\DigitalConnection;
 use App\Services\Finance\Money;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Pool;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Validation\ValidationException;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class ProviderGateway
 {
@@ -62,6 +64,30 @@ class ProviderGateway
         $base = rtrim((string) config('digital.gateway_url'), '/');
 
         return $this->transport($base, $operation, 'POST', [], $payload + ['provider' => $connection->provider, 'connectionId' => (string) $connection->id, 'credential' => $connection->credential, 'contract' => config('digital.contract')]);
+    }
+
+    public function read(DigitalConnection $connection, string $operation): array
+    {
+        abort_unless(in_array($operation, ['catalog', 'inventory'], true), 500);
+        try {
+            return $this->call($connection, $operation);
+        } catch (ProviderRejection|ConnectionException $error) {
+            throw ValidationException::withMessages(['gateway' => $this->readFailure($error, $connection->provider, $connection)]);
+        }
+    }
+
+    public function readFailure(\Throwable $error, string $provider, ?DigitalConnection $connection = null): string
+    {
+        $name = $provider === 'topup' ? 'Topup' : 'الرابعة';
+        $message = match (true) {
+            $error instanceof ProviderRejection => $error->getMessage(),
+            $error instanceof ConnectionException => 'تعذر الاتصال بخادم الشركة؛ تحقق من اتصال الخادم وأعد الاستعلام لاحقًا.',
+            $error instanceof ValidationException => collect($error->errors())->flatten()->first() ?: 'استجابة الشركة غير مكتملة؛ راجع الربط مع المزود.',
+            $error instanceof HttpExceptionInterface && $error->getStatusCode() === 503 => 'بيانات الاتصال غير مكتملة: '.implode('، ', $this->status($connection ?? new DigitalConnection(['provider' => $provider]))['missing']),
+            default => 'تعذر إكمال الاستعلام؛ حدّث الصفحة وراجع إعداد الربط قبل المحاولة.',
+        };
+
+        return str_starts_with($message, $name.': ') ? $message : $name.': '.$message;
     }
 
     public function transport(string $base, string $path, string $method, array $headers, array $payload = [], bool $exactMoney = false, bool $scalarBalance = false): array

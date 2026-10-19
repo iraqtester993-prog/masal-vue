@@ -10,6 +10,7 @@ use App\Models\PermissionProfile;
 use App\Models\User;
 use App\Services\ManagementAuthority;
 use App\Services\Notifications\ActivityNotifications;
+use App\Services\PermissionCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\Support\CreatesStock;
@@ -30,6 +31,7 @@ class BulkFundingNotificationsTest extends TestCase
         $fixture['second'] = $this->account(AccountType::Pos, $fixture['main']);
         $fixture['second']->update(['name' => 'نقطة باء']);
         $fixture['secondUser'] = $this->userFor($fixture['second']);
+        $fixture['admin'] = $this->scopedEmployee($fixture['system'], $fixture['system'], array_keys(PermissionCatalog::LABELS));
 
         return $fixture;
     }
@@ -39,10 +41,10 @@ class BulkFundingNotificationsTest extends TestCase
         return ['from_account_id' => $fixture['main']->id, 'service' => 'voucher', 'currency' => 'IQD', 'rows' => [['to_account_id' => $fixture['first']->id, 'amount' => '1000.00'], ['to_account_id' => $fixture['second']->id, 'amount' => '2000.00']], 'reference' => 'تمويل نقاط البيع', 'idempotency_key' => $key];
     }
 
-    private function scopedEmployee(Account $funder, Account $root): User
+    private function scopedEmployee(Account $funder, Account $root, ?array $permissions = null): User
     {
         $profile = PermissionProfile::factory()->create(['account_id' => $funder->id]);
-        app(ManagementAuthority::class)->replaceProfilePermissions($profile->id, ['account.view', 'wallets.view', 'notifications.view']);
+        app(ManagementAuthority::class)->replaceProfilePermissions($profile->id, $permissions ?? ['account.view', 'wallets.view', 'notifications.view']);
         $user = User::factory()->create();
         $member = AccountMembership::create(['user_id' => $user->id, 'account_id' => $funder->id, 'kind' => 'employee', 'role_id' => DB::table('roles')->where('name', 'employee')->value('id'), 'permission_profile_id' => $profile->id, 'include_descendants' => true, 'status' => 'active']);
         DB::table('membership_scope_roots')->insert(['membership_id' => $member->id, 'account_id' => $root->id]);

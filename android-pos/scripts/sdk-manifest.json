@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "artifacts": [
+    { "path": "app/libs/rovoo-1.0.5.jar", "component": "ROVOO SDK", "version": "1.0.5", "sha256": "8801fb6ce2a61c6bffc4ac2374a48de7decf7e1530a7cc73f1f4cd7306a8151e", "bytes": 280349 },
+    { "path": "app/libs/zcs-1.3.5.jar", "component": "ZCS SmartPOS SDK", "version": "1.3.5", "sha256": "389f0216b06e2155ca5665ed12af90260f9f7180b3b6fb1ee5cb04e087ec2e51", "bytes": 146990 },
+    { "path": "app/libs/zxing-core-3.2.1.jar", "component": "ZXing Core supplied with ZCS SDK", "version": "3.2.1", "sha256": "b4d82452e7a6bf6ec2698904b332431717ed8f9a850224f295aec89de80f2259", "bytes": 544403 },
+    { "path": "app/src/main/jniLibs/arm64-v8a/libSmartPos.so", "component": "ZCS SmartPOS SDK arm64-v8a", "version": "1.3.5", "sha256": "13450f84735bd47987661630a57dfe736d4ac4b5e535d0847f18c828aedec807", "bytes": 190344 },
+    { "path": "app/src/main/jniLibs/arm64-v8a/libSmartPosJni.so", "component": "ZCS SmartPOS SDK arm64-v8a", "version": "1.3.5", "sha256": "59b8ac152291e164a5a12248c27a5649c84f08e55f76d92b12c8440b474f4795", "bytes": 104304 },
+    { "path": "app/src/main/jniLibs/arm64-v8a/libEmvCoreJni.so", "component": "ZCS SmartPOS SDK arm64-v8a", "version": "1.3.5", "sha256": "b04227c549ea8fbf77376daeefe9106cde8be990752c8e03f918eeb6ed2092ef", "bytes": 216544 },
+    { "path": "app/src/main/jniLibs/armeabi-v7a/libSmartPos.so", "component": "ZCS SmartPOS SDK armeabi-v7a", "version": "1.3.5", "sha256": "7c746fdf6fe5b103d5c1357e6d5163da02f7cb682a55e4221bf77f31453ee287", "bytes": 132688 },
+    { "path": "app/src/main/jniLibs/armeabi-v7a/libSmartPosJni.so", "component": "ZCS SmartPOS SDK armeabi-v7a", "version": "1.3.5", "sha256": "4b64b14d1ba3b06f7eb65a50ef10d529784fd865a2010523ce3c857e87581100", "bytes": 79404 },
+    { "path": "app/src/main/jniLibs/armeabi-v7a/libEmvCoreJni.so", "component": "ZCS SmartPOS SDK armeabi-v7a", "version": "1.3.5", "sha256": "d7ae89f0f08853d2fff8fc65b27cdee0bd0267b4cfb15b5929ada4d45d9f13d4", "bytes": 158024 }
+  ]
+}

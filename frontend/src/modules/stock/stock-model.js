@@ -34,7 +34,7 @@ export function mapColumns(line) {
 export function printableTime(value) {
   if (!value) return '—';
   const parsed = new Date(value);
-  return Number.isNaN(parsed.valueOf()) ? '—' : parsed.toLocaleString('ar-IQ', {timeZone:'Asia/Baghdad'});
+  return Number.isNaN(parsed.valueOf()) ? '—' : parsed.toLocaleString('ar-IQ', {numberingSystem:'latn',timeZone:'Asia/Baghdad'});
 }
 export function amountText(amounts) {
   return Object.entries(amounts || {}).map(([currency, amount]) => `${amount} ${currency === 'IQD' ? 'د.ع' : '$'}`).join(' · ') || '—';

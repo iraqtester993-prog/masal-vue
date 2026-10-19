@@ -33,7 +33,7 @@ test('products, offers and exact account filters hydrate from session memory wit
   assert.deepEqual(writes, []);
 });
 
-test('memory freshness lasts 30 seconds, display hydration lasts at most 120 seconds, and refresh stays authoritative', async t => {
+test('memory freshness lasts 30 seconds, display hydration lasts at most ten minutes, and refresh stays authoritative', async t => {
   let now = 0, calls = 0, finish;
   t.mock.method(Date, 'now', () => now);
   environment(t, async () => ++calls === 1 ? Response.json({ data: [1] }) : new Promise(resolve => { finish = () => resolve(Response.json({ data: [2] })); }));
@@ -45,7 +45,7 @@ test('memory freshness lasts 30 seconds, display hydration lasts at most 120 sec
   const refreshed = api.request(path, { fresh: true }); await Promise.resolve();
   assert.equal(api.hasFreshRequest(path), false); assert.equal(api.peekFreshRequest(path), null);
   assert.deepEqual(api.peekRequest(path), { data: [1] });
-  now = 120000; assert.equal(api.peekRequest(path), null); assert.equal(api.peekRequest(path, Infinity), null);
+  now = 600000; assert.equal(api.peekRequest(path), null); assert.equal(api.peekRequest(path, Infinity), null);
   finish(); await refreshed; assert.equal(api.hasFreshRequest(path), true);
 });
 

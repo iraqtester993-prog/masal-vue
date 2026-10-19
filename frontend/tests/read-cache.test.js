@@ -75,3 +75,17 @@ test('a newer explicit refresh aborts an older result instead of returning or ca
   finishOld({ revision: 1 }); await rejected;
   assert.deepEqual(cache.peek('a'), { revision: 2 });
 });
+
+
+test('a failed refresh preserves the last display but cannot treat it as fresh or suppress a retry',async()=>{
+ const cache=createReadCache();await cache.read('wallet',async()=>({balance:94}));
+ await assert.rejects(cache.read('wallet',async()=>{throw Error('offline');},{force:true}));
+ assert.deepEqual(cache.peek('wallet',600000),{balance:94});assert.equal(cache.has('wallet'),false);
+ assert.deepEqual(await cache.read('wallet',async()=>({balance:93})),{balance:93});
+});
+
+test('recently displayed navigation data survives eviction of a colder page',async()=>{
+ const cache=createReadCache({limit:2});await cache.read('home',async()=>({value:1}));await cache.read('old-filter',async()=>({value:2}));
+ assert.deepEqual(cache.peek('home'),{value:1});await cache.read('sales',async()=>({value:3}));
+ assert.deepEqual(cache.peek('home'),{value:1});assert.equal(cache.peek('old-filter'),null);
+});

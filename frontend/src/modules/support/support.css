@@ -1,6 +1,10 @@
 .support-contact-bar {
   margin-bottom: 18px;
 }
+.support-full-page .support-workspace{min-width:0;width:100%;background:transparent;border:0;box-shadow:none}
+.support-page-tabs{display:flex;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:14px}
+.support-page-tabs .btn{flex:1;min-height:44px;white-space:normal}
+.support-phones-panel{padding:0;margin:0;min-width:0}
 .support-contact-bar details {
   padding: 12px;
   border: 1px solid var(--line);
@@ -452,17 +456,13 @@
   .portal-shell.pos-app .support-module .support-composer textarea{resize:none;min-height:130px}
   .portal-shell.pos-app .support-module .support-phone-grid{grid-template-columns:minmax(0,1fr)}
   .portal-shell.pos-app .support-module :is(button,a){touch-action:manipulation}
-  /* Use a single stable app pane instead of resizing the page for each view. */
-  .portal-shell.pos-app .support-module{touch-action:pan-y pinch-zoom;-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-anchor:none}
-  .portal-shell.pos-app .support-module .support-workspace{height:calc(100svh - 152px);min-height:260px;display:flex;flex-direction:column;overflow:hidden;contain:inline-size}
-  .portal-shell.pos-app .support-module .support-workspace>div{display:flex;flex-direction:column;flex:1;min-height:0;min-width:0;overflow:hidden}
-  .portal-shell.pos-app .support-module .support-inbox{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden}
-  .portal-shell.pos-app .support-module .support-chat-layout{flex:1;min-height:0;overflow:hidden}
-  .portal-shell.pos-app .support-module .support-chat-list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior-y:contain}
-  .portal-shell.pos-app .pos-support-chat .support-chat-detail{flex:1;height:auto;min-height:0;max-height:none}
-  .portal-shell.pos-app .support-module .support-contact-bar{flex:none;max-height:30%;overflow:auto}
-  .portal-shell.pos-app .support-module .pos-compose-toggle{flex:none;margin-top:12px}
-  .portal-shell.pos-app .support-module .support-composer{min-height:0;overflow-y:auto;overscroll-behavior-y:contain}
-  .portal-shell.pos-app .support-module.pos-support-compose .support-inbox{display:none}
-  .portal-shell.pos-app .support-module :is(.support-workspace,.support-chat-item,.support-chat-detail,.support-composer){animation:none;transition:none;transform:none}
+  .portal-shell.pos-app .support-full-page .support-workspace{height:auto;min-height:calc(100svh - 152px);padding:0;overflow:visible;border-radius:0;display:flex;flex-direction:column;gap:16px}
+  .portal-shell.pos-app .support-full-page .support-workspace>div{min-width:0;min-height:0;flex:1}
+  .portal-shell.pos-app .support-full-page .support-inbox{min-width:0;min-height:0}
+  .portal-shell.pos-app .support-full-page .support-chat-list{min-height:240px;max-height:none;overflow:visible}
+  .portal-shell.pos-app .support-full-page.pos-support-chat .support-chat-detail{height:calc(100svh - 260px);min-height:300px;max-height:none}
+  .portal-shell.pos-app .support-full-page .support-phones-panel{display:block;max-height:none;overflow:visible}
+  .portal-shell.pos-app .support-full-page .support-page-tabs{flex:none}
+  .portal-shell.pos-app .support-full-page .support-composer{overflow:visible}
+  .portal-shell.pos-app .support-full-page .support-workspace :is(.support-chat-item,.support-chat-detail,.support-composer){animation:none;transition:none;transform:none}
 }

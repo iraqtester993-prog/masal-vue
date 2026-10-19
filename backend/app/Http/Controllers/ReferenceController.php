@@ -11,6 +11,7 @@ use App\Models\OperatingGovernorate;
 use App\Models\PosType;
 use App\Services\AccountScope;
 use App\Services\AuditLogger;
+use App\Services\Finance\FinanceServiceIdentity;
 use App\Services\ManagementAuthority;
 use App\Services\Operations\MutationGuard;
 use App\Services\ReferenceAccess;
@@ -200,7 +201,7 @@ class ReferenceController extends Controller
         abort_if($actor->membership->account->type === AccountType::Pos, 403);
         $agents = $access->agents($actor)->orderBy('id')->limit(10001)->get(['id', 'name', 'type', 'status', 'parent_id']);
         $networks = $access->networks($actor)->orderBy('id')->limit(10001)->get(['id', 'name', 'status']);
-        $providers = CatalogProvider::where('status', 'active')->orderBy('id')->limit(10001)->get(['id', 'name', 'status']);
+        $providers = CatalogProvider::where('status', 'active')->orderBy('id')->limit(10001)->get(['id', 'name', 'status'])->map(fn ($provider): array => array_replace($provider->toArray(), ['name' => app(FinanceServiceIdentity::class)->providerName($provider)]));
         abort_if(max($agents->count(), $networks->count(), $providers->count()) > 10000, 422, 'عدد الخيارات كبير؛ استخدم قائمة الحسابات المفلترة.');
 
         $writableNetworks = $access->agents($actor)->where('type', AccountType::MainAgent)->pluck('id')->all();

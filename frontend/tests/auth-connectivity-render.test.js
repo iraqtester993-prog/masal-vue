@@ -32,12 +32,13 @@ async function isolatedViteServer({presence=false}={}){
 // A Vue renderer fixture exercises component lifetimes and native-dialog calls;
 // it does not launch a browser, send printer commands or create financial data.
 function isolatedSurface(){
-  const node=(tag,text='')=>({tag,text,props:{},children:[],parent:null,style:{display:''},open:false,showModal(){this.open=true;},close(){this.open=false;}});
+  const descendants=entry=>[entry,...entry.children.flatMap(descendants)];
+  const node=(tag,text='')=>({tag,tagName:tag.toUpperCase(),text,props:{},children:[],parent:null,style:{display:''},open:false,events:{},get options(){return this.children.flatMap(descendants).filter(entry=>entry.tag==='option');},getRootNode(){return {activeElement:null};},addEventListener(name,handler){this.events[name]=handler;},removeEventListener(name){delete this.events[name];},showModal(){this.open=true;},close(){this.open=false;}});
   const root=node('root'),body=node('body');
   const renderer=createRenderer({
     createElement:tag=>node(tag),createText:text=>node('#text',text),createComment:text=>node('#comment',text),
     setText:(target,text)=>{target.text=text;},setElementText:(target,text)=>{target.text=text;target.children=[];},
-    patchProp:(target,key,previous,value)=>{target.props[key]=value;},
+    patchProp:(target,key,previous,value)=>{target.props[key]=value;target[key]=value;if(key==='value')target._value=value;},
     insert:(target,parent,anchor=null)=>{if(target.parent){const old=target.parent.children.indexOf(target);if(old>=0)target.parent.children.splice(old,1);}target.parent=parent;const at=anchor?parent.children.indexOf(anchor):-1;if(at>=0)parent.children.splice(at,0,target);else parent.children.push(target);},
     remove:target=>{if(target.parent){const at=target.parent.children.indexOf(target);if(at>=0)target.parent.children.splice(at,1);target.parent=null;}},
     parentNode:target=>target.parent,nextSibling:target=>target.parent?.children[target.parent.children.indexOf(target)+1]||null,
@@ -56,6 +57,48 @@ async function clientRender(component,path){
   const code=result.code.replace(/^import \{([^}]+)\} from "vue"$/gm,(_,names)=>{for(const pair of names.split(',')){const [name,alias]=pair.trim().split(/\s+as\s+/);scope[alias||name]=Vue[name];}return '';}).replace('export function render','function render');
   component.render=runInNewContext(code+'\nrender',scope);
 }
+
+test('accepted route revocation removes its live view and moves to a permitted page while routine checks keep the same instance',{timeout:30000},async()=>{
+ const server=await isolatedViteServer({presence:true});let app;
+ try{
+  const Root=(await server.ssrLoadModule('/src/app/PortalRoot.vue')).default;await clientRender(Root,'src/app/PortalRoot.vue');
+  (await server.ssrLoadModule('/src/modules/maps/PresenceController.vue')).default.render=()=>null;
+  const {portalContextKey}=await server.ssrLoadModule('/src/modules/auth/session.js');
+  const original={user:{id:7},account:{id:1,type:'system'},membership:{kind:'employee'},permissions:['dashboard.view','reports.view'],capabilities:{system_scope:true}};
+  const session={state:Vue.reactive({identity:original,checked:true,accessConfirmed:true,error:''}),can:key=>session.state.accessConfirmed&&session.state.identity.permissions.includes(key)};
+  let instances=0,destroyed=0,reads=0;
+  const protectedView={setup(){instances++;reads++;onBeforeUnmount(()=>destroyed++);return()=>h('article','PROTECTED_DATA');}};
+  const router=createRouter({history:createMemoryHistory(),routes:[{path:'/dashboard',name:'dashboard',component:protectedView,meta:{requiresAuth:true,permission:'dashboard.view'}},{path:'/reports',name:'reports',component:{render:()=>h('article','GRANTED_REPORT')},meta:{requiresAuth:true,permission:'reports.view'}}]});await router.push('/dashboard');
+  const surface=isolatedSurface();app=surface.renderer.createApp(Root,{layout:{render(){return h('main',this.$slots.default?.());}}});app.use(router);app.provide(Vue.ssrContextKey,{modules:new Set()});app.provide(portalContextKey,{session});app.mount(surface.root);await nextTick();
+  const initial=surface.find(surface.root,'article');assert.equal(initial.text,'PROTECTED_DATA');
+  session.state.accessConfirmed=false;await nextTick();assert.equal(surface.find(surface.root,'article'),initial);assert.equal(instances,1);assert.equal(destroyed,0);
+  session.state.accessConfirmed=true;await nextTick();assert.equal(surface.find(surface.root,'article'),initial);
+  session.state.identity={...original,permissions:['reports.view'],capabilities:{system_scope:false}};await nextTick();
+  assert.equal(destroyed,1,'the forbidden view is removed before waiting for route navigation');
+  for(let attempt=0;attempt<10&&router.currentRoute.value.name!=='reports';attempt++)await new Promise(done=>setImmediate(done));
+  await nextTick();assert.equal(router.currentRoute.value.name,'reports');assert.equal(surface.find(surface.root,'article').text,'GRANTED_REPORT');assert.equal(instances,1);assert.equal(reads,1,'revocation must not remount or reread the forbidden page');assert.equal(session.state.identity.user.id,7);
+ }finally{app?.unmount();await server.close();}
+});
+
+test('a pending lazy destination keeps the existing page visible and an account switch replaces its instance',{timeout:30000},async()=>{
+ const server=await isolatedViteServer({presence:true});let app;
+ try{
+  const PortalRoot=(await server.ssrLoadModule('/src/app/PortalRoot.vue')).default;
+  await clientRender(PortalRoot,'src/app/PortalRoot.vue');(await server.ssrLoadModule('/src/modules/maps/PresenceController.vue')).default.render=()=>null;
+  const {portalContextKey}=await server.ssrLoadModule('/src/modules/auth/session.js');
+  const identity={user:{id:9},account:{id:1,type:'system'},membership:{kind:'owner'}},session={state:Vue.reactive({identity,checked:true,error:''}),can:()=>true};
+  let instances=0,release;const existing={setup(){instances++;return()=>h('article','CURRENT_LIST');}},destination=()=>new Promise(resolve=>{release=()=>resolve({render:()=>h('article','DESTINATION_LIST')});});
+  const router=createRouter({history:createMemoryHistory(),routes:[{path:'/current',component:existing},{path:'/next',component:destination}]});await router.push('/current');
+  const surface=isolatedSurface();app=surface.renderer.createApp(PortalRoot,{layout:{render(){return h('main',this.$slots.default?.());}}});app.use(router);app.provide(Vue.ssrContextKey,{modules:new Set()});app.provide(portalContextKey,{session});app.mount(surface.root);await nextTick();
+  const article=surface.find(surface.root,'article');assert.equal(article.text,'CURRENT_LIST');assert.notEqual(article.style.display,'none');
+  const pending=router.push('/next');while(!release)await new Promise(resolve=>setImmediate(resolve));await nextTick();
+  assert.equal(surface.find(surface.root,'article'),article,'the old routed component remains mounted until lazy code resolves');assert.notEqual(article.style.display,'none','navigation cannot hide the current page while waiting');
+  release();await pending;await nextTick();assert.equal(surface.find(surface.root,'article').text,'DESTINATION_LIST');
+  await router.push('/current');await nextTick();const prior=instances;
+  session.state.identity={...identity,account:{...identity.account,id:2}};await nextTick();assert.equal(instances,prior+1,'an account change must not retain another account’s form or list instance');
+  session.state.identity={...session.state.identity,permissions:['new.permission']};await nextTick();assert.equal(instances,prior+2,'a permission change must discard the previous authorization scope');
+ }finally{app?.unmount();await server.close();}
+});
 
 test('an outage blocks the rendered sale with a modal while retaining its uncertain mutation key, and retry restores the same instance',{timeout:30000},async()=>{
   const server=await isolatedViteServer({presence:true});
@@ -152,15 +195,15 @@ test('a live forced change removes the business shell and validates two password
 test('manager reset requires confirmation, locks duplicate submits and includes only the selected device request and account version',{timeout:30000},async()=>{
  const server=await isolatedViteServer();let app;
  try{
-  const Dialog=(await server.ssrLoadModule('/src/modules/accounts/AccountPasswordResetDialog.vue')).default,Modal=(await server.ssrLoadModule('/src/modules/accounts/AccountModal.vue')).default,Field=(await server.ssrLoadModule('/src/modules/accounts/FormField.vue')).default;
-  for(const [component,path] of [[Dialog,'src/modules/accounts/AccountPasswordResetDialog.vue'],[Modal,'src/modules/accounts/AccountModal.vue'],[Field,'src/modules/accounts/FormField.vue']])await clientRender(component,path);
-  const {portalContextKey}=await server.ssrLoadModule('/src/modules/auth/session.js');const writes=[];let finish;
-  const session={state:{identity:{account:{id:1,type:'system'},membership:{kind:'owner'},permissions:['account.password_reset']}},api:{resetAccountPassword:(id,body)=>{writes.push({id,body});return new Promise(done=>finish=done);}},can:()=>true};
+  const Dialog=(await server.ssrLoadModule('/src/modules/accounts/AccountPasswordResetDialog.vue')).default,Modal=(await server.ssrLoadModule('/src/modules/accounts/AccountModal.vue')).default,Field=(await server.ssrLoadModule('/src/modules/accounts/FormField.vue')).default,Select=(await server.ssrLoadModule('/src/shared/components/AppSelect.vue')).default;
+  for(const [component,path] of [[Dialog,'src/modules/accounts/AccountPasswordResetDialog.vue'],[Modal,'src/modules/accounts/AccountModal.vue'],[Field,'src/modules/accounts/FormField.vue'],[Select,'src/shared/components/AppSelect.vue']])await clientRender(component,path);
+  const {portalContextKey}=await server.ssrLoadModule('/src/modules/auth/session.js');const reads=[],writes=[];let finish;
+  const session={state:{identity:{account:{id:1,type:'system'},membership:{kind:'owner'},permissions:['account.password_reset']}},api:{request:async(path,options)=>{reads.push({path,options});assert.equal(path,'/accounts/27');assert.equal(options.fresh,true);return{data:structuredClone(account)};},resetAccountPassword:(id,body)=>{writes.push({id,body});return new Promise(done=>finish=done);}},can:()=>true};
   const account={id:27,name:'نقطة تجريبية',type:'pos',version:11,can_reset_password:true,password_reset_requests:[{id:'new-device-request',request_label:'DEVICE',trusted:false,device_label:'جهاز جديد'}]};
   const router=createRouter({history:createMemoryHistory(),routes:[{path:'/',component:{render:()=>null}}]});const surface=isolatedSurface(),text=node=>node.text+node.children.map(text).join(''),all=(node,tag)=>[...(node.tag===tag?[node]:[]),...node.children.flatMap(child=>all(child,tag))];
-  app=surface.renderer.createApp(Dialog,{account});app.use(router);app.provide(Vue.ssrContextKey,{modules:new Set()});app.provide(portalContextKey,{session});app.mount(surface.root);await nextTick();assert.equal(writes.length,0);
+  app=surface.renderer.createApp(Dialog,{account});app.use(router);app.provide(Vue.ssrContextKey,{modules:new Set()});app.provide(portalContextKey,{session});app.mount(surface.root);await new Promise(done=>setImmediate(done));await nextTick();assert.equal(writes.length,0);assert.equal(reads.length,1);
   const select=surface.find(surface.root,'select');select.props.onChange({target:{value:'new-device-request'}});surface.find(surface.root,'textarea').props.onInput({target:{value:' طلب صاحب النقطة '}});await nextTick();
-  const form=surface.find(surface.root,'form'),pending=form.props.onSubmit({preventDefault(){}});await form.props.onSubmit({preventDefault(){}});assert.deepEqual(writes,[{id:27,body:{version:11,reason:'طلب صاحب النقطة',request_id:'new-device-request'}}]);finish({data:{}});await pending;await nextTick();assert.ok(text(surface.root).includes('تم طلب تغيير كلمة المرور'));assert.equal(all(surface.root,'form').length,0);
+  const form=surface.find(surface.root,'form'),pending=form.props.onSubmit({preventDefault(){}});await form.props.onSubmit({preventDefault(){}});await new Promise(done=>setImmediate(done));assert.equal(reads.length,2);assert.deepEqual(writes,[{id:27,body:{version:11,reason:'طلب صاحب النقطة',request_id:'new-device-request'}}]);finish({data:{}});await pending;await nextTick();assert.ok(text(surface.root).includes('تم طلب تغيير كلمة المرور'));assert.equal(all(surface.root,'form').length,0);
  }finally{app?.unmount();await server.close();}
 });
 

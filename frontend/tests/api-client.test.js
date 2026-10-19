@@ -1,6 +1,43 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createApiClient, cookieValue, ApiError } from '../src/shared/api/client.js';
+
+test('rate limits expose a safe retry delay and an Arabic message without retrying the request',async()=>{
+ const originalFetch=globalThis.fetch,originalNow=Date.now;let calls=0;
+ Date.now=()=>Date.parse('2026-10-19T12:00:00Z');
+ try{
+  for(const [header,expected] of [['25',25],['Mon, 19 Oct 2026 12:00:40 GMT',40],['Mon, 19 Oct 2026 11:59:00 GMT',0],['invalid',null],['9'.repeat(400),null],[null,null]]){
+   globalThis.fetch=async()=>{calls++;return Response.json({message:'Too Many Attempts.'},{status:429,headers:header===null?{}:{'Retry-After':header}});};
+   const before=calls;await assert.rejects(createApiClient('/api/v1').request('/auth/password-reset/request-status'),error=>error instanceof ApiError&&error.status===429&&error.retryAfter===expected&&error.message==='محاولات كثيرة. انتظر قليلًا ثم حاول مرة أخرى.');
+   assert.equal(calls,before+1,'a rate-limited request is never automatically submitted again');
+  }
+ }finally{globalThis.fetch=originalFetch;Date.now=originalNow;}
+});
+
+test('generic forbidden responses are neutral while security and operation errors keep their structured details',async()=>{
+ const oldFetch=globalThis.fetch;
+ try{
+  const api=createApiClient('/api/v1');let reset;
+  api.setPasswordResetHandler(value=>reset=value);
+  globalThis.fetch=async()=>Response.json({message:'Missing backup.restore',errors:{permissions:['backup.restore']}},{status:403});
+  await assert.rejects(api.request('/private'),error=>error.status===403&&!error.message.includes('backup')&&Object.keys(error.errors).length===0);
+  for(const code of ['PASSWORD_CHANGE_REQUIRED','POS_LOGIN_DEVICE_MISMATCH','POS_LOGIN_PROOF_REQUIRED','LOCATION_REQUIRED']){
+   globalThis.fetch=async()=>Response.json({code,message:'Security instructions',password_reset:{required:true,version:7},errors:{device:['Review current device']}},{status:403});
+   await assert.rejects(api.request('/private'),error=>error.status===403&&error.code===code&&error.message==='Security instructions'&&error.errors.device[0]==='Review current device');
+  }
+  assert.deepEqual(reset,{required:true,version:7});
+  for(const status of [409,422,423]){
+   globalThis.fetch=async()=>Response.json({message:'Action-specific detail',errors:{field:['Value-specific detail']}},{status});
+   await assert.rejects(api.request('/private'),error=>error.status===status&&error.message==='Action-specific detail'&&error.errors.field[0]==='Value-specific detail');
+  }
+ }finally{globalThis.fetch=oldFetch;}
+});
+
+test('permission catalogs retain the default URL and encode target/context without requesting account details',async()=>{
+ const oldFetch=globalThis.fetch,calls=[];globalThis.fetch=async url=>{calls.push(url);return Response.json({data:[]});};
+ try{const api=createApiClient('/api/v1');await api.permissionCatalog();await api.permissionCatalog(undefined,{account_id:44,context:'account'});assert.deepEqual(calls,['/api/v1/permission-catalog','/api/v1/permission-catalog?account_id=44&context=account']);}
+ finally{globalThis.fetch=oldFetch;}
+});
 test('refresh guard stays active until every pending business mutation settles',async()=>{
  const previousFetch=globalThis.fetch,previousDocument=globalThis.document;globalThis.document={cookie:''};let release;globalThis.fetch=()=>new Promise(resolve=>release=()=>resolve(Response.json({data:{}})));
  try{const api=createApiClient('/api/v1'),write=api.request('/sales',{method:'POST',body:{}});assert.equal(api.hasPendingMutation(),true);release();await write;assert.equal(api.hasPendingMutation(),false);}finally{globalThis.fetch=previousFetch;globalThis.document=previousDocument;}

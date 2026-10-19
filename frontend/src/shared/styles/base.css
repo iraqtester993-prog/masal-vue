@@ -1,8 +1,8 @@
 @import './controls.css';
-@font-face{font-family:Cairo;src:url('../assets/cairo-regular.ttf') format('truetype');font-weight:400 500;font-display:swap}
-@font-face{font-family:Cairo;src:url('../assets/cairo-bold.ttf') format('truetype');font-weight:600 900;font-display:swap}
-@font-face{font-family:Cairo;src:url('../assets/cairo-black.ttf') format('truetype');font-weight:800 900;font-display:swap}
-@font-face{font-family:'JetBrains Mono';src:url('../assets/jetbrains-mono.ttf') format('truetype');font-weight:500 900;font-display:swap}
+@font-face{font-family:Cairo;src:url('../assets/cairo-regular.woff2') format('woff2'),url('../assets/cairo-regular.ttf') format('truetype');font-weight:400 500;font-display:swap}
+@font-face{font-family:Cairo;src:url('../assets/cairo-bold.woff2') format('woff2'),url('../assets/cairo-bold.ttf') format('truetype');font-weight:600 900;font-display:swap}
+@font-face{font-family:Cairo;src:url('../assets/cairo-black.woff2') format('woff2'),url('../assets/cairo-black.ttf') format('truetype');font-weight:800 900;font-display:swap}
+@font-face{font-family:'JetBrains Mono';src:url('../assets/jetbrains-mono.woff2') format('woff2'),url('../assets/jetbrains-mono.ttf') format('truetype');font-weight:500 900;font-display:swap}
 .metricvalue,.gauge-label strong,.mono{font-family:'JetBrains Mono','Segoe UI',monospace}
 :root{font-family:Cairo,'Segoe UI',Tahoma,sans-serif;color:#263247;background:#f6f7fc;font-synthesis:none;--accent:#1c60ee;--accent-soft:#edf5ff;--panel:#fff;--raised:#f7f9fc;--ink:#263247;--text:#465369;--muted:#6e7b90;--line:#e5eaf2;--soft-line:#edf0f6;--blue-text:#245fd1}
 :root[data-theme='dark']{color-scheme:dark;color:#ecf1fb;background:#101827;--panel:#192437;--raised:#202e43;--ink:#ecf1fb;--text:#cad4e5;--muted:#a1b0c6;--line:#304059;--soft-line:#29384e;--accent-soft:#203959;--blue-text:#9abfff}
@@ -16,8 +16,9 @@
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 /* Final original cascade (polish.css / reference-identity.css). */
 html body,html body *,html body *::before,html body *::after{font-family:Cairo,'Segoe UI',Tahoma,sans-serif!important}
-html,body,body *{scrollbar-width:none!important;-ms-overflow-style:none!important}
-html::-webkit-scrollbar,body::-webkit-scrollbar,body *::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+/* Preserve the account-deletion presentation; scrollable application lists use visible indicators. */
+.pos-delete-dialog,.pos-delete-dialog *{scrollbar-width:none!important;-ms-overflow-style:none!important}
+.pos-delete-dialog::-webkit-scrollbar,.pos-delete-dialog *::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
 /* Original final theme overrides must remain above module-specific button colors. */
 html[data-theme="light"] :is(.portal-shell,dialog) .btn.primary,
 html[data-theme="light"] .portal-shell .btn.navy{background:#0898b5!important;border-color:#0898b5!important;color:#fff!important;box-shadow:none}
@@ -81,3 +82,30 @@ html[data-theme="dark"] .account-workspace .users-summary .user-symbol{backgroun
 @media(max-width:800px){.finance-workspace .wallet-filter-toolbar{grid-template-columns:1fr}.finance-workspace .wallet-filter-toolbar>.wallet-service-cards{justify-content:flex-start;overflow:auto}.finance-workspace .wallet-filter-toolbar>.actions{width:100%}.finance-workspace .wallet-extra-options{flex-wrap:wrap}}
 
 @media(max-width:650px){.finance-workspace .wallet-service-cards button{flex:1;min-width:0;min-height:62px;padding:8px!important;font-size:12px!important;line-height:1.5}}
+
+/* Validation remains distinct in inline forms and in account dialogs. */
+html[data-theme=light]{--field-error:#ab4565}
+html[data-theme=dark]{--field-error:#ffadc0}
+html[data-theme] :is(.portal-main,dialog:not(.pos-delete-dialog):not(.sales-receipt-dialog):not(.digital-receipt-dialog)) .field-error{color:var(--field-error);font-size:12px}
+html[data-theme] :is(.portal-main,dialog:not(.pos-delete-dialog):not(.sales-receipt-dialog):not(.digital-receipt-dialog)) :is(input,select,textarea,.app-select-trigger)[aria-invalid=true]{border-color:var(--field-error)}
+html[data-theme] :is(.portal-main,dialog:not(.pos-delete-dialog):not(.sales-receipt-dialog):not(.digital-receipt-dialog)) :is(input,select,textarea,.app-select-trigger)[aria-invalid=true]:focus{border-color:var(--field-error);box-shadow:0 0 0 3px color-mix(in srgb,var(--field-error) 18%,transparent)}
+html[data-theme=light]:not([data-portal=pos]) :is(.portal-shell,.dashboard-workspace,.finance-workspace,.reports-workspace,.catalog-workspace,.company-profile-page,.account-workspace,dialog:not(.pos-delete-dialog):not(.sales-receipt-dialog):not(.digital-receipt-dialog)){--muted:#5b788e}
+html[data-theme=light]:not([data-portal=pos]) :is(.portal-shell,dialog:not(.pos-delete-dialog):not(.sales-receipt-dialog):not(.digital-receipt-dialog)) .btn.primary,
+html[data-theme]:not([data-portal=pos]) .portal-shell :is(.tabs,.account-tabs,.report-nav) button.active{background:#087f98!important;border-color:#087f98!important;color:#fff!important}
+html[data-theme=light]:not([data-portal=pos]) :is(.portal-shell,dialog:not(.pos-delete-dialog):not(.sales-receipt-dialog):not(.digital-receipt-dialog)) .btn.primary:hover{background:#076c82!important;border-color:#076c82!important}
+html[data-theme=dark]:not([data-portal=pos]) :is(.portal-shell,dialog:not(.pos-delete-dialog):not(.sales-receipt-dialog):not(.digital-receipt-dialog)) .btn.primary{background:linear-gradient(100deg,#087f98,#0d7894)!important;border-color:#0c94ad!important;color:#fff!important}
+@media screen{
+ html,body{scrollbar-width:thin}
+ :is(.portal-shell,dialog:not(.pos-delete-dialog):not(.sales-receipt-dialog):not(.digital-receipt-dialog)) :is(.sidebar-navigation,.tabs,.price-mode-tabs,.site-editor-tabs,.site-inquiry-tabs,.scope-kind-tabs,.report-nav,.report-unified-toolbar,.wallet-navigation-tabs,.wallet-service-cards,.account-picker-results,.representative-options){scrollbar-width:thin!important;scrollbar-color:var(--muted) var(--raised)}
+ :is(.portal-shell,dialog:not(.pos-delete-dialog):not(.sales-receipt-dialog):not(.digital-receipt-dialog)) :is(.sidebar-navigation,.tabs,.price-mode-tabs,.site-editor-tabs,.site-inquiry-tabs,.scope-kind-tabs,.report-nav,.report-unified-toolbar,.wallet-navigation-tabs,.wallet-service-cards,.account-picker-results,.representative-options)::-webkit-scrollbar{display:block!important;width:7px!important;height:7px!important}
+ html:has(.pos-delete-dialog[open]),body:has(.pos-delete-dialog[open]){scrollbar-width:none!important;-ms-overflow-style:none!important}
+ html:has(.pos-delete-dialog[open])::-webkit-scrollbar,body:has(.pos-delete-dialog[open])::-webkit-scrollbar{display:none!important;width:0!important;height:0!important}
+}
+@keyframes dialog-in{from{opacity:0;transform:translateY(12px) scale(.99)}to{opacity:1;transform:none}}
+
+/* The POS application keeps long presses from selecting displayed text. */
+html[data-portal="pos"],html[data-portal="pos"] *{
+ -webkit-user-select:none!important;
+ user-select:none!important;
+ -webkit-touch-callout:none!important;
+}

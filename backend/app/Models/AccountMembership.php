@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\AccountPrivacy;
 use App\Support\RequestReadCache;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -37,7 +38,7 @@ class AccountMembership extends Model
     public function resource(?array $scopeAccounts = null): array
     {
         $user = $this->user;
-        $scopeAccounts ??= DB::table('membership_scope_roots')->join('accounts', 'accounts.id', '=', 'account_id')
+        $scopeAccounts ??= DB::table('membership_scope_roots')->joinSub(app(AccountPrivacy::class)->accounts(), 'accounts', 'accounts.id', '=', 'account_id')
             ->where('membership_id', $this->id)->orderBy('account_id')->get(['accounts.id', 'accounts.name'])->map(fn ($account): array => ['id' => (int) $account->id, 'name' => $account->name])->all();
 
         return ['id' => $this->id, 'user_id' => $user->id, 'account_id' => $this->account_id, 'kind' => $this->kind,
@@ -82,7 +83,7 @@ class AccountMembership extends Model
             ->where('membership_id', $this->id)->get(['permissions.name', 'allowed']);
 
         $explicitMap = DB::table('account_permission_rules')->join('permissions', 'permissions.id', '=', 'permission_id')
-            ->where('target_account_id', $this->account_id)->where('allowed', true)->where('permissions.name', 'map.view')->pluck('permissions.name');
+            ->where('target_account_id', $this->account_id)->where('allowed', true)->whereIn('permissions.name', ['map.view', 'staff.password_reset'])->pluck('permissions.name');
         $base = $role->merge($explicitMap)->merge($overrides->where('allowed', true)->pluck('name'))
             ->diff($overrides->where('allowed', false)->pluck('name'))
             ->unique()->sort()->values()->all();

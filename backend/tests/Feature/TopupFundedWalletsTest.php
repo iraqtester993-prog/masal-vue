@@ -578,7 +578,7 @@ class TopupFundedWalletsTest extends TestCase
     {
         $f = $this->fixture();
         $this->postJson('/api/v1/digital/orders', $this->sale($f))->assertCreated();
-        $employee = $this->supportEmployee($f['main'], $f['main'], ['account.view', 'dashboard.view', 'digital.view', 'digital.assign', 'wallets.view', 'data.profit']);
+        $employee = $this->supportEmployee($f['main'], $f['main'], ['account.view', 'dashboard.view', 'digital.view', 'digital.assign', 'topup.view', 'topup.prices', 'wallets.view', 'data.profit']);
         $this->asPortalUser($employee);
         foreach (['', '?view=cards'] as $query) {
             $card = collect($this->getJson('/api/v1/dashboard/summary'.$query)->assertOk()->json('data.cards'))->firstWhere('key', 'digital:topup');

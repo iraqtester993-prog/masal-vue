@@ -171,7 +171,7 @@ class CatalogManagementTest extends TestCase
         $response = $this->post('/api/v1/catalog/products', ['payload' => json_encode($input), 'image' => $this->image()], ['Accept' => 'application/json'])->assertCreated()->assertJsonMissingPath('data.image_path');
         $product = CatalogProduct::findOrFail($response->json('data.id'));
         Storage::disk('local')->assertExists($product->image_path);
-        $this->get('/api/v1/catalog/products/'.$product->id.'/image')->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff')->assertHeaderContains('Cache-Control', 'no-store');
+        $this->get('/api/v1/catalog/products/'.$product->id.'/image')->assertOk()->assertHeader('X-Content-Type-Options', 'nosniff')->assertHeaderContains('Cache-Control', 'no-cache')->assertHeaderContains('Cache-Control', 'private');
     }
 
     public function test_disguised_svg_is_rejected_without_saving_image(): void

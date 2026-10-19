@@ -20,9 +20,9 @@ const emit=defineEmits(['close','saved']);
 
 const {session,handleFailure}=useAccountAccess();
 
-const catalog=ref([]),authority=ref([]),authorityLoaded=ref(false);
+const catalog=ref([]),authority=ref([]),authorityLoaded=ref(false),accountVersion=ref(props.account?.version);
 
-const permissions=ref([...(props.profile?.permissions || props.account?.permissions || [])]);
+const permissions=ref([...(props.profile?.permissions || (!props.inline?props.account?.permissions:[]) || [])]);
 
 const name=ref(props.profile?.name || ''),search=ref(''),reason=ref(''),module=ref(null);
 
@@ -30,17 +30,19 @@ const busy=ref(false),loading=ref(true),error=ref(''),errors=ref({});
 
 const controller=new AbortController();
 
-const groupOrder=['dashboard','reports','sell','sales','inventory','import','products','providers','prices','exceptions','claims','exports','account','pos','wallets','map','support','notifications','staff','representatives','posTypes','permission_profile','security','branding','company','governorates','digital','data','sources','integrations','backup'];
+const groupOrder=['dashboard','reports','sell','sales','inventory','import','products','providers','prices','exceptions','claims','exports','account','pos','wallets','map','support','notifications','staff','representatives','posTypes','permission_profile','security','branding','company','governorates','digital','data','sources','integrations','topup','app','printers','backup'];
 
-const groups=computed(()=>{const collected=new Map();for(const g of permissionGroups(catalog.value,search.value)){let id=g.items[0].group;if(['ledger','invoices'].includes(id))id='wallets';if(id==='agents')id='account';if(!collected.has(id))collected.set(id,{...g,id,items:[]});collected.get(id).items.push(...g.items);}return [...collected.values()].sort((a,b)=>(groupOrder.indexOf(a.id)<0?999:groupOrder.indexOf(a.id))-(groupOrder.indexOf(b.id)<0?999:groupOrder.indexOf(b.id)));});
+const visibleCatalog=computed(()=>props.preview?catalog.value.filter(item=>permissions.value.includes(item.key)):available.value.filter(item=>canChange(item.key)));
+const groups=computed(()=>{const collected=new Map();for(const g of permissionGroups(visibleCatalog.value,search.value)){let id=g.items[0].group;if(['ledger','invoices'].includes(id))id='wallets';if(id==='agents')id='account';if(!collected.has(id))collected.set(id,{...g,id,items:[]});collected.get(id).items.push(...g.items);}return [...collected.values()].sort((a,b)=>(groupOrder.indexOf(a.id)<0?999:groupOrder.indexOf(a.id))-(groupOrder.indexOf(b.id)<0?999:groupOrder.indexOf(b.id)));});
+const moduleItems=computed(()=>groups.value.find(group=>group.id===module.value?.id)?.items||[]);
 
 const titles={reports:'مركز التقارير',sales:'سجل العمليات',import:'الطلبيات',claims:'البطاقات التالفة',exports:'تصدير البطاقات',account:'الوكلاء والشجرة',pos:'نقاط البيع والأجهزة',wallets:'المحافظ والتحويلات',map:'خريطة الانتشار',notifications:'الإشعارات والتنبيهات',staff:'مستخدمو النظام',permission_profile:'الصلاحيات والنطاق',security:'الحماية والأمان',digital:'الخدمات الإلكترونية',data:'البيانات الحساسة',backup:'النسخ الاحتياطي'};
 
 const groupIcon=g=>navIconPath(({account:'agents',staff:'users',permission_profile:'permissions'})[g.id]||g.id);
 
-const editable=computed(()=>authorityLoaded.value && !props.preview && (props.profile?.id?session.can('permission_profile.update'):props.inline?session.can('permission_profile.create'):session.can('account.permissions')));
+const editable=computed(()=>authorityLoaded.value && !props.preview && (props.profile?.id?props.profile.abilities?.update===true&&session.can('permission_profile.update'):props.inline?session.can('permission_profile.create'):session.can('account.permissions')));
 
-const available=computed(()=>grantablePermissions(catalog.value,authority.value,session.can));
+const available=computed(()=>grantablePermissions(catalog.value,authority.value,session.can,props.inline));
 
 const availableKeys=computed(()=>available.value.map((item)=>item.key));
 
@@ -48,9 +50,9 @@ const allSelected=computed(()=>available.value.length>0 && available.value.every
 
 const mixed=computed(()=>!allSelected.value && available.value.some((item)=>permissions.value.includes(item.key)));
 
-function canChange(key){return availableKeys.value.includes(key) && permissionDependencies(key,props.inline).every((dependency)=>permissions.value.includes(dependency) || availableKeys.value.includes(dependency));}
+function canChange(key){return availableKeys.value.includes(key) && permissionDependencies(key,props.inline,catalog.value).every((dependency)=>permissions.value.includes(dependency) || availableKeys.value.includes(dependency));}
 
-function toggle(key,checked){if(!editable.value)return;permissions.value=changePermission(permissions.value,key,checked,availableKeys.value,props.inline);}
+function toggle(key,checked){if(!editable.value)return;permissions.value=changePermission(permissions.value,key,checked,availableKeys.value,props.inline,catalog.value);}
 
 function selectAll(checked){for(const item of available.value)toggle(item.key,checked);}
 
@@ -67,7 +69,7 @@ async function save(){
 
   try{
 
-    const payload={permissions:selectedPermissions(catalog.value,permissions.value),...(props.inline?{name:name.value.trim()}:{}),...((props.profile?.id || !props.inline)?{version:props.profile?.version ?? props.account.version,reason:reason.value.trim()}: {})};
+    const payload={permissions:selectedPermissions(catalog.value,permissions.value),...(props.inline?{name:name.value.trim()}:{}),...((props.profile?.id || !props.inline)?{version:props.profile?.version ?? accountVersion.value,reason:reason.value.trim()}: {})};
 
     if(!props.inline)await session.api.setAccountPermissions(props.account.id,payload,controller.signal);
 
@@ -83,15 +85,14 @@ async function save(){
 
 }
 
-onMounted(async()=>{
+async function loadCatalog(){
 
   try{
 
-    const [response,account]=await Promise.all([session.api.permissionCatalog(controller.signal),props.inline?session.api.account(props.account.id,controller.signal):Promise.resolve({data:props.account})]);
-
-    catalog.value=response.data;
-
-    authority.value=props.inline?account.data.profile_grantable_permissions:account.data.grantable_permissions;
+    const response=await session.api.permissionCatalog(controller.signal,{account_id:props.account.id,context:props.inline?'profile':'account'});
+    if(!Array.isArray(response.data))throw new Error('تعذر قراءة الاختيارات. أعد فتح الصفحة.');
+    catalog.value=response.data;accountVersion.value=response.meta?.account_version??props.account.version;
+    authority.value=Array.isArray(response.meta?.grantable_permissions)?response.meta.grantable_permissions:response.data.map(item=>item.key);
 
     if(!Array.isArray(authority.value))throw new Error('تعذر قراءة حدود التفويض لهذا الحساب. أعد فتح الصفحة.');
 
@@ -101,7 +102,8 @@ onMounted(async()=>{
 
   finally{loading.value=false;}
 
-});
+}
+onMounted(loadCatalog);
 
 onBeforeUnmount(()=>controller.abort());
 
@@ -133,11 +135,11 @@ onBeforeUnmount(()=>controller.abort());
 
   <template v-else>
 
-    <div class="card permission-selection-bar">
+    <div v-if="editable" class="card permission-selection-bar">
 
       <label class="permission-select-all"><input type="checkbox" :checked="allSelected" :indeterminate.prop="mixed" :disabled="!editable || busy" @change="selectAll($event.target.checked)"/><span>تحديد كل الصلاحيات<small>يشمل جميع المجموعات حتى مع وجود بحث أو فلتر</small></span></label>
 
-      <div class="actions"><span class="badge">{{permissions.length}} / {{catalog.length}}</span><button class="btn small" :disabled="!editable || busy" @click="selectAll(false)">إلغاء تحديد الكل</button><button class="btn small" :disabled="!editable || busy" @click="selectAll(false)">مسح الاختيارات</button></div>
+      <div class="actions"><span class="badge">{{permissions.length}} / {{visibleCatalog.length}}</span><button class="btn small" :disabled="busy" @click="selectAll(false)">إلغاء تحديد الكل</button><button class="btn small" :disabled="busy" @click="selectAll(false)">مسح الاختيارات</button></div>
 
     </div>
 
@@ -145,13 +147,13 @@ onBeforeUnmount(()=>controller.abort());
 
     <p v-if="!groups.length" class="empty">لا توجد نتائج مطابقة</p>
 
-    <p v-if="errors.permissions" class="field-error" role="alert">تحقق من صلاحيات العرض وحدود التفويض؛ نوع صلاحية الموظف يحتاج إلى عرض الحسابات.</p>
+    <p v-if="errors.permissions" class="field-error" role="alert">تعذر حفظ الاختيارات. راجع القيم ثم أعد المحاولة.</p>
 
   </template>
 
   <AccountModal v-if="module" :title="module.title" section="الصلاحيات" @close="module=null">
 
-    <div class="permission-check-items"><label v-for="item in module.items" :key="item.key" class="permission-check-item" :class="{'is-selected':permissions.includes(item.key)}"><span>{{uiLabel(item.label)}}<small v-if="!canChange(item.key)">مقيدة من الأعلى أو من نوع الحساب</small></span><input type="checkbox" :aria-label="item.label" :checked="permissions.includes(item.key)" :disabled="!editable || busy || !canChange(item.key)" @change="toggle(item.key,$event.target.checked)"/></label></div>
+    <div class="permission-check-items"><label v-for="item in moduleItems" :key="item.key" class="permission-check-item" :class="{'is-selected':permissions.includes(item.key)}"><span>{{uiLabel(item.label)}}</span><input v-if="editable" type="checkbox" :aria-label="item.label" :checked="permissions.includes(item.key)" :disabled="busy" @change="toggle(item.key,$event.target.checked)"/><span v-else aria-hidden="true">✓</span></label></div>
 
     <footer class="formfoot"><button class="btn primary" @click="module=null">رجوع للأقسام</button></footer>
 

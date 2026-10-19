@@ -9,7 +9,7 @@ import {createMemoryHistory,createRouter} from 'vue-router';
 import {renderToString} from '@vue/server-renderer';
 import {createServer} from 'vite';
 import {createReportApi} from '../src/modules/reports/report-api.js';
-import {emptyFilters,groupCards,tr,errorText,formatNumber} from '../src/modules/reports/report-model.js';
+import {emptyFilters,groupCards,tr,errorText,formatNumber,normalizeReportFilters} from '../src/modules/reports/report-model.js';
 
 const sections=JSON.parse(await readFile(new URL('../../backend/app/Services/Reports/schemas.json',import.meta.url),'utf8')).filter(section=>['sales','wallets'].includes(section.id.split('-')[0]));
 const groups=[{id:'sales',title:'المبيعات والأرباح',prefixes:['sales','prices'],note:'المبيعات والطباعة والأسعار',icon:'reports'},{id:'wallets',title:'المحافظ والتمويل',prefixes:['wallets'],note:'الأرصدة والتمويل والتحصيل',icon:'wallets'}];
@@ -22,11 +22,13 @@ test('POS report groups expose actual sales, printing, digital and financial sec
   throw Error('Unexpected report read '+path);
  },mutate(){throw Error('Report browsing cannot mutate');}}};
  const source=await readFile(new URL('../src/modules/reports/ReportsPage.vue',import.meta.url),'utf8'),script=parse(source).descriptor.scriptSetup.content.replace(/^import[\s\S]*?;\r?$/gm,'');
- const scope={computed,reactive,ref,usePortal:()=>({session}),usePreferencesTranslator:()=>value=>value,createReportApi,emptyFilters,groupCards,tr,errorText,formatNumber,exportReport(){throw Error('Only explicit export may write');},AbortController,onMounted(){},onServerPrefetch(){},onBeforeUnmount(){}};
+ const scope={computed,reactive,ref,useListNavigation:()=>({saved:null,remember(){},restoreScroll:async()=>{}}),usePortal:()=>({session}),usePreferencesTranslator:()=>value=>value,createReportApi,emptyFilters,groupCards,tr,errorText,formatNumber,normalizeReportFilters,exportReport(){throw Error('Only explicit export may write');},AbortController,onMounted(){},onServerPrefetch(){},onBeforeUnmount(){}};
+ scope.useRouteRefresh=()=>{};
  runInNewContext(script+'\nglobalThis.controls={load,selectGroup,apply,groups,sections,filters};',scope);const page=scope.controls;
  await page.load(true);assert.deepEqual(calls,['/reports/options?compact=1']);
  const ids=Array.from(page.groups.value.flatMap(group=>group.sections.map(section=>section.id)));
- for(const id of ['sales','sales-printing','sales-deliveries','sales-services','wallets','wallets-ledger','wallets-requests','wallets-transfers','wallets-holds','wallets-collections'])assert.ok(ids.includes(id),id);
+ for(const id of ['sales','sales-printing','sales-deliveries','sales-services','wallets','wallets-ledger','wallets-requests','wallets-transfers','wallets-collections'])assert.ok(ids.includes(id),id);
+ for(const id of ['wallets-legacy','wallets-holds','prices-policies'])assert.ok(!ids.includes(id),id);
  page.selectGroup('sales');await new Promise(setImmediate);
  let query=new URL(calls.at(-1),'http://local.test').searchParams;assert.ok(query.getAll('section_ids[]').every(id=>id.startsWith('sales')));assert.ok(query.getAll('section_ids[]').includes('sales-services'));
  page.apply({...emptyFilters(),from:'2026-10-01',to:'2026-10-16',product_id:23,status:'Print Failed'});await new Promise(setImmediate);
@@ -58,7 +60,8 @@ test('actual POS report overview lists authorized operation metadata without loa
   for(const type of ['pos','system']){
    const calls=[],session={state:reactive({identity:{account:{id:12,type},user:{id:7},membership:{kind:'owner'}}}),can:()=>true,api:{request:async path=>{calls.push(path);assert.equal(path,'/reports/options?compact=1');return{data:structuredClone(options)};},mutate(){throw Error('No write');}}};
    const app=createSSRApp({render:()=>h(Page)});app.provide(portalContextKey,{session});const html=await renderToString(app);assert.deepEqual(calls,['/reports/options?compact=1']);
-   if(type==='pos'){assert.ok(html.includes('تقارير نقطة البيع'));for(const title of ['سجل محاولات الطباعة','سجل تسليم البطاقات','حركات محافظ الخدمات','طلبات التمويل ومتابعتها'])assert.ok(html.includes(title),title);}
+   const cards=Array.from(html.matchAll(/<article\b[^>]*role="button"[^>]*>[\s\S]*?<\/article>/g),match=>match[0]);assert.equal(cards.length,2);for(const card of cards){assert.ok(card.includes('aria-label="عرض التفاصيل — '));assert.ok(!card.includes('<button'),'one keyboard/pointer target per report group');assert.ok(card.includes('class="btn small report-group-action" aria-hidden="true"'));}
+   if(type==='pos'){assert.ok(!html.includes('تقارير نقطة البيع'));for(const title of ['سجل محاولات الطباعة','سجل تسليم البطاقات','حركات محافظ الخدمات','طلبات التمويل ومتابعتها'])assert.ok(html.includes(title),title);}
    else{assert.ok(!html.includes('تقارير نقطة البيع'));assert.ok(!html.includes('class="report-group-sections"'));}
   }
  }finally{await server.close();}

@@ -1,9 +1,9 @@
 export function createReferenceApi(api) {
   const query = (values = {}) => new URLSearchParams(Object.entries(values).filter(([, value]) => value !== '' && value != null)).toString();
   return {
-    options: (network, signal) => api.request(`/reference/options?${query({network_account_id: network})}`, {signal}),
+    options: (network, signal,options={}) => api.request(`/reference/options?${query({network_account_id: network})}`, {signal,...options}),
     posOptions: (parent, signal) => api.request(`/reference/options?${query({agent_account_id: parent})}`, {signal}),
-    list: (kind, parameters, signal) => api.request(`/reference/${kind}?${query(parameters)}`, {signal}),
+    list: (kind, parameters, signal,options={}) => api.request(`/reference/${kind}?${query(parameters)}`, {signal,...options}),
     getProfile: (id, signal) => api.request(`/accounts/${id}/reference-profile`, {signal}),
     save: (kind, id, payload, signal) => api.mutate(`/reference/${kind}${id ? `/${id}` : ''}`, id ? 'PATCH' : 'POST', payload, signal),
     status: (kind, row, signal) => api.mutate(`/reference/${kind}/${row.id}/status`, 'PATCH', {version: row.version, status: row.active ? 'disabled' : 'active'}, signal),

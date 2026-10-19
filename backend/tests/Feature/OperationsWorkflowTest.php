@@ -96,8 +96,8 @@ class OperationsWorkflowTest extends TestCase
     public function test_system_employee_all_decision_remains_inside_original_authorized_forest_and_hidden_from_other_staff(): void
     {
         $f = $this->supportFixture();
-        $employee = $this->supportEmployee($f['system'], $f['main'], ['account.view', 'security.view', 'security.policies']);
-        $foreign = $this->supportEmployee($f['system'], $f['foreign'], ['account.view', 'security.view', 'security.policies']);
+        $employee = $this->supportEmployee($f['system'], $f['main'], ['account.view', 'security.view', 'security.policies', 'security.sales']);
+        $foreign = $this->supportEmployee($f['system'], $f['foreign'], ['account.view', 'security.view', 'security.policies', 'security.sales']);
         $this->asPortalUser($employee);
         $this->postJson('/api/v1/operations/security/stops', $this->stop(['scope' => 'custom', 'account_ids' => [$f['foreign']->id]]))->assertNotFound();
         $id = $this->postJson('/api/v1/operations/security/stops', $this->stop(['scope' => 'all']))->assertOk()->assertJsonPath('data.count', 4)->json('data.id');
@@ -147,7 +147,7 @@ class OperationsWorkflowTest extends TestCase
     {
         $f = $this->supportFixture();
         DirectStop::factory()->create(['account_id' => $f['system']->id, 'stops' => ['app' => true, 'login' => true]]);
-        $grants = ['account.view', 'security.view', 'security.policies', 'security.app', 'security.login', 'security.sales', 'security.printing'];
+        $grants = ['account.view', 'security.view', 'security.policies', 'security.app', 'security.login', 'security.sales', 'security.printing', 'security.import'];
         $limited = $this->supportEmployee($f['system'], $f['main'], $grants);
         $whole = $this->supportEmployee($f['system'], $f['system'], $grants);
         $this->asPortalUser($limited);

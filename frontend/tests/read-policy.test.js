@@ -3,16 +3,16 @@ import assert from 'node:assert/strict';
 import { isCacheableRead, readCacheKey, READ_FRESH_MS, READ_DISPLAY_MS } from '../src/shared/api/read-policy.js';
 
 test('navigation policy allows only audited summaries, sanitized lists, and shared options', () => {
-  const safe = ['/accounts', '/dashboard/summary', '/dashboard/activity', '/catalog/products', '/catalog/providers', '/catalog/preferences', '/reference/governorates', '/reports/options', '/reports/summary', '/finance/ledger', '/finance/wallets', '/finance/transfers', '/sales', '/sales/products', '/sales/summary', '/digital/history', '/digital/orders', '/digital/orders/summary', '/digital/offers', '/stock/batches', '/stock/claims', '/stock/withdrawals', '/stock/summary'];
+  const safe = ['/accounts', '/dashboard/summary', '/dashboard/activity', '/catalog/products', '/catalog/providers', '/catalog/preferences', '/reference/governorates', '/reports/options', '/reports/summary', '/finance/ledger', '/finance/wallets', '/finance/transfers', '/sales', '/sales/products', '/sales/summary', '/digital/history', '/digital/orders', '/digital/orders/summary', '/digital/offers', '/digital/connections', '/topup/categories', '/topup/distribution', '/topup/available', '/stock/batches', '/stock/claims', '/stock/withdrawals', '/stock/summary'];
   for (const path of safe) {
     assert.equal(isCacheableRead(path), true, path);
     assert.equal(isCacheableRead(`${path}?page=2&q=filter`), true, path);
   }
-  assert.equal(READ_FRESH_MS, 30000); assert.equal(READ_DISPLAY_MS, 120000);
+  assert.equal(READ_FRESH_MS, 30000); assert.equal(READ_DISPLAY_MS, 600000);
 });
 
 test('authentication, secrets, credentials, dynamic details, cards, exports and recovery stay live', () => {
-  const live = ['/auth/me', '/auth/login', '/accounts/1', '/accounts/1/staff', '/digital/connections', '/digital/orders/recovery', '/digital/orders/id', '/digital/orders/id/receipt', '/sales/id/receipt', '/sales/id', '/stock/cards', '/stock/batches/1/cards', '/stock/batches/selection', '/stock/orders/1', '/stock/orders/1/checked', '/reports/sections/sales/rows', '/reports/export', '/sales/export', '/finance/price-template', '/catalog/products/1', '/catalog/products/export', '/catalog/products/', '//catalog/products', '/catalog/%70roducts', 'https://example.test/sales', '/sales#receipt'];
+  const live = ['/auth/me', '/auth/login', '/accounts/1', '/accounts/1/staff', '/digital/connections/1', '/digital/orders/recovery', '/digital/orders/id', '/digital/orders/id/receipt', '/sales/id/receipt', '/sales/id', '/stock/cards', '/stock/batches/1/cards', '/stock/batches/selection', '/stock/orders/1', '/stock/orders/1/checked', '/reports/sections/sales/rows', '/reports/export', '/sales/export', '/finance/price-template', '/catalog/products/1', '/catalog/products/export', '/catalog/products/', '//catalog/products', '/catalog/%70roducts', 'https://example.test/sales', '/sales#receipt'];
   for (const path of live) assert.equal(isCacheableRead(path), false, path);
 });
 

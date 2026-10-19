@@ -1,4 +1,5 @@
 <script setup>
+import AppSelect from '../../shared/components/AppSelect.vue';
 import TablePanel from '../../shared/components/TablePanel.vue';
 
 
@@ -27,7 +28,7 @@ const {session}=usePortal(), rows=ref([]), balances=ref([]), loading=ref(false),
 
 let controller, sequence=0;
 
-async function load(){
+async function load(fresh=false){
 
   controller?.abort(); controller=new AbortController(); const expected=++sequence; loading.value=true; error.value='';
 
@@ -35,9 +36,9 @@ async function load(){
 
     const accounts=[]; let page=1;
 
-    while(true){ const result=await session.api.accounts({page,per_page:100},controller.signal); accounts.push(...result.data); if(page>=(result.meta?.last_page||1))break; if(++page>500)throw Error('الشبكة كبيرة جدًا لعرضها كاملة.'); }
+    while(true){ const result=await session.api.accounts({page,per_page:100},controller.signal,{fresh:fresh===true}); accounts.push(...result.data); if(page>=(result.meta?.last_page||1))break; if(++page>500)throw Error('الشبكة كبيرة جدًا لعرضها كاملة.'); }
 
-    const wallets=session.can('wallets.view')?await allPages(createFinanceApi(session.api),'wallets',{service:'voucher',currency:'IQD'},controller.signal):[];
+    const wallets=session.can('wallets.view')?await allPages(createFinanceApi(session.api),'wallets',{service:'voucher',currency:'IQD'},controller.signal,{fresh:fresh===true}):[];
 
     if(expected===sequence){rows.value=accounts.filter(row=>row.type!=='system');balances.value=wallets;}
 
@@ -85,7 +86,8 @@ watch([opened,points,drillQuery,drillSize],()=>drillPage.value=1);
 
 function openRoot(row,showPoints){activeRoot.value=row.id;opened.value=row;points.value=showPoints;drillQuery.value='';}
 
-watch(()=>props.revision,load); onMounted(load);
+defineExpose({refresh:async()=>{await load(true);return !error.value;}});
+watch(()=>props.revision,()=>load(true)); onMounted(()=>load());
 
 onBeforeUnmount(()=>{sequence++;controller?.abort();});
 
@@ -95,13 +97,13 @@ onBeforeUnmount(()=>{sequence++;controller?.abort();});
 
   <p class="read-loading" v-if="loading" role="status">جارٍ تحميل الشبكة…</p><p v-if="error" class="notice warn" role="alert">{{error}} <button class="btn" @click="load">إعادة المحاولة</button></p>
 
-  <template v-if="!loading && !error">
+  <template v-if="rows.length||!loading&&!error">
 
     <div v-if="mode==='compact'" class="network-overview"><div class="network-legend"><span>● وكيل رئيسي</span><span>● وكيل فرعي</span><span>● نقطة بيع</span></div><ul class="branch-list-forest"><NetworkOutline v-for="entry in forest" :key="entry.record.id" :node="entry" :expanded="expanded" @toggle="id=>expanded[id]=expanded[id]===false" /></ul></div>
 
-    <div v-else class="network-drill"><p class="caption">الفروع المباشرة ونقاط البيع بكامل شبكة الحساب · يظهر الوكيل المباشر بجانب كل نقطة</p>
+    <div v-else class="network-drill"><p v-if="session.state.identity?.account.type!=='pos'" class="caption">الفروع المباشرة ونقاط البيع بكامل شبكة الحساب · يظهر الوكيل المباشر بجانب كل نقطة</p>
 
-      <section v-for="entry in forest" :key="entry.record.id" class="drill-root" :style="{'--agent-color':entry.color}"><div class="drill-account"><div class="drill-name"><span class="badge">{{accountTypeLabel(entry.record.type)}}</span><h3>{{entry.record.name}}</h3><small>{{entry.record.city||'—'}}</small></div><div class="drill-balance"><small>رصيد البطاقات</small><strong>{{money(entry.balance)}} <small>د.ع</small></strong></div><div class="actions"><button class="btn" @click="openRoot(entry.record,false)">الفروع ({{entry.children.length}})</button><button class="btn" @click="openRoot(entry.record,true)">نقاط الشبكة ({{entry.record.network_pos_count??descendants(entry.record.id).filter(row=>row.type==='pos').length}})</button><AccountRowActions :account="entry.record" compact tree @details="emit('action','details',$event)" @edit="emit('action','edit',$event)" @categories="emit('action','categories',$event)" @permissions="emit('action','permissions',$event)" @archive="emit('action','archive',$event)" @status="emit('action','status',$event)" @password-reset="emit('action','password-reset',$event)" /></div></div>      <div v-if="opened && activeRoot===entry.record.id" class="drill-panel"><div class="drill-path"><div><button v-for="item in drillPath" class="btn small" @click="opened=item">{{item.name}}</button></div><button class="btn small" :disabled="drillPath.length<2" @click="opened=drillPath[drillPath.length-2]">رجوع</button><button class="btn small" @click="opened=null">إغلاق</button></div><div class="tabs"><button :class="{active:!points}" @click="points=false">الفروع</button><button :class="{active:points}" @click="points=true">نقاط الشبكة</button></div><div class="drill-tools"><input v-model="drillQuery" type="search" placeholder="بحث بالاسم أو المحافظة أو الهاتف"><select v-model.number="drillSize" aria-label="عدد التابعين"><option v-for="size in [10,25,50,100]" :value="size">{{size}}</option></select></div><TablePanel class="tablewrap"><table><thead><tr><th>الاسم</th><th>النوع</th><th>رصيد البطاقات</th><th>{{points?'الوكيل المباشر':'الفروع / النقاط'}}</th><th>الإجراء</th></tr></thead><tbody><tr v-for="row in shownDrill" :key="row.id"><td>{{row.name}}</td><td>{{accountTypeLabel(row.type)}}</td><td>{{money(balance(row.id))}} د.ع</td><td>{{points ? row.parent?.name || '—' : children(row.id).filter(child=>child.type!=='pos').length+' / '+descendants(row.id).filter(child=>child.type==='pos').length}}</td><td><button v-if="row.type!=='pos'" class="btn small" @click="opened=row">الفروع</button><button class="btn small" @click="emit('action','details',row)">التفاصيل</button><button v-if="canResetAccountPassword(session.state.identity,row)" class="btn small" @click="emit('action','password-reset',row)">إعادة تعيين كلمة المرور</button><button v-if="session.can('account.create') && row.type!=='pos'" class="btn small" @click="emit('action','create',row)">إنشاء حساب تابع</button></td></tr></tbody></table></TablePanel><p v-if="!matchedDrill.length" class="empty">لا توجد حسابات مطابقة</p><div class="table-pagination-footer"><button class="btn small" :disabled="drillPage<=1" @click="drillPage--">السابق</button><span>الصفحة {{drillPage}} من {{drillPages}}</span><button class="btn small" :disabled="drillPage>=drillPages" @click="drillPage++">التالي</button></div></div></section>
+      <section v-for="entry in forest" :key="entry.record.id" class="drill-root" :style="{'--agent-color':entry.color}"><div class="drill-account"><div class="drill-name"><span class="badge">{{accountTypeLabel(entry.record.type)}}</span><h3>{{entry.record.name}}</h3><small>{{entry.record.city||'—'}}</small></div><div class="drill-balance"><small>رصيد البطاقات</small><strong>{{money(entry.balance)}} <small>د.ع</small></strong></div><div class="actions"><button class="btn" @click="openRoot(entry.record,false)">الفروع ({{entry.children.length}})</button><button class="btn" @click="openRoot(entry.record,true)">نقاط الشبكة ({{entry.record.network_pos_count??descendants(entry.record.id).filter(row=>row.type==='pos').length}})</button><AccountRowActions :account="entry.record" compact tree @details="emit('action','details',$event)" @edit="emit('action','edit',$event)" @categories="emit('action','categories',$event)" @permissions="emit('action','permissions',$event)" @archive="emit('action','archive',$event)" @status="emit('action','status',$event)" @password-reset="emit('action','password-reset',$event)" /></div></div>      <div v-if="opened && activeRoot===entry.record.id" class="drill-panel"><div class="drill-path"><div><button v-for="item in drillPath" class="btn small" @click="opened=item">{{item.name}}</button></div><button class="btn small" :disabled="drillPath.length<2" @click="opened=drillPath[drillPath.length-2]">رجوع</button><button class="btn small" @click="opened=null">إغلاق</button></div><div class="tabs"><button :class="{active:!points}" @click="points=false">الفروع</button><button :class="{active:points}" @click="points=true">نقاط الشبكة</button></div><div class="drill-tools"><input v-model="drillQuery" type="search" placeholder="بحث بالاسم أو المحافظة أو الهاتف"><AppSelect v-model.number="drillSize" aria-label="عدد التابعين"><option v-for="size in [10,25,50,100]" :value="size">{{size}}</option></AppSelect></div><TablePanel class="tablewrap"><table><thead><tr><th>الاسم</th><th>النوع</th><th>رصيد البطاقات</th><th>{{points?'الوكيل المباشر':'الفروع / النقاط'}}</th><th>الإجراء</th></tr></thead><tbody><tr v-for="row in shownDrill" :key="row.id"><td>{{row.name}}</td><td>{{accountTypeLabel(row.type)}}</td><td>{{money(balance(row.id))}} د.ع</td><td>{{points ? row.parent?.name || '—' : children(row.id).filter(child=>child.type!=='pos').length+' / '+descendants(row.id).filter(child=>child.type==='pos').length}}</td><td><button v-if="row.type!=='pos'" class="btn small" @click="opened=row">الفروع</button><button class="btn small" @click="emit('action','details',row)">التفاصيل</button><button v-if="canResetAccountPassword(session.state.identity,row)" class="btn small" @click="emit('action','password-reset',row)">إعادة تعيين كلمة المرور</button><button v-if="session.can('account.create') && row.type!=='pos'" class="btn small" @click="emit('action','create',row)">إنشاء حساب تابع</button></td></tr></tbody></table></TablePanel><p v-if="!matchedDrill.length" class="empty">لا توجد حسابات مطابقة</p><div class="table-pagination-footer"><button class="btn small" :disabled="drillPage<=1" @click="drillPage--">السابق</button><span>الصفحة {{drillPage}} من {{drillPages}}</span><button class="btn small" :disabled="drillPage>=drillPages" @click="drillPage++">التالي</button></div></div></section>
 
 
 

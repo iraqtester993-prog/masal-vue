@@ -13,6 +13,7 @@ export function installPosBackNavigation({router,session,target=typeof window===
  if(!target||!surface)return {dispose(){}};
  const history=router.options.history,originalListen=history.listen,originalDestroy=history.destroy;
  let disposed=false,scope=null,floor=null,guard=null,navigating=false,locked=false,queued=false,suppressPop=false,backDelta=0,pendingRemoval=null;
+ let exitGeneration=0;
  const isPos=()=>session.state.identity?.account.type==='pos'||surface.documentElement?.dataset.portal==='pos';
  const identityScope=()=>{const value=session.state.identity;return value?.account?.type==='pos'&&value.user?.id&&value.account?.id?`${value.user.id}:${value.account.id}`:null;};
  const state=()=>history.state||{};
@@ -22,7 +23,7 @@ export function installPosBackNavigation({router,session,target=typeof window===
  const protectedWork=()=>!!session.api.hasPendingMutation?.();
  function tag(){if(scope&&Number.isInteger(state().position))history.replace(history.location,{[scopeKey]:{scope,floor}});}
  function updateScope(){
-  const next=identityScope();if(next===scope){if(!scope&&session.state.checked&&!session.state.checking&&(state()[scopeKey]||state()[layerKey]))history.replace(history.location,{[scopeKey]:null,[layerKey]:null});return;}scope=next;guard=null;floor=null;
+  const next=identityScope();if(next===scope){if(!scope&&session.state.checked&&!session.state.checking&&(state()[scopeKey]||state()[layerKey]))history.replace(history.location,{[scopeKey]:null,[layerKey]:null});return;}scope=next;guard=null;floor=null;exitGeneration++;
   if(scope){const saved=state()[scopeKey];floor=saved?.scope===scope&&Number.isInteger(saved.floor)?saved.floor:state().position;const savedGuard=state()[layerKey];if(savedGuard?.scope===scope)guard=savedGuard;tag();}
   else if(session.state.checked&&!session.state.checking)history.replace(history.location,{[scopeKey]:null,[layerKey]:null});
  }
@@ -53,7 +54,7 @@ export function installPosBackNavigation({router,session,target=typeof window===
  }
  function onNative(event){
   if(disposed||!isPos())return;
-  const handled=result=>{event.preventDefault();if(event.detail&&typeof event.detail==='object')event.detail.result=result;};updateScope();
+  const handled=result=>{event.preventDefault();if(event.detail&&typeof event.detail==='object'){event.detail.result=result;event.detail.exitGeneration=exitGeneration;}};updateScope();
   if(locked||navigating||pendingRemoval||session.state.busy||session.state.checking||!router.currentRoute.value.matched.length){handled('handled');return;}
   locked=true;if(closeLayer()){handled('handled');settle();return;}
   if(scope&&router.currentRoute.value.name==='dashboard'&&event.detail?.exitConfirmationVersion===1){locked=false;handled('exit');return;}
@@ -76,7 +77,7 @@ export function installPosBackNavigation({router,session,target=typeof window===
   if(backDelta<0&&scope&&(to.name==='login'||state().position<floor))return false;
   backDelta=0;if(guard)await removeGuard();
  });
- const stopAfter=router.afterEach((_to,_from,failure)=>{navigating=false;locked=false;backDelta=0;if(!failure){updateScope();tag();}schedule();});
+ const stopAfter=router.afterEach((_to,_from,failure)=>{navigating=false;locked=false;backDelta=0;if(!failure){exitGeneration++;updateScope();tag();}schedule();});
  const stopError=router.onError(()=>{navigating=false;locked=false;backDelta=0;schedule();});
  const stopWatch=watchEffect(()=>{identityScope();session.state.checked;for(const layer of layers.value)layer.state();schedule();});
  const observer=typeof target.MutationObserver==='function'?new target.MutationObserver(schedule):null;

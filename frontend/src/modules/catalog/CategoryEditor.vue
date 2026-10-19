@@ -1,5 +1,6 @@
 <!-- Template retained from the original component; runtime is API-backed. -->
 <script setup>
+import AppSelect from '../../shared/components/AppSelect.vue';
 import { inject, computed, ref } from "vue";
 import { catalogKey, tr } from "./catalog-model.js";
 const vm = inject(catalogKey);
@@ -26,10 +27,10 @@ const citySearch = ref("");
       ></image-attachment></label
     ><label
       >{{ vm.tr("عرض الوصل")
-      }}<select v-model.number="p.receiptWidth">
+      }}<AppSelect v-model.number="p.receiptWidth">
         <option :value="58">58 mm</option>
         <option :value="80">80 mm</option>
-      </select></label
+      </AppSelect></label
     ><label
       >{{ vm.tr("النص أعلى البطاقة")
       }}<input v-model="p.receiptHeader" /></label
@@ -38,14 +39,14 @@ const citySearch = ref("");
       }}<input v-model="p.receiptFooter" /></label
     ><label
       >{{ vm.tr("المحافظات المسموحة")
-      }}<select
+      }}<AppSelect
         v-model="vm.categorySpecificCities"
         :disabled="!vm.can('products.availability')"
         @change="p.allowedCities = []"
       >
         <option :value="false">{{ vm.tr("كل المحافظات") }}</option>
         <option :value="true">{{ vm.tr("محافظات محددة") }}</option>
-      </select>
+      </AppSelect>
       <details v-if="vm.categorySpecificCities" class="category-picker">
         <summary>
           {{

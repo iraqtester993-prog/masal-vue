@@ -1,17 +1,20 @@
 <script setup>
 import TablePanel from "../../shared/components/TablePanel.vue";
+import {useRouteRefresh} from '../../shared/route-refresh.js';
 import {computed,nextTick,onBeforeUnmount,onMounted,onServerPrefetch,reactive,ref,watch} from 'vue';
 import {usePortal} from '../auth/session.js';
+import {hasBackupAccess} from '../auth/capabilities.js';
 import {createBackupApi} from './backup-api.js';
 import {bytes,date,fileForPreview,manifestCounts,restorePayload,statuses,terminalJob} from './backup-model.js';
 import './backup.css';
 const {session}=usePortal(),api=createBackupApi(session.api);
 const backups=ref([]),capabilities=reactive({prepare:false,switch:false,reason:''}),preview=ref(null),job=ref(null);
 const loading=ref(false),busy=ref(''),error=ref(''),notice=ref(''),password=ref(''),reviewDialog=ref(null),reviewOpen=ref(false);
-const eligible=computed(()=>session.state.identity?.account?.type==='system'&&session.state.identity?.membership?.kind==='owner');
+const eligible=computed(()=>hasBackupAccess(session.state.identity));
 const can=(key)=>eligible.value&&session.can(key);
 const counts=computed(()=>manifestCounts(preview.value?.manifest));
 let controller,revision=0,disposed=false,jobTimer;
+useRouteRefresh(()=>load(),{canRefresh:()=>can('backup.view')&&!busy.value&&!loading.value&&!reviewOpen.value});
 function fail(failure){return Object.values(failure?.errors??{}).flat().join(' ')||failure?.message||'تعذر إكمال الطلب.';}
 function request(){controller?.abort();controller=new AbortController();return{signal:controller.signal,version:++revision};}
 async function load(){
@@ -63,9 +66,9 @@ onBeforeUnmount(()=>{disposed=true;++revision;controller?.abort();clearTimeout(j
   <section class="backup-workspace" dir="rtl">
     <p v-if="error" class="backup-error" role="alert">{{error}}</p><p v-if="notice" class="backup-notice" role="status">{{notice}}</p>
     <template v-if="eligible">
-      <div class="two">
-        <div class="card"><button class="btn primary" type="button" :disabled="!!busy||!can('backup.create')" @click="create">{{busy==='create'?'جارٍ النسخ الاحتياطي…':'نسخ احتياطي'}}</button></div>
-        <div class="card"><input type="file" accept=".json" aria-label="اختيار نسخة احتياطية من الحاسبة" :disabled="!!busy||!can('backup.restore')" @change="prepareRestore"><p class="help">نسخة Laravel موقعة، بحد أقصى 15 ميغابايت للرفع من الحاسبة.</p></div>
+      <div v-if="can('backup.create')||can('backup.restore')" class="two">
+        <div v-if="can('backup.create')" class="card"><button class="btn primary" type="button" :disabled="!!busy" @click="create">{{busy==='create'?'جارٍ النسخ الاحتياطي…':'نسخ احتياطي'}}</button></div>
+        <div v-if="can('backup.restore')" class="card"><input type="file" accept=".json" aria-label="اختيار نسخة احتياطية من الحاسبة" :disabled="!!busy||!can('backup.restore')" @change="prepareRestore"><p class="help">نسخة Laravel موقعة، بحد أقصى 15 ميغابايت للرفع من الحاسبة.</p></div>
       </div>
       <p v-if="loading" class="read-loading help" role="status">جارٍ تحميل النسخ المحفوظة…</p>
       <p v-if="busy==='preview'" class="help" role="status">جارٍ فحص توقيع النسخة وعلاقاتها داخل قاعدة مستقلة…</p>
@@ -79,9 +82,9 @@ onBeforeUnmount(()=>{disposed=true;++revision;controller?.abort();clearTimeout(j
         <p class="help">الاسترجاع ينشئ قاعدة جديدة، ويفحصها ثم يحوّل النظام إليها. تُحفظ نسخة كاملة من الحالة الحالية قبل التحويل.</p>
         <dl><dt>الحسابات</dt><dd class="mono">{{counts.accounts??'—'}}</dd><dt>البطاقات</dt><dd class="mono">{{counts.cards??'—'}}</dd><dt>المرفقات</dt><dd class="mono">{{counts.files??'—'}}</dd><dt>إجمالي السجلات</dt><dd class="mono">{{counts.rows??'—'}}</dd><dt>فحص العلاقات</dt><dd>{{preview.reference_verified?'اكتمل داخل قاعدة مستقلة':'لم يكتمل؛ يحتاج بيئة فحص على السيرفر'}}</dd><dt>انتهاء المعاينة</dt><dd>{{date(preview.expires_at)}}</dd></dl>
         <p v-if="!capabilities.prepare||!capabilities.switch" class="help">{{capabilities.reason||'الاسترجاع يحتاج ربط إنشاء قاعدة مستقلة والتحويل الآمن على الاستضافة.'}}</p>
-        <p v-if="!can('backup.create')" class="help">الاسترجاع يحتاج صلاحية إنشاء النسخ لحفظ نسخة الأمان الحالية.</p><form @submit.prevent="restore"><label>كلمة المرور الحالية<input v-model="password" type="password" autocomplete="current-password" required maxlength="255" :disabled="!!busy||!can('backup.create')||!capabilities.prepare||!capabilities.switch||!preview.reference_verified"></label><div class="backup-actions"><button class="btn primary" type="submit" :disabled="!!busy||!can('backup.create')||!capabilities.prepare||!capabilities.switch||!preview.reference_verified">{{busy==='restore'?'جارٍ تسجيل طلب الاسترجاع…':'تأكيد الاسترجاع إلى النسخة المراجعة'}}</button><button class="btn" type="button" :disabled="!!busy" @click="closeReview">إلغاء</button></div></form><p v-if="error" class="backup-error" role="alert">{{error}}</p>
+        <form v-if="can('backup.create')&&can('backup.restore')" @submit.prevent="restore"><label>كلمة المرور الحالية<input v-model="password" type="password" autocomplete="current-password" required maxlength="255" :disabled="!!busy||!can('backup.create')||!capabilities.prepare||!capabilities.switch||!preview.reference_verified"></label><div class="backup-actions"><button class="btn primary" type="submit" :disabled="!!busy||!can('backup.create')||!capabilities.prepare||!capabilities.switch||!preview.reference_verified">{{busy==='restore'?'جارٍ تسجيل طلب الاسترجاع…':'تأكيد الاسترجاع إلى النسخة المراجعة'}}</button><button class="btn" type="button" :disabled="!!busy" @click="closeReview">إلغاء</button></div></form><p v-if="error" class="backup-error" role="alert">{{error}}</p>
       </dialog></Teleport>
     </template>
-    <p v-else class="help">النسخ والاسترجاع متاحان لمالك حساب إدارة النظام فقط.</p>
+    
   </section>
 </template>

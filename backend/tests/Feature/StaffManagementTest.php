@@ -27,6 +27,37 @@ class StaffManagementTest extends TestCase
         return $profile;
     }
 
+    public function test_system_owner_is_hidden_from_user_lists_counts_search_and_reports_but_keeps_access(): void
+    {
+        $root = $this->account(AccountType::System);
+        $main = $this->account(AccountType::MainAgent, $root);
+        $admin = $this->userFor($root);
+        $admin->update(['email' => 'admin@gmali.com']);
+        $agent = $this->userFor($main);
+        $profile = $this->profile($root);
+        $active = $this->employee($root, $profile, [$root->id]);
+        $disabled = $this->employee($root, $profile, [$root->id]);
+        $disabled->membership->update(['status' => 'disabled']);
+        $this->asPortalUser($admin);
+
+        $response = $this->getJson('/api/v1/accounts/'.$root->id.'/staff')->assertOk()
+            ->assertJsonCount(2, 'data')->assertJsonPath('meta.total', 2);
+        $this->assertEqualsCanonicalizing([$active->id, $disabled->id], array_column($response->json('data'), 'user_id'));
+        $this->getJson('/api/v1/accounts/'.$root->id.'/staff?q=admin%40gmali.com')->assertOk()
+            ->assertJsonCount(0, 'data')->assertJsonPath('meta.total', 0);
+        $this->getJson('/api/v1/accounts/'.$root->id.'/staff?status=disabled')->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('meta.total', 1);
+        $this->getJson('/api/v1/accounts/'.$main->id.'/staff')->assertOk()
+            ->assertJsonPath('data.0.user_id', $agent->id)->assertJsonPath('meta.total', 1);
+        $rows = $this->getJson('/api/v1/reports/sections/users/rows')->assertOk()->json('data');
+        $this->assertNotContains($admin->id, array_column($rows, 'id'));
+        $this->assertContains($active->id, array_column($rows, 'id'));
+        $export = $this->postJson('/api/v1/reports/export', ['section_ids' => ['users']])->assertOk();
+        $this->assertNotContains($admin->id, array_column($export->json('data.sections.0.rows'), 'id'));
+        $this->getJson('/api/v1/auth/me')->assertOk()->assertJsonPath('data.user.id', $admin->id)
+            ->assertJsonPath('data.capabilities.system_scope', true);
+    }
+
     public function test_dashboard_only_profile_change_keeps_pos_employee_session(): void
     {
         $root = $this->account(AccountType::System);
@@ -132,9 +163,9 @@ class StaffManagementTest extends TestCase
         $this->postJson($route, ['name' => 'Unknown', 'permissions' => ['account.view', 'wallet.transfer']])->assertUnprocessable()->assertJsonValidationErrors('permissions');
         $this->postJson($route, ['name' => 'Escalate', 'permissions' => ['account.view', 'account.login']])->assertUnprocessable()->assertJsonValidationErrors('permissions');
         $this->postJson($route, ['name' => 'No section view', 'permissions' => ['account.view', 'staff.create']])->assertUnprocessable()->assertJsonValidationErrors('permissions');
-        $this->postJson($route, ['name' => 'No account view', 'permissions' => ['staff.view']])->assertUnprocessable()->assertJsonValidationErrors('permissions');
+        $this->postJson($route, ['name' => 'Staff only', 'permissions' => ['staff.view']])->assertCreated()->assertJsonPath('data.permissions', ['staff.view']);
         $this->postJson($route, ['name' => 'Owner forged', 'permissions' => ['account.view'], 'account_id' => $root->id])->assertUnprocessable()->assertJsonValidationErrors('account_id');
-        $this->assertDatabaseCount('permission_profiles', 0);
+        $this->assertDatabaseCount('permission_profiles', 1);
     }
 
     public function test_profile_name_is_unique_per_account_and_versioned_update_is_atomic(): void
@@ -349,7 +380,7 @@ class StaffManagementTest extends TestCase
         $this->patchJson('/api/v1/accounts/'.$main->id.'/login', ['version' => 1, 'login' => 'forged@example.test', 'reason' => 'Privilege escalation'])->assertForbidden();
     }
 
-    public function test_account_permission_delta_preserves_locked_rights_but_rejects_locked_changes_and_new_grants(): void
+    public function test_account_permission_delta_preserves_hidden_rights_and_rejects_new_unowned_grants(): void
     {
         $root = $this->account(AccountType::System);
         $main = $this->account(AccountType::MainAgent, $root);
@@ -366,13 +397,14 @@ class StaffManagementTest extends TestCase
         $this->assertContains('account.attachments.view', $targetOwner->fresh()->membership->permissions());
         $this->assertNotContains('pos.device', $targetOwner->fresh()->membership->permissions());
         $this->patchJson($route, ['version' => 2, 'permissions' => array_values(array_diff($desired, ['account.attachments.view'])), 'reason' => 'Remove locked key'])
+            ->assertOk();
+        $this->assertContains('account.attachments.view', $targetOwner->fresh()->membership->permissions());
+        $this->patchJson($route, ['version' => 3, 'permissions' => [...$desired, 'account.login'], 'reason' => 'Grant higher privilege'])
             ->assertUnprocessable()->assertJsonValidationErrors('permissions');
-        $this->patchJson($route, ['version' => 2, 'permissions' => [...$desired, 'account.login'], 'reason' => 'Grant higher privilege'])
-            ->assertUnprocessable()->assertJsonValidationErrors('permissions');
-        $this->assertSame(2, $sub->fresh()->version);
+        $this->assertSame(3, $sub->fresh()->version);
     }
 
-    public function test_profile_metadata_edit_preserves_locked_rights_without_authorizing_their_change(): void
+    public function test_stronger_profile_cannot_be_renamed_or_changed_by_a_limited_employee(): void
     {
         $root = $this->account(AccountType::System);
         $this->userFor($root);
@@ -382,12 +414,12 @@ class StaffManagementTest extends TestCase
         $this->employee($root, $target, [$root->id]);
         $this->asPortalUser($actor);
         $route = '/api/v1/accounts/'.$root->id.'/permission-profiles/'.$target->id;
-        $this->patchJson($route, ['version' => 1, 'name' => 'Metadata Only', 'reason' => 'Rename'])
-            ->assertOk()->assertJsonPath('data.permissions', ['account.view', 'staff.view']);
-        $this->patchJson($route, ['version' => 2, 'permissions' => ['account.view'], 'reason' => 'Revoke locked view'])->assertUnprocessable()->assertJsonValidationErrors('permissions');
-        $this->patchJson($route, ['version' => 2, 'permissions' => ['account.view', 'staff.view', 'staff.toggle'], 'reason' => 'New grant'])->assertUnprocessable()->assertJsonValidationErrors('permissions');
-        $this->assertSame('Metadata Only', $target->fresh()->name);
-        $this->assertSame(2, $target->fresh()->version);
+        $beforeName = $target->name;
+        $this->patchJson($route, ['version' => 1, 'name' => 'Metadata Only', 'reason' => 'Rename'])->assertForbidden();
+        $this->patchJson($route, ['version' => 1, 'permissions' => ['account.view'], 'reason' => 'Revoke locked view'])->assertForbidden();
+        $this->patchJson($route, ['version' => 1, 'permissions' => ['account.view', 'staff.view', 'staff.toggle'], 'reason' => 'New grant'])->assertForbidden();
+        $this->assertSame($beforeName, $target->fresh()->name);
+        $this->assertSame(1, $target->fresh()->version);
     }
 
     public function test_profile_change_is_immediate_and_never_grants_more_than_current_owner_ceiling(): void
@@ -455,7 +487,7 @@ class StaffManagementTest extends TestCase
             $large = $this->getJson('/api/v1/accounts/'.$root->id.'/'.$endpoint.'?per_page=25')->assertOk()->assertJsonCount(25, 'data');
             $this->assertLessThanOrEqual($smallPageQueries + 2, count(DB::getQueryLog()), $endpoint.' must batch relation data.');
             if ($endpoint === 'staff') {
-                $large->assertJsonPath('data.1.scope_accounts.0.id', $root->id)->assertJsonPath('data.1.scope_accounts.0.name', $root->name);
+                $large->assertJsonPath('data.1.scope_accounts.0.id', $root->id)->assertJsonPath('data.1.scope_accounts.0.name', 'الحساب المركزي');
             } else {
                 $large->assertJsonPath('data.0.members_count', 1)->assertJsonPath('data.0.permissions', ['account.view']);
             }

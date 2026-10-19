@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {fileURLToPath} from 'node:url';
 import {createServer} from 'vite';
-import {createSSRApp,h,reactive,ref} from 'vue';
+import {createSSRApp,h,onServerPrefetch,reactive,ref} from 'vue';
 import {renderToString} from '@vue/server-renderer';
 import {routeLocationKey} from 'vue-router';
 
@@ -22,6 +22,20 @@ test('actual sales surfaces compile and render for system, subagent and POS with
       }
     }
   } finally {await server.close();}
+});
+
+test('the two operation tabs expose the selected state consistently without adding reads or changing their labels',async()=>{
+ const server=await createServer({root:fileURLToPath(new URL('../',import.meta.url)),mode:'pos',logLevel:'error',server:{middlewareMode:true,hmr:false},appType:'custom'});
+ try{
+  const Page=(await server.ssrLoadModule('/src/modules/sales/SalesPage.vue')).default,{portalContextKey}=await server.ssrLoadModule('/src/modules/auth/session.js');
+  const session={state:reactive({identity:{user:{id:7},account:{id:12,type:'pos'},membership:{kind:'owner'}}}),can:key=>['sales.view','exceptions.view'].includes(key),api:{request:()=>assert.fail('Changing an SSR tab cannot make a read'),mutate:()=>assert.fail('Changing tabs cannot write')}};
+  for(const tab of ['sales','requests']){
+   const inspected={...Page,setup(props,context){const controls=Page.setup(props,context);onServerPrefetch(()=>controls.tab.value=tab);return controls;}};
+   const app=createSSRApp({render:()=>h(inspected,{mode:'sales'})});app.provide(portalContextKey,{session});app.provide(routeLocationKey,reactive({name:'sales',query:{}}));
+   const html=await renderToString(app),tabs=html.match(/<div class="tabs sales-main-tabs">([\s\S]*?)<\/div>/)?.[1];assert.ok(tabs);
+   assert.match(tabs,new RegExp(`<button[^>]*aria-pressed="${tab==='sales'}"[^>]*>سجل العمليات<`));assert.match(tabs,new RegExp(`<button[^>]*aria-pressed="${tab==='requests'}"[^>]*>طلبات معالجة الطباعة<`));
+  }
+ }finally{await server.close();}
 });
 
 test('receipt keeps all actual fields escaped and print result controls require an explicit pending attempt',async()=>{
@@ -68,7 +82,7 @@ test('POS history starts with search and a compact collapsed filter panel and ma
     const session={state:reactive({identity:{account:{id:12,type:'pos'},user:{id:7}}}),can:()=>true,api:{request(){throw Error('Render must not fetch');},mutate(){throw Error('Render must not write');}}};
     const sales={identity:ref(session.state.identity),can:()=>true,state:reactive({busy:false}),receiptLoading:ref(false)};
     const html=await renderToString(createSSRApp({render:()=>h(page,{sales})}).provide(portalContextKey,{session,portal:{id:'pos'},config:{}}));
-    assert.ok(html.includes('سجل العمليات'));assert.ok(html.includes('بحث برقم العملية أو الفئة'));assert.ok(html.includes('aria-expanded="false"'));
+    assert.ok(!html.includes('<h2>سجل العمليات</h2>'));assert.ok(html.includes('class="pos-history-search"'));assert.ok(html.includes('بحث برقم العملية أو الفئة'));assert.ok(html.includes('aria-expanded="false"'));
     assert.ok(!html.includes('type="date"'));assert.ok(!html.includes('>تحديث</button>'));
   }finally{await server.close();}
 });

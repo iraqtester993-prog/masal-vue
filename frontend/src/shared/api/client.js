@@ -1,4 +1,5 @@
 import { createReadCache } from './read-cache.js';
+import { createListViewState } from './list-view-state.js';
 import { createDashboardSnapshot } from './dashboard-snapshot.js';
 import { navigationTiming } from './navigation-timing.js';
 import { isCacheableRead, readCacheKey, READ_FRESH_MS, READ_DISPLAY_MS } from './read-policy.js';
@@ -24,6 +25,7 @@ export function cookieValue(name) {
 export function createApiClient(baseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1') {
   const base = baseUrl.replace(/\/$/, '');
   const reads = createReadCache({ ttl: READ_FRESH_MS });
+  const views = createListViewState();
   let storage;
   try { storage = globalThis.sessionStorage; } catch {}
   const dashboard = createDashboardSnapshot({ storage });
@@ -34,10 +36,10 @@ export function createApiClient(baseUrl = import.meta.env.VITE_API_BASE_URL || '
   const clearReads = () => { reads.clear(); dashboard.clear(); dashboardCards.clear(); };
   let readScope, scopeRevision = 0;
   let passwordResetHandler;
-  const clearReadCache = () => { scopeRevision++; clearReads(); };
+  const clearReadCache = () => { scopeRevision++; clearReads(); views.clear(); };
   let pendingMutations=0;
   const setReadScope = scope => {
-    if (scope !== readScope) { scopeRevision++; reads.clear(); }
+    if (scope !== readScope) { scopeRevision++; reads.clear(); views.clear(); }
     readScope = scope;
     dashboard.setScope(scope);
     dashboardCards.setScope(scope);
@@ -109,7 +111,14 @@ export function createApiClient(baseUrl = import.meta.env.VITE_API_BASE_URL || '
         if (response.status === 403 && payload?.code === 'PASSWORD_CHANGE_REQUIRED' && expectedScope === scopeRevision)
           passwordResetHandler?.(payload.password_reset);
         const fallback = response.status >= 500 ? 'تعذر إكمال الطلب. حاول مرة أخرى.' : 'تعذر إكمال الطلب.';
-        throw new ApiError(response.status >= 500 ? fallback : payload?.message || fallback, response.status, payload?.errors || {}, payload?.code, payload?.password_reset);
+        if(response.status===403&&!(typeof payload?.code==='string'&&payload.code))throw new ApiError('هذا الإجراء غير متاح حاليًا. حدّث الصفحة وأعد المحاولة.',403,{});
+        const failure = new ApiError(response.status === 429 ? 'محاولات كثيرة. انتظر قليلًا ثم حاول مرة أخرى.' : response.status >= 500 ? fallback : payload?.message || fallback, response.status, payload?.errors || {}, payload?.code, payload?.password_reset);
+        if (response.status === 429) {
+          const retry = response.headers.get('retry-after')?.trim();
+          const seconds = retry ? (/^\d+$/.test(retry) ? Number(retry) : (Date.parse(retry) - Date.now()) / 1000) : NaN;
+          failure.retryAfter = Number.isFinite(seconds) ? Math.max(0, Math.ceil(seconds)) : null;
+        }
+        throw failure;
       }
       if (response.status !== 204 && !isJson) throw new ApiError('استجابة السيرفر غير متوقعة. حاول مرة أخرى.', response.status);
       return payload;
@@ -140,6 +149,9 @@ export function createApiClient(baseUrl = import.meta.env.VITE_API_BASE_URL || '
     request,
     hasPendingMutation:()=>pendingMutations>0,
     peekRequest,
+    peekViewState:views.peek,
+    rememberViewState:views.remember,
+    viewStateScope:views.scope,
     hasFreshRequest: path => isCacheableRead(path) && reads.has(readCacheKey(path)),
     peekFreshRequest: path => isCacheableRead(path) && reads.has(readCacheKey(path)) ? reads.peek(readCacheKey(path)) : null,
     peekAccounts: (parameters = 1, maxAge = READ_DISPLAY_MS) => peekRequest(accountsPath(parameters), maxAge),
@@ -151,10 +163,10 @@ export function createApiClient(baseUrl = import.meta.env.VITE_API_BASE_URL || '
     login: (credentials) => request('/auth/login', { method: 'POST', body: credentials }),
     me: () => request('/auth/me'),
     logout: () => request('/auth/logout', { method: 'POST' }),
-    accounts: (parameters = 1, signal) => request(accountsPath(parameters), { signal }),
+    accounts: (parameters = 1, signal,options={}) => request(accountsPath(parameters), { signal,...options }),
     account: (id, signal) => request(`/accounts/${id}`, { signal }),
-    accountOptions: (signal) => request('/account-options', { signal }),
-    permissionCatalog: (signal) => request('/permission-catalog', { signal }),
+    accountOptions: (signal,options={}) => request('/account-options', { signal,...options }),
+    permissionCatalog: (signal,parameters={}) => request('/permission-catalog'+(Object.keys(parameters).length?'?'+query(parameters):''), { signal }),
     createAccount: (payload, signal) => mutate('/accounts', 'POST', payload, signal),
     updateAccount: (id, payload, signal) => mutate(`/accounts/${id}`, 'PATCH', payload, signal),
     setAccountStatus: (id, payload, signal) => mutate(`/accounts/${id}/status`, 'PATCH', payload, signal),

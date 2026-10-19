@@ -110,7 +110,7 @@ class StockActions
         };
         $this->access->require($actor, $permission);
         if ($action === 'restore') {
-            abort_unless($actor->membership->account->type === AccountType::System && $actor->membership->kind === 'owner', 403);
+            $this->authority->systemAccess($actor, 'inventory.restore');
         }
         if ($action === 'copy' && ($data['secrets'] ?? false)) {
             $this->access->require($actor, 'exports.encrypt');
@@ -179,7 +179,7 @@ class StockActions
         };
         $this->access->require($actor, $permission);
         if ($action === 'restore') {
-            abort_unless($actor->membership->account->type === AccountType::System && $actor->membership->kind === 'owner', 403);
+            $this->authority->systemAccess($actor, 'inventory.restore');
         }
         $this->access->batches($actor)->findOrFail($id);
         $result = $this->execute($actor, 'inventory.'.$action, $data + ['batch_id' => $id], function () use ($actor, $id, $data, $request, $action): array {

@@ -23,7 +23,7 @@ test('POS history is discoverable only with current read grants and translated n
   assert.deepEqual(visibleIds(navigationGroups({routes,identity:identity('pos'),can:()=>true,search:'transactions',labelFor:value=>value==='سجل العمليات'?'Transactions':value})),['sales']);
 });
 
-test("final original navigation retains original destinations and adds the isolated Topup category group", () => {
+test("navigation retains its groups and Topup destinations after removing the duplicate profile entry", () => {
   assert.equal(NAVIGATION_DESTINATIONS.length, 38);
   const groups = navigationGroups({ routes: NAVIGATION_DESTINATIONS.map((item) => route(item.id)), identity: identity(), can: () => true });
   assert.deepEqual(groups.map((group) => group.title), ["نظرة عامة", "البطاقات والمخزون", "عمليات البطاقات", "Topup — آسياسيل", "شبكة التوزيع", "التواصل والدعم", "المستخدمون والصلاحيات", "إعدادات النظام", "إعدادات البطاقات والموقع"]);
@@ -130,7 +130,8 @@ test("Topup distribution separates owner, downstream agents and POS surfaces", (
   const routes = NAVIGATION_DESTINATIONS.filter(item => item.id.startsWith('topup')).map(item => route(item.id));
   const ids = (type, kind='owner', can=()=>true) => visibleIds(navigationGroups({routes,identity:{...identity(type),membership:{kind}},can}));
   assert.deepEqual(ids('system'), ['topupCategories','topupAllocation']);
-  assert.deepEqual(ids('system','employee'), []);
+  assert.deepEqual(ids('system','employee'), ['topupCategories','topupAllocation']);
+  assert.deepEqual(ids('system','employee',()=>false), []);
   for (const type of ['main_agent','sub_agent','sub_branch']) assert.deepEqual(ids(type), ['topupDistribution']);
   assert.deepEqual(ids('pos'), ['topupAvailable']);
   assert.deepEqual(ids('main_agent','owner',()=>false), []);
@@ -138,12 +139,11 @@ test("Topup distribution separates owner, downstream agents and POS surfaces", (
 
 
 
-test('owners can discover their own profile without account administration grants', () => {
+test('the own profile is absent from sidebar destinations for every account', () => {
   const routes=[route('profile')];
   for(const type of ['system','main_agent','sub_agent','sub_branch']) {
     const items=navigationGroups({routes,identity:identity(type),can:()=>false});
-    assert.deepEqual(visibleIds(items),['profile']);
-    assert.deepEqual(items[0].items[0].to,{name:'profile'});
+    assert.deepEqual(visibleIds(items),[]);
     assert.deepEqual(navigationGroups({routes,identity:{...identity(type),membership:{kind:'employee'}},can:()=>true}),[]);
   }
   assert.deepEqual(navigationGroups({routes:[],identity:identity('main_agent'),can:()=>true}),[]);

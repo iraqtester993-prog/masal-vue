@@ -86,7 +86,7 @@ class SalesPolicies
     {
         [$start, $end] = $this->day();
         $members = $this->members($account, $context);
-        $cacheKey = 'SalesPolicies.usage:'.implode(',', $members).':'.($context['product_id'] ?? 'all').':'.$start->toDateString();
+        $cacheKey = $this->usageKey($account, $context, $start);
         [$used, $pending] = RequestReadCache::remember($cacheKey, function () use ($members, $context, $start, $end): array {
             $query = Sale::whereIn('account_id', $members);
             if (DB::transactionLevel() > 0) {
@@ -101,6 +101,39 @@ class SalesPolicies
         $limit = $context['policy']['daily_cards'];
 
         return ['limit' => $limit, 'used' => $used, 'pending' => $pending, 'remaining' => $limit ? max(0, $limit - $used - $pending) : null, 'day' => $start->setTimezone('Asia/Baghdad')->toDateString(), 'mode' => $context['policy']['daily_mode']];
+    }
+
+    public function primeUsage(Account $account, array $contexts): void
+    {
+        if (! request()->isMethod('GET') || ! request()->attributes->has('masal.read_cache')) {
+            return;
+        }
+        [$start, $end] = $this->day();
+        $groups = [];
+        foreach ($contexts as $context) {
+            $scope = $context['policy']['daily_mode'].':'.$context['network_id'];
+            $groups[$scope][] = $context;
+        }
+        foreach ($groups as $group) {
+            $query = Sale::whereIn('account_id', $this->members($account, $group[0]))->where(function ($rows) use ($start, $end): void {
+                $rows->where(fn ($printed) => $printed->where('first_printed_at', '>=', $start)->where('first_printed_at', '<', $end))
+                    ->orWhere(fn ($pending) => $pending->whereNull('first_printed_at')->where('print_pending', true));
+            });
+            $aggregates = 'COALESCE(SUM(CASE WHEN first_printed_at >= ? AND first_printed_at < ? THEN quantity ELSE 0 END),0) AS used, COALESCE(SUM(CASE WHEN first_printed_at IS NULL AND print_pending = 1 THEN quantity ELSE 0 END),0) AS pending';
+            $bindings = [$start, $end];
+            $productIds = array_values(array_unique(array_filter(array_column($group, 'product_id'))));
+            $byProduct = $productIds ? (clone $query)->whereIn('product_id', $productIds)->select('product_id')->selectRaw($aggregates, $bindings)->groupBy('product_id')->get()->keyBy('product_id') : collect();
+            $all = count($productIds) < count($group) ? (clone $query)->selectRaw($aggregates, $bindings)->first() : null;
+            foreach ($group as $context) {
+                $row = $context['product_id'] ? $byProduct->get($context['product_id']) : $all;
+                RequestReadCache::remember($this->usageKey($account, $context, $start), fn (): array => [(int) ($row?->used ?? 0), (int) ($row?->pending ?? 0)]);
+            }
+        }
+    }
+
+    private function usageKey(Account $account, array $context, CarbonImmutable $start): string
+    {
+        return 'SalesPolicies.usage:'.$account->id.':'.$context['policy']['daily_mode'].':'.$context['network_id'].':'.($context['product_id'] ?? 'all').':'.$start->toDateString();
     }
 
     public function wait(Account $account, array $context): int

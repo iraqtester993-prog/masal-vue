@@ -6,6 +6,7 @@ use App\Enums\AccountType;
 use App\Models\Notifications\Notice;
 use App\Models\Support\SupportAttachment;
 use App\Models\User;
+use App\Services\AccountPrivacy;
 use App\Services\AccountScope;
 use App\Services\AuditLogger;
 use App\Services\Operations\MutationGuard;
@@ -21,7 +22,7 @@ class NotificationService
 
     public function visible(User $actor): Builder
     {
-        return Notice::query()->where(function ($q) use ($actor): void {
+        return app(AccountPrivacy::class)->excludeOwner(Notice::query(), 'sender_id')->where(function ($q) use ($actor): void {
             $q->where('sender_id', $actor->id)->orWhereExists(function ($r) use ($actor): void {
                 $r->selectRaw('1')->from('notice_recipients')->whereColumn('notice_id', 'notices.id')->where('user_id', $actor->id);
             });
@@ -105,7 +106,7 @@ class NotificationService
 
     public function unread(User $actor): Builder
     {
-        return Notice::query()->whereExists(function ($r) use ($actor): void {
+        return app(AccountPrivacy::class)->excludeOwner(Notice::query(), 'sender_id')->whereExists(function ($r) use ($actor): void {
             $r->selectRaw('1')->from('notice_recipients')->whereColumn('notice_id', 'notices.id')->where('user_id', $actor->id)->whereNull('read_at');
         });
     }

@@ -1,17 +1,19 @@
 import { systemLabel } from '../preferences/system-labels.js';
-const reportDateFormatter = new Intl.DateTimeFormat('ar-IQ',{timeZone:'Asia/Baghdad',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+import { westernDigits } from '../../shared/numbers.js';
+const reportDateFormatter = new Intl.DateTimeFormat('ar-IQ', {numberingSystem:'latn',timeZone:'Asia/Baghdad',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
 export const reportKinds = [ ['sales','المبيعات والأرباح'],['inventory','المخزون'],['wallets','المحافظ والتمويل'],['network','الوكلاء ونقاط البيع'],['prices','الأسعار'],['claims','المطالبات'],['support','الدعم'],['users','المستخدمون'],['audit','التدقيق'],['operations','الإعدادات والعمليات'] ];
 export { statusLabels } from '../preferences/system-labels.js';
 export const tr = (value) => String(value ?? '').replaceAll('المزودين','الشركات').replaceAll('المزود','الشركة').replaceAll('المنتجات والفئات','الفئات').replaceAll('سعر التحميل','سعر البيع');
 export function formatNumber(value) {
   if (value === null || value === undefined || value === '') return '—';
-  const text = String(value); const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(text);
-  if (!match) return text;
+  const text = westernDigits(value).replace(/[,٬]/g,'').replace(/٫/g,'.'); const match = /^(-?)(\d+)(?:\.(\d+))?$/.exec(text);
+  if (!match) return String(value);
   const fraction = (match[3] || '').replace(/0+$/, '');
   return match[1] + match[2].replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction ? '.' + fraction : '');
 }
 export function reportCell(value, column = {}, row = {}, sectionId = '') {
   if (value === null || value === undefined || value === '') return '—';
+  if (column.key === 'phone') return westernDigits(value);
   if (column.label_type === 'print_result' || sectionId === 'sales-printing' && column.key === 'status') {
     const labels={pending:'بانتظار تأكيد الطباعة',success:'نجاح الطباعة',failed:'فشل الطباعة'};
     return Object.hasOwn(labels,value)?labels[value]:systemLabel(value,'status');
@@ -29,7 +31,7 @@ export function reportCell(value, column = {}, row = {}, sectionId = '') {
   return column.label_type ? systemLabel(value,column.label_type) : String(value);
 }
 export function businessDay(date = new Date()) {
-  return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Baghdad',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
+  return new Intl.DateTimeFormat('en-CA', {numberingSystem:'latn',timeZone:'Asia/Baghdad',year:'numeric',month:'2-digit',day:'2-digit'}).format(date);
 }
 export function preset(kind, now = new Date()) {
   const day = businessDay(now), date = new Date(`${day}T12:00:00Z`);
@@ -39,6 +41,18 @@ export function preset(kind, now = new Date()) {
   return {from:date.toISOString().slice(0,10),to:day};
 }
 export const emptyFilters = () => ({from:'',to:'',kind:'all',currency:'IQD',agent_id:'',pos_id:'',product_id:'',provider_id:'',city:'',status:''});
+export function reportFilterFlags(options={}) {
+  const sections=options.sections||[],prefixes=new Set(sections.map(section=>section.id.split('-')[0]));
+  const products=['sales','inventory','claims','prices'].some(prefix=>prefixes.has(prefix));
+  const defaults={products,providers:products,accounts:sections.length>0,cities:sections.length>0,status:sections.some(section=>section.id.startsWith('sales')&&section.id!=='sales-services')};
+  return Object.fromEntries(Object.entries(defaults).map(([key,fallback])=>[key,typeof options.filters?.[key]==='boolean'?options.filters[key]:fallback]));
+}
+export function normalizeReportFilters(filters,options={}) {
+  const result={...filters},allowed=reportFilterFlags(options);
+  for(const [field,enabled] of Object.entries({product_id:allowed.products,provider_id:allowed.providers,agent_id:allowed.accounts,pos_id:allowed.accounts,city:allowed.cities,status:allowed.status}))if(!enabled)result[field]='';
+  if(result.kind!=='all'&&!(options.sections||[]).some(section=>section.id.split('-')[0]===result.kind))result.kind='all';
+  return result;
+}
 export function descendantOf(accounts, childId, ancestorId) {
   if (!ancestorId) return true;
   const byId = new Map(accounts.map((row)=>[Number(row.id),row])), seen = new Set();
@@ -52,7 +66,7 @@ export function groupCards(group, sections) {
 }
 export function errorText(error) { return Object.values(error?.errors??{}).flat().filter((v)=>typeof v==='string').join(' ') || error?.message || 'تعذر تحميل البيانات.'; }
 export function workbookSections(data) {
-  return data.sections.map((section)=>({name:tr(section.title),title:tr(section.title),note:[...new Set([section.reason,section.note,...section.columns.flatMap((column)=>[column.reason,column.source_note])].filter(Boolean)),`العملة: ${data.currency} · ${data.timezone} · ${reportCell(data.generated_at,{type:'date'})}`].join(' · '),headers:section.columns.map((c)=>tr(c.label)),rows:section.rows.map((row)=>section.columns.map((c)=>c.type==='money'?String(row[c.key]??'—'):reportCell(row[c.key],c,row,section.id))),emptyMessage:section.available?'لا توجد سجلات مطابقة.':section.reason}));
+  return data.sections.map((section)=>({name:tr(section.title),title:tr(section.title),note:[...new Set([section.reason,section.note,...section.columns.flatMap((column)=>[column.reason,column.source_note])].filter(Boolean)),`العملة: ${data.currency} · ${data.timezone} · ${reportCell(data.generated_at,{type:'date'})}`].join(' · '),headers:section.columns.map((c)=>tr(c.label)),rows:section.rows.map((row)=>section.columns.map((c)=>c.type==='money'?westernDigits(row[c.key]??'—').replace(/[,٬]/g,'').replace(/٫/g,'.'):reportCell(row[c.key],c,row,section.id))),emptyMessage:section.available?'لا توجد سجلات مطابقة.':section.reason}));
 }
 export function printableReport(data) {
   const escape = (s) => String(s??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;');

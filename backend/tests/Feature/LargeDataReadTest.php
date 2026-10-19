@@ -624,13 +624,19 @@ class LargeDataReadTest extends TestCase
                         $start = hrtime(true);
                         if ($i % 5 === 0) {
                             $this->asPortalUser($fixture['admin']);
-                            $body = ['account_id' => $this->registeredPointIds[$worker * 100 + 1] ?? $firstId + $worker, 'service' => 'cash', 'currency' => 'IQD', 'amount' => '1.00', 'reference' => 'Isolated scale test', 'idempotency_key' => 'scale-worker-'.$worker.'-'.$i];
-                            $response = $this->postJson('/api/v1/finance/deposits', $body);
-                            $retry = $this->postJson('/api/v1/finance/deposits', $body);
-                            if ($retry->getStatusCode() !== 201 || $retry->json('data.id') !== $response->json('data.id')) {
+                            $invoiceBody = ['account_id' => $this->registeredPointIds[$worker * 100 + 1] ?? $firstId + $worker, 'service' => 'cash', 'currency' => 'IQD', 'amount' => '1.00', 'kind' => 'receivable', 'reference' => 'Isolated scale invoice', 'idempotency_key' => 'scale-invoice-'.$worker.'-'.$i];
+                            $invoice = $this->postJson('/api/v1/finance/invoices', $invoiceBody);
+                            if ($invoice->getStatusCode() !== 201) {
+                                $errors[] = ['invoice' => $invoice->getStatusCode()];
+                            }
+                            $body = ['version' => 1, 'amount' => '1.00', 'reference' => 'Isolated scale settlement', 'idempotency_key' => 'scale-worker-'.$worker.'-'.$i];
+                            $path = '/api/v1/finance/invoices/'.$invoice->json('data.id').'/settle';
+                            $response = $this->postJson($path, $body);
+                            $retry = $this->postJson($path, $body);
+                            if ($retry->getStatusCode() !== 200 || $retry->json('data.id') !== $response->json('data.id')) {
                                 $errors[] = ['retry' => $retry->getStatusCode()];
                             }
-                            $expected = 201;
+                            $expected = 200;
                         } else {
                             $this->asPortalUser($this->registeredAgents ? [$fixture['admin'], $this->registeredAgents[$worker]['user'], User::findOrFail($this->registeredPointUsers[$worker * 100 + 1])][$worker % 3] : [$fixture['admin'], $fixture['agent'], $fixture['posUser']][$worker % 3]);
                             $response = $this->getJson('/api/v1'.$paths[(int) floor($i / 2) % count($paths)]);
@@ -667,7 +673,7 @@ class LargeDataReadTest extends TestCase
         }
         rmdir($folder);
         sort($timings);
-        $summary = ['workers' => $workers, 'requests' => $workers * $loops * 1.2, 'elapsed_seconds' => round($elapsed, 2), 'requests_per_second' => round($workers * $loops * 1.2 / $elapsed, 2), 'p50_ms' => $timings[(int) floor(count($timings) * .5)] ?? null, 'p95_workflow_ms' => $timings[(int) floor(count($timings) * .95)] ?? null, 'errors' => $errors, 'worker_statuses' => $statuses, 'unique_financial_operations' => $workers * (int) ($loops / 5)];
+        $summary = ['workers' => $workers, 'requests' => $workers * $loops * 1.4, 'elapsed_seconds' => round($elapsed, 2), 'requests_per_second' => round($workers * $loops * 1.4 / $elapsed, 2), 'p50_ms' => $timings[(int) floor(count($timings) * .5)] ?? null, 'p95_workflow_ms' => $timings[(int) floor(count($timings) * .95)] ?? null, 'errors' => $errors, 'worker_statuses' => $statuses, 'unique_financial_operations' => $workers * (int) ($loops / 5)];
         fwrite(STDOUT, 'SCALE_CONCURRENT '.json_encode($summary, JSON_UNESCAPED_SLASHES).PHP_EOL);
         $this->assertSame(array_fill(0, $workers, 0), $statuses);
         $this->assertSame([], $errors);

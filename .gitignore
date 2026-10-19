@@ -22,5 +22,10 @@ deployment/.local/
 android-pos/.gradle/
 android-pos/**/build/
 android-pos/local.properties
-android-pos/app/libs/
-android-pos/app/src/main/jniLibs/
+artifacts/**/build/
+artifacts/**/*.tmp
+artifacts/private/
+__pycache__/
+*.pyc
+*.p12
+*.dpapi

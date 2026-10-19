@@ -6,10 +6,8 @@
     "dev:agents": "npm --prefix frontend run dev:agents",
     "dev:pos": "npm --prefix frontend run dev:pos",
     "dev:public": "npm --prefix frontend run dev:public",
-    "dev:legacy": "npm --prefix frontend run dev:legacy",
     "build": "npm --prefix frontend run build && npm --prefix frontend run build:public",
     "build:public": "npm --prefix frontend run build:public",
-    "build:legacy": "npm --prefix frontend run build:legacy",
     "frontend:test": "npm --prefix frontend test",
     "backend:serve": "pwsh -NoProfile -File scripts/backend.ps1 artisan serve --host=127.0.0.1 --port=8000",
     "backend:test": "pwsh -NoProfile -File scripts/backend.ps1 artisan test"

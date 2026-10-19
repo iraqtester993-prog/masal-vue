@@ -14,6 +14,9 @@ class AccountLookup
     public function query(Request $request): Builder
     {
         $query = $this->scope->query($request->user());
+        if ($request->filled('account_query')) {
+            $query->where('type', '<>', 'system');
+        }
         foreach (['account_city' => 'city', 'account_type' => 'type', 'parent_id' => 'parent_id'] as $field => $column) {
             if ($request->filled($field)) {
                 $query->where($column, $request->input($field));
@@ -48,9 +51,26 @@ class AccountLookup
         if ($request->filled('account_id')) {
             $query->whereKey($request->integer('account_id'));
         }
-        $page = $query->orderBy('id')->paginate($request->integer('per_page', 25), ['id', 'name', 'type', 'parent_id', 'phone', 'city', 'status']);
-        $parents = $this->scope->query($request->user())->whereIn('id', $page->pluck('parent_id')->filter())->pluck('name', 'id');
-        $rows = $page->getCollection()->map(fn ($row) => array_merge($row->toArray(), ['parent_name' => $parents[$row->parent_id] ?? null]));
+        $columns = match ($request->input('context')) {
+            'staff_scope' => ['id', 'name', 'type', 'parent_id', 'status'],
+            'reports' => ['id', 'name', 'type', 'parent_id'],
+            default => ['id', 'name', 'type', 'parent_id', 'phone', 'city', 'status'],
+        };
+        $page = $query->orderBy('id')->paginate($request->integer('per_page', 25), $columns);
+        $privacy = app(AccountPrivacy::class);
+        $parents = $this->scope->query($request->user())->whereIn('id', $page->pluck('parent_id')->filter())->get(['id', 'name', 'type'])->mapWithKeys(fn ($row): array => [$row->id => $privacy->accountName($row)]);
+        $rows = $page->getCollection()->map(function ($row) use ($privacy, $parents): array {
+            $data = array_merge($row->toArray(), ['name' => $privacy->accountName($row), 'parent_name' => $parents[$row->parent_id] ?? null]);
+            if ($row->type->value === 'system') {
+                foreach (['phone', 'city'] as $field) {
+                    if (array_key_exists($field, $data)) {
+                        $data[$field] = null;
+                    }
+                }
+            }
+
+            return $data;
+        });
 
         return response()->json(['data' => $rows, 'meta' => ['current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'total' => $page->total(), 'per_page' => $page->perPage()]]);
     }

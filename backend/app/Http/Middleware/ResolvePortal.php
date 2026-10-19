@@ -2,10 +2,14 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\Controllers\CatalogController;
+use App\Http\Controllers\Digital\DigitalController;
+use App\Http\Controllers\Sales\SalesController;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Session;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class ResolvePortal
@@ -34,7 +38,9 @@ class ResolvePortal
         if ($response instanceof JsonResponse) {
             $response->setEncodingOptions($response->getEncodingOptions() | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         }
-        $response->headers->set('Cache-Control', 'no-store, private');
+        if (! $this->cacheArtwork($request, $response)) {
+            $response->headers->set('Cache-Control', 'no-store, private');
+        }
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -46,5 +52,33 @@ class ResolvePortal
         }
 
         return $response;
+    }
+
+    private function cacheArtwork(Request $request, Response $response): bool
+    {
+        if (! $request->isMethodCacheable() || ! $request->user() || ! $response instanceof BinaryFileResponse || $response->getStatusCode() !== 200) {
+            return false;
+        }
+        $action = $request->route()?->getActionName();
+        $isCatalog = in_array($action, [CatalogController::class.'@productImage', CatalogController::class.'@providerImage', DigitalController::class.'@offerImage'], true);
+        $isSaleArtwork = $action === SalesController::class.'@image' && in_array($request->route('kind'), ['product', 'provider'], true);
+        if ((! $isCatalog && ! $isSaleArtwork) || ! in_array($response->headers->get('Content-Type'), ['image/png', 'image/jpeg', 'image/webp'], true)) {
+            return false;
+        }
+        $fingerprint = hash_file('sha256', $response->getFile()->getPathname());
+        if ($fingerprint === false) {
+            return false;
+        }
+        $actor = $request->user();
+        $scope = [$actor->getAuthIdentifier(), $actor->membership?->account_id, $actor->session_version, $request->attributes->get('portal'), $request->path(), $fingerprint];
+        $response->setEtag(hash('sha256', implode('|', $scope)));
+        $response->headers->set('Cache-Control', 'private, no-cache, max-age=0, must-revalidate');
+        $response->setVary('Authorization', false);
+        $response->headers->remove('Last-Modified');
+        if ($request->headers->has('If-None-Match')) {
+            $response->isNotModified($request);
+        }
+
+        return true;
     }
 }

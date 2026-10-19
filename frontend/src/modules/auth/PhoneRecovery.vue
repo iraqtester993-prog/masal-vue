@@ -32,7 +32,7 @@ function restart() { challenge.value = ''; code.value = ''; password.value = '';
   <FinanceDialog :open="true" title="استعادة كلمة المرور" :busy="busy" @close="emit('close')">
     <form class="phone-recovery-form" @submit.prevent="submit">
       <p>أدخل رقم الهاتف المسجل بحسابك.</p>
-      <label>رقم الهاتف<input v-model="phone" type="tel" autocomplete="tel" inputmode="tel" dir="ltr" maxlength="40" required :disabled="busy || !!challenge" /></label>
+      <label>رقم الهاتف<input lang="en" v-model="phone" type="tel" autocomplete="tel" inputmode="tel" dir="ltr" maxlength="40" required :disabled="busy || !!challenge" /></label>
       <template v-if="challenge">
         <p v-if="testMode" role="status">وضع التجربة: رمز التحقق 123456. لا يتم إرسال رسالة SMS حاليًا.</p>
         <label>رمز التحقق<input v-model="code" autocomplete="one-time-code" inputmode="numeric" dir="ltr" pattern="[0-9]{6}" maxlength="6" required :disabled="busy" /></label>

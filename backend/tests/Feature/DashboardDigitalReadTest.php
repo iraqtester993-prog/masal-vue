@@ -8,7 +8,10 @@ use App\Models\Digital\DigitalConnection;
 use App\Models\Digital\DigitalOffer;
 use App\Models\Digital\DigitalOrder;
 use App\Models\Digital\TopupGrant;
+use App\Models\Sales\Sale;
 use App\Services\Digital\DigitalConfiguration;
+use App\Services\Finance\Ledger;
+use App\Services\PermissionCatalog;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -165,20 +168,24 @@ class DashboardDigitalReadTest extends TestCase
     {
         $f = $this->digitalFixture();
         for ($i = 0; $i < 205; $i++) {
-            DB::table('audit_logs')->insert(['user_id' => $f['admin']->id, 'account_id' => $f['system']->id, 'subject_account_id' => $f['main']->id, 'portal' => 'admin', 'action' => 'wallets.deposit', 'created_at' => '2026-10-01 10:00:00', 'details' => '{}']);
+            DB::table('audit_logs')->insert(['user_id' => $f['manager']->id, 'account_id' => $f['system']->id, 'subject_account_id' => $f['main']->id, 'portal' => 'admin', 'action' => 'wallets.deposit', 'created_at' => '2026-10-01 10:00:00', 'details' => '{}']);
         }
+        $privateId = DB::table('audit_logs')->insertGetId(['user_id' => $f['admin']->id, 'account_id' => $f['system']->id, 'subject_account_id' => $f['main']->id, 'portal' => 'admin', 'action' => 'wallets.deposit', 'created_at' => '2026-10-01 10:00:01', 'details' => '{}']);
         $this->asPortalUser($f['admin']);
         $first = $this->getJson('/api/v1/dashboard/activity?limit=all')->assertOk()->assertJsonCount(100, 'data');
         $second = $this->getJson('/api/v1/dashboard/activity?limit=all&cursor='.urlencode($first->json('meta.next_cursor')))->assertOk()->assertJsonCount(100, 'data');
         $third = $this->getJson('/api/v1/dashboard/activity?limit=all&cursor='.urlencode($second->json('meta.next_cursor')))->assertOk()->assertJsonCount(5, 'data')->assertJsonPath('meta.next_cursor', null);
         $keys = array_merge(array_column($first->json('data'), 'key'), array_column($second->json('data'), 'key'), array_column($third->json('data'), 'key'));
         $this->assertCount(205, array_unique($keys));
+        $this->assertNotContains('audit:'.$privateId, $keys);
+        $this->assertDatabaseHas('audit_logs', ['id' => $privateId, 'user_id' => $f['admin']->id]);
         $this->getJson('/api/v1/dashboard/activity?limit=all&cursor=invalid')->assertUnprocessable();
     }
 
     private function digitalFixture(): array
     {
         $f = $this->supportFixture();
+        $f['manager'] = $this->supportEmployee($f['system'], $f['system'], array_keys(PermissionCatalog::LABELS));
         $product = CatalogProduct::factory()->create();
         $connections = $offers = [];
         foreach (['rabiaa', 'topup'] as $provider) {
@@ -188,6 +195,93 @@ class DashboardDigitalReadTest extends TestCase
         Http::preventStrayRequests();
 
         return $f + compact('product', 'connections', 'offers');
+    }
+
+    private function activityPosting(array $fixture, string $service, int $amount, string $kind = 'deposit', bool $debit = false, ?int $accountId = null): int
+    {
+        return DB::transaction(function () use ($fixture, $service, $amount, $kind, $debit, $accountId): int {
+            $ledger = app(Ledger::class);
+            $external = $ledger->wallet($fixture['system']->id, $service, 'IQD', 'external');
+            $point = $ledger->wallet($accountId ?? $fixture['pos']->id, $service, 'IQD');
+
+            return $ledger->pair($fixture['manager'], $kind, fake()->uuid(), [], $debit ? $point : $external, $debit ? $external : $point, $amount, 'Financial activity fixture')->id;
+        });
+    }
+
+    public function test_pos_activity_uses_effective_financial_records_and_deduplicates_purchase_postings(): void
+    {
+        $f = $this->digitalFixture();
+        $this->activityPosting($f, 'cash', 100000);
+        $privatePosting = $this->activityPosting(array_replace($f, ['manager' => $f['admin']]), 'cash', 100000);
+        $this->activityPosting($f, 'cash', 100000, accountId: $f['foreign']->id);
+        $this->activityPosting($f, 'voucher', 100000);
+        $posting = $this->activityPosting($f, 'voucher', 10000, 'sale', true);
+        $rule = DB::table('catalog_account_rules')->insertGetId(['authority_account_id' => $f['system']->id, 'target_account_id' => $f['main']->id]);
+        DB::table('catalog_rule_products')->insert(['rule_id' => $rule, 'product_id' => $f['product']->id]);
+        $sale = Sale::factory()->create(['main_account_id' => $f['main']->id, 'account_id' => $f['pos']->id, 'creator_id' => $f['posUser']->id, 'product_id' => $f['product']->id, 'transaction_id' => $posting, 'status' => 'Reprinted', 'issued_at' => now()]);
+        $order = $this->completed($f, 'rabiaa', ['status' => 'refunded', 'refunded_at' => now()]);
+        $this->order($f);
+        $this->completed($f, 'topup', ['account_id' => $f['foreign']->id]);
+        foreach (['auth.login', 'support.reply', 'sell.reprint'] as $action) {
+            DB::table('audit_logs')->insert(['user_id' => $f['posUser']->id, 'account_id' => $f['pos']->id, 'subject_account_id' => $f['pos']->id, 'portal' => 'pos', 'action' => $action, 'created_at' => now(), 'details' => '{"amount":99999}']);
+        }
+        $this->asPortalUser($f['posUser']);
+        $response = $this->getJson('/api/v1/dashboard/activity?limit=all')->assertOk()->assertJsonCount(5, 'data');
+        $rows = collect($response->json('data'));
+        $this->assertSame(1, $rows->where('key', 'stock:'.$sale->id)->count());
+        $this->assertTrue($rows->contains('key', 'digital:'.$order->id));
+        $this->assertTrue($rows->contains('key', 'refund:'.$order->id));
+        $this->assertSame(2, $rows->where('kind', 'ledger')->count());
+        $this->assertNotContains($f['admin']->name, $rows->pluck('actor_name'));
+        $this->assertContains($f['manager']->name, $rows->pluck('actor_name'));
+        $this->assertDatabaseHas('finance_transactions', ['id' => $privatePosting, 'actor_id' => $f['admin']->id]);
+        $this->assertSame('مبلغ الاسترجاع', $rows->firstWhere('key', 'refund:'.$order->id)['amount_label']);
+        $this->assertArrayNotHasKey('direction', $rows->firstWhere('key', 'stock:'.$sale->id));
+        $this->assertStringNotContainsString('PRIVATE_DASHBOARD_', $response->getContent());
+        $this->assertFalse($rows->contains('kind', 'audit'));
+
+        $this->supportGrant($f['posUser'], 'wallets.view', false);
+        $this->supportGrant($f['posUser'], 'sales.view', false);
+        $this->asPortalUser($f['posUser']);
+        $this->getJson('/api/v1/dashboard/activity?limit=all')->assertOk()->assertJsonCount(2, 'data');
+        $employee = $this->supportEmployee($f['pos'], $f['foreign'], ['dashboard.view', 'digital.view', 'wallets.view']);
+        $this->asPortalUser($employee);
+        $this->getJson('/api/v1/dashboard/activity?limit=all')->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_pos_financial_history_pages_all_equal_timestamp_sources_without_gaps(): void
+    {
+        $f = $this->digitalFixture();
+        $this->freezeTime();
+        for ($index = 0; $index < 103; $index++) {
+            $this->activityPosting($f, 'cash', 100);
+        }
+        $order = $this->completed($f, 'rabiaa', ['status' => 'refunded', 'refunded_at' => now()]);
+        $this->asPortalUser($f['posUser']);
+        $first = $this->getJson('/api/v1/dashboard/activity?limit=all')->assertOk()->assertJsonCount(100, 'data');
+        $second = $this->getJson('/api/v1/dashboard/activity?limit=all&cursor='.urlencode($first->json('meta.next_cursor')))->assertOk()->assertJsonCount(5, 'data')->assertJsonPath('meta.next_cursor', null);
+        $keys = array_merge(array_column($first->json('data'), 'key'), array_column($second->json('data'), 'key'));
+        $this->assertCount(105, array_unique($keys));
+        $this->assertContains('digital:'.$order->id, $keys);
+        $this->assertContains('refund:'.$order->id, $keys);
+    }
+
+    public function test_pos_topup_purchase_and_refund_replace_their_posted_wallet_duplicates(): void
+    {
+        $f = $this->digitalFixture();
+        $grant = TopupGrant::factory()->create(['main_account_id' => $f['main']->id, 'from_account_id' => $f['system']->id, 'target_account_id' => $f['main']->id, 'connection_id' => $f['connections']['topup']->id]);
+        $order = $this->completed($f, 'topup', ['status' => 'refunded', 'refunded_at' => now(), 'topup_grant_id' => $grant->id]);
+        $this->activityPosting($f, 'topup', 1000000);
+        $sale = $this->activityPosting($f, 'topup', 500002, 'topup-sale', true);
+        $refund = $this->activityPosting($f, 'topup', 500002, 'topup-refund');
+        foreach (['sale' => $sale, 'refund' => $refund] as $phase => $posting) {
+            DB::table('topup_finance_events')->insert(['transaction_id' => $posting, 'grant_id' => $grant->id, 'connection_id' => $f['connections']['topup']->id, 'order_id' => $order->id, 'phase' => $phase, 'event_key' => fake()->uuid(), 'created_at' => now()]);
+        }
+        $this->asPortalUser($f['posUser']);
+        $rows = collect($this->getJson('/api/v1/dashboard/activity?limit=all')->assertOk()->assertJsonCount(3, 'data')->json('data'));
+        $this->assertSame(1, $rows->where('kind', 'ledger')->count());
+        $this->assertTrue($rows->contains('key', 'digital:'.$order->id));
+        $this->assertTrue($rows->contains('key', 'refund:'.$order->id));
     }
 
     public function test_account_rollups_stay_small_preserve_scope_and_product_filters_use_detailed_totals(): void

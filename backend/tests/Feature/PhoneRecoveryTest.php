@@ -4,10 +4,13 @@ namespace Tests\Feature;
 
 use App\Enums\AccountType;
 use App\Models\User;
+use App\Support\AccountPhone;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Tests\Support\CreatesAccounts;
 use Tests\TestCase;
 
@@ -143,6 +146,8 @@ class PhoneRecoveryTest extends TestCase
 
     public function test_ambiguous_number_does_not_reset_either_account(): void
     {
+        // Simulate legacy data before the unique constraint; recovery must still reject ambiguity.
+        Schema::table('accounts', fn (Blueprint $table) => $table->dropUnique(AccountPhone::UNIQUE_INDEX));
         $first = $this->owner();
         $system = $first->membership->account->parent;
         $other = $this->account(AccountType::MainAgent, $system);

@@ -36,11 +36,13 @@ public final class MainActivity extends Activity {
     private BluetoothPrinterDiscovery bluetoothDiscovery;
     private final NativeBackDispatch nativeBack = new NativeBackDispatch();
     private Runnable unregisterBackCallback;
-    private AlertDialog exitConfirmation;
+    private final DoubleBackExit exitBack = new DoubleBackExit();
+    private Toast exitNotice;
     private long documentGeneration;
-    private long exitConfirmationGeneration;
     private SystemBarPalette appearancePalette = SystemBarPalette.initial();
     private boolean darkAppearance;
+    private int printerAccent = 0xff0d5c63, printerPanel = 0xffffffff, printerText = 0xff172d29, printerMuted = 0xff647971, printerBorder = 0xffdce7e2;
+    private AlertDialog printerTestDialog;
 
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
@@ -54,15 +56,15 @@ public final class MainActivity extends Activity {
         root.setOnApplyWindowInsetsListener((v, insets) -> { systemBars.insets(insets); v.setPadding(insets.getSystemWindowInsetLeft(), insets.getSystemWindowInsetTop(), insets.getSystemWindowInsetRight(), insets.getSystemWindowInsetBottom()); return insets.consumeSystemWindowInsets(); });
         // Hosted PWA owns the header and navigation. Native controls are reached through the bridge.
         status = new TextView(this);
-        web = new WebView(this); root.addView(web, new LinearLayout.LayoutParams(-1, 0, 1)); setContentView(root);
+        web = new PosWebView(this); root.addView(web, new LinearLayout.LayoutParams(-1, 0, 1)); setContentView(root);
         WebSettings settings = web.getSettings(); settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true);
         settings.setUseWideViewPort(true); settings.setLoadWithOverviewMode(true); settings.setTextZoom(100);
-        settings.setUserAgentString(settings.getUserAgentString()+" DananeerPOS/1.4.7");
+        settings.setUserAgentString(settings.getUserAgentString()+" DananeerPOS/"+BuildConfig.VERSION_NAME);
         settings.setAllowFileAccess(false); settings.setAllowContentAccess(false); settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setGeolocationEnabled(true); settings.setSupportMultipleWindows(false);
         CookieManager.getInstance().setAcceptCookie(true); CookieManager.getInstance().setAcceptThirdPartyCookies(web, false);
         web.setWebViewClient(new WebViewClient() {
-            @Override public void onPageStarted(WebView view, String url, Bitmap icon) { documentGeneration++; dismissExitConfirmation(); nativeBack.invalidate(); bluetoothDiscovery.close(); }
+            @Override public void onPageStarted(WebView view, String url, Bitmap icon) { documentGeneration++; resetExitBack(); nativeBack.invalidate(); bluetoothDiscovery.close(); }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 if (trusted(request.getUrl())) return false;
                 if (request.isForMainFrame()&&request.hasGesture()&&Arrays.asList("https","tel","mailto").contains(request.getUrl().getScheme())){
@@ -294,13 +296,13 @@ public final class MainActivity extends Activity {
             default: return "لم تُحدد طابعة";
         }
     }
-    private void updateStatus() { status.setText("1.4.7 · " + modeName() + " · " + paperWidthMm() + "mm"); if(web!=null && trusted(Uri.parse(web.getUrl()==null?"":web.getUrl())))web.evaluateJavascript("window.dispatchEvent(new Event('dananeer:printer-change'))",null); }
+    private void updateStatus() { status.setText("1.4.8 · " + modeName() + " · " + paperWidthMm() + "mm"); if(web!=null && trusted(Uri.parse(web.getUrl()==null?"":web.getUrl())))web.evaluateJavascript("window.dispatchEvent(new Event('dananeer:printer-change'))",null); }
     private String capabilities(String requestId) throws JSONException {
         String internal=registeredInternal();
         boolean internalAvailable=internal!=null&&PrinterDiscovery.available(this,internal);
         return new JSONObject().put("requestId",requestId).put("ok",true).put("state","ready")
             .put("printerSelectionVersion",1).put("internalPrinterAvailable",internalAvailable).put("internalPrinterMode",internal==null?"":internal).put("internalPrinterName",internalAvailable?Build.MODEL:"")
-            .put("bridgeVersion",3).put("appVersion","1.4.7").put("appearanceVersion",2).put("nativeBackVersion",1).put("exitConfirmationVersion",1).put("deviceProofVersion",1).put("paperWidthMm",paperWidthMm()).put("receiptWidthPixels",receiptWidthPixels()).put("bluetoothPrinterProfiles",new JSONArray(ApprovedPrinters.BLUETOOTH_TYPES)).put("bluetoothDiscoveryVersion",1)
+            .put("bridgeVersion",3).put("appVersion",BuildConfig.VERSION_NAME).put("appearanceVersion",2).put("nativeBackVersion",1).put("exitConfirmationVersion",1).put("doubleBackExitVersion",1).put("deviceProofVersion",1).put("paperWidthMm",paperWidthMm()).put("receiptWidthPixels",receiptWidthPixels()).put("bluetoothPrinterProfiles",new JSONArray(ApprovedPrinters.BLUETOOTH_TYPES)).put("bluetoothDiscoveryVersion",1)
             .put("printRoute",directAvailable()?"direct":"browser").put("browserPrintSupported",true)
             .put("printerConfigured",!prefs.getString("mode","").isEmpty()).put("printerMode",prefs.getString("mode",""))
             .put("printerName",modeName()).put("busy",busy.get()).toString();
@@ -448,12 +450,48 @@ public final class MainActivity extends Activity {
     }
     private void testPrint() {
         if(!directAvailable()){
-            JSONArray blocks=new JSONArray();try{blocks.put(new JSONObject().put("text","دنانير — اختبار الطابعة 58 ملم"));blocks.put(new JSONObject().put("text","هذا اختبار دون بيع أو خصم. نهاية الاختبار."));}catch(JSONException e){tell(e.getMessage());return;}
-            browserPrint("digital-test-"+UUID.randomUUID(),blocks,outcome->tell(outcome.message));return;
+            JSONArray blocks=new JSONArray();try{blocks.put(new JSONObject().put("text","دنانير — اختبار الطابعة 58 ملم"));blocks.put(new JSONObject().put("text","هذا اختبار دون بيع أو خصم. نهاية الاختبار."));}catch(JSONException e){printerTestMessage(e.getMessage());return;}
+            browserPrint("digital-test-"+UUID.randomUUID(),blocks,outcome->printerTestMessage(outcome.message));return;
         }
-        if (busy.get()) { tell("انتظر انتهاء محاولة الطباعة الحالية."); return; }
-        new AlertDialog.Builder(this).setTitle("اختبار بدون بيع أو خصم")
-            .setItems(new String[]{"اختبار قصير", "وصل طويل — 20 سطرًا ونهاية واضحة"}, (d,which) -> testPrintRows(which==1)).show();
+        if (busy.get()) { printerTestMessage("انتظر انتهاء محاولة الطباعة الحالية."); return; }
+        showPrinterTestDialog(null);
+    }
+    private int printerColor(JSONObject payload, String key, int fallback) {
+        String value=payload.optString(key);
+        return value.matches("#[0-9a-fA-F]{6}")?(int)(0xff000000L|Long.parseLong(value.substring(1),16)):fallback;
+    }
+    private int printerDp(int value) { return Math.round(value*getResources().getDisplayMetrics().density); }
+    private android.graphics.drawable.GradientDrawable printerSurface(int color, int radius, boolean border) {
+        android.graphics.drawable.GradientDrawable shape=new android.graphics.drawable.GradientDrawable();
+        shape.setColor(color);shape.setCornerRadius(printerDp(radius));if(border)shape.setStroke(printerDp(1),printerBorder);return shape;
+    }
+    private TextView printerText(String label, int size, int color) {
+        TextView text=new TextView(this);text.setText(label);text.setTextSize(size);text.setTextColor(color);
+        text.setTypeface(android.graphics.Typeface.createFromAsset(getAssets(),"cairo-bold.ttf"));
+        text.setTextDirection(View.TEXT_DIRECTION_RTL);text.setGravity(Gravity.RIGHT);return text;
+    }
+    private void printerTestMessage(String message) { showPrinterTestDialog(message); }
+    private void showPrinterTestDialog(String message) {
+        if(isFinishing()||isDestroyed())return;
+        if(printerTestDialog!=null)printerTestDialog.dismiss();
+        LinearLayout body=new LinearLayout(this);body.setOrientation(LinearLayout.VERTICAL);body.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        body.setPadding(printerDp(24),printerDp(22),printerDp(24),printerDp(20));body.setBackground(printerSurface(printerPanel,24,true));
+        body.addView(printerText(message==null?"اختبار الطابعة":"نتيجة اختبار الطابعة",20,printerText));
+        TextView subtitle=printerText(message==null?"اختر طول الاختبار. لا توجد عملية بيع أو خصم.":message,14,printerMuted);
+        LinearLayout.LayoutParams description=new LinearLayout.LayoutParams(-1,-2);description.topMargin=printerDp(12);description.bottomMargin=printerDp(18);body.addView(subtitle,description);
+        AlertDialog dialog=new AlertDialog.Builder(this).setView(body).create();printerTestDialog=dialog;
+        if(message==null){
+            String[] choices={"اختبار قصير","وصل طويل — 20 سطرًا ونهاية واضحة"};
+            for(int index=0;index<choices.length;index++){
+                final boolean longReceipt=index==1;TextView choice=printerText(choices[index],14,printerAccent);
+                choice.setPadding(printerDp(16),printerDp(14),printerDp(16),printerDp(14));choice.setMinHeight(printerDp(52));choice.setBackground(printerSurface(printerPanel,14,true));
+                choice.setClickable(true);choice.setFocusable(true);choice.setOnClickListener(view->{dialog.dismiss();testPrintRows(longReceipt);});
+                LinearLayout.LayoutParams option=new LinearLayout.LayoutParams(-1,-2);option.bottomMargin=printerDp(10);body.addView(choice,option);
+            }
+        }
+        TextView close=printerText(message==null?"إلغاء":"حسنًا",14,printerAccent);close.setGravity(Gravity.CENTER);close.setMinHeight(printerDp(48));close.setClickable(true);close.setFocusable(true);close.setOnClickListener(view->dialog.dismiss());body.addView(close,new LinearLayout.LayoutParams(-1,-2));
+        dialog.setOnDismissListener(value->{if(printerTestDialog==dialog)printerTestDialog=null;});dialog.show();
+        Window window=dialog.getWindow();if(window!=null){window.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(android.graphics.Color.TRANSPARENT));window.setDimAmount(.42f);window.setLayout(Math.min(printerDp(460),getResources().getDisplayMetrics().widthPixels-printerDp(32)),-2);}
     }
     private void testPrintRows(boolean longReceipt) {
         try {
@@ -464,9 +502,9 @@ public final class MainActivity extends Activity {
                 for (int row=1; row<=20; row++) blocks.put(new JSONObject().put("text",String.format(Locale.ROOT,"اختبار %02d / 20 — 1234 5678 9012",row)));
                 blocks.put(new JSONObject().put("text","نهاية الوصل كاملة — END 20/20"));
             }
-            if(directAvailable())submit("test-" + UUID.randomUUID(), blocks, result -> tell(result.message));
-            else browserPrint("test-"+UUID.randomUUID(),blocks,result->tell(result.message));
-        } catch (Exception error) { tell("تعذر تجهيز الاختبار."); }
+            if(directAvailable())submit("test-" + UUID.randomUUID(), blocks, result -> printerTestMessage(result.message));
+            else browserPrint("test-"+UUID.randomUUID(),blocks,result->printerTestMessage(result.message));
+        } catch (Exception error) { printerTestMessage("تعذر تجهيز الاختبار."); }
     }
     interface Callback { void complete(Outcome result); }
     private void printFromPage(String jobId, JSONArray blocks, String id, JavaScriptReplyProxy reply) {
@@ -496,6 +534,7 @@ public final class MainActivity extends Activity {
         String mode = prefs.getString("mode", ""), address = prefs.getString("address", ""); int width = receiptWidthPixels();
         if (!directAvailable()) { callback.complete(new Outcome(false, "هذا الجهاز أو نوع الطابعة يحتاج طباعة المتصفح / النظام؛ لم يُرسل الوصل.", "not_sent")); return; }
         if (!busy.compareAndSet(false, true)) { callback.complete(new Outcome(false, "توجد محاولة طباعة جارية.", "not_sent")); return; }
+        resetExitBack();
         status.setText("جارٍ تجهيز وإرسال الوصل…");
         worker.execute(() -> {
             List<Bitmap> strips = new ArrayList<>(); AtomicBoolean sent = new AtomicBoolean(); Outcome result;
@@ -524,6 +563,7 @@ public final class MainActivity extends Activity {
     }
     private void browserPrint(String jobId, JSONArray blocks, Callback callback) {
         if(!busy.compareAndSet(false,true)){callback.complete(new Outcome(false,"توجد محاولة طباعة جارية.","not_sent"));return;}
+        resetExitBack();
         worker.execute(()->{
             List<Bitmap> strips=new ArrayList<>();
             try {
@@ -580,6 +620,11 @@ public final class MainActivity extends Activity {
         SystemBarPalette palette = SystemBarPalette.resolve(payload.optString("theme").equals("dark"), payload.optString("color"),
             payload.optString("statusBarColor"), payload.optString("navigationBarColor"), payload.optString("backgroundColor")).forSdk(Build.VERSION.SDK_INT);
         appearancePalette = palette; darkAppearance = payload.optString("theme").equals("dark");
+        printerAccent=printerColor(payload,"accentColor",darkAppearance?0xffb4d8d3:0xff0d5c63);
+        printerPanel=printerColor(payload,"panelColor",darkAppearance?0xff142329:0xffffffff);
+        printerText=printerColor(payload,"textColor",darkAppearance?0xffedf5f2:0xff172d29);
+        printerMuted=printerColor(payload,"mutedColor",darkAppearance?0xffa3b8b1:0xff647971);
+        printerBorder=printerColor(payload,"borderColor",darkAppearance?0xff2c413b:0xffdce7e2);
         background.palette(palette);
         // On target 35 the transparent system bars reveal the separately painted root insets.
         getWindow().setStatusBarColor(palette.statusBarColor); getWindow().setNavigationBarColor(palette.navigationBarColor);
@@ -604,104 +649,43 @@ public final class MainActivity extends Activity {
     }
 
     private void handleNativeBack() {
-        if (exitConfirmation != null && exitConfirmation.isShowing()) { dismissExitConfirmation(); return; }
-        if (busy.get()) { tell("انتظر نتيجة محاولة الطباعة قبل مغادرة التطبيق."); return; }
+        if (busy.get()) { resetExitBack(); showBackNotice("انتظر نتيجة محاولة الطباعة قبل مغادرة التطبيق."); return; }
         if (destroyed || isFinishing()) return;
         long ticket = nativeBack.begin(); if (ticket == 0) return;
         if (!trusted(Uri.parse(web.getUrl() == null ? "" : web.getUrl()))) { completeNativeBack(ticket, "\"unhandled\""); return; }
         try { web.evaluateJavascript(NativeBackDispatch.SCRIPT, result -> completeNativeBack(ticket, result)); }
-        catch (RuntimeException unavailable) { nativeBack.invalidate(); }
+        catch (RuntimeException unavailable) { resetExitBack(); nativeBack.invalidate(); }
     }
 
     private void completeNativeBack(long ticket, String result) {
         NativeBackDispatch.Action action = nativeBack.complete(ticket, result, busy.get());
         if (destroyed || isFinishing()) return;
-        if (action == NativeBackDispatch.Action.BLOCKED) { tell("انتظر نتيجة محاولة الطباعة قبل مغادرة التطبيق."); return; }
-        if (action == NativeBackDispatch.Action.EXIT) showExitConfirmation(false);
-        else if (action == NativeBackDispatch.Action.FALLBACK) { if (web.canGoBack()) web.goBack(); else showExitConfirmation(true); }
+        if (action == NativeBackDispatch.Action.BLOCKED) { resetExitBack(); showBackNotice("انتظر نتيجة محاولة الطباعة قبل مغادرة التطبيق."); return; }
+        if (action == NativeBackDispatch.Action.EXIT) requestDoubleBackExit(nativeBack.exitContext());
+        else if (action == NativeBackDispatch.Action.FALLBACK) { if (web.canGoBack()) { resetExitBack(); web.goBack(); } else requestDoubleBackExit("fallback"); }
+        else if (action == NativeBackDispatch.Action.HANDLED) resetExitBack();
     }
 
-    private void showExitConfirmation(boolean legacyFallback) {
-        if (destroyed || isFinishing() || busy.get() || exitConfirmation != null) return;
-        final String page = web.getUrl(); final long document = documentGeneration;
-        final boolean trustedPage = trusted(Uri.parse(page == null ? "" : page));
-        final long generation = ++exitConfirmationGeneration;
-        int panel = darkAppearance ? 0xff142329 : 0xffffffff;
-        int text = darkAppearance ? 0xffecf2f3 : 0xff173239;
-        int muted = darkAppearance ? 0xffadc0c4 : 0xff627a80;
-        int accent = appearancePalette.statusBarColor;
-        LinearLayout content = new LinearLayout(this); content.setOrientation(LinearLayout.VERTICAL);
-        content.setTag("dananeer-exit-confirmation");
-        content.setPadding(dp(24), dp(24), dp(24), dp(8)); content.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-        TextView title = new TextView(this); title.setText("الخروج من التطبيق؟"); title.setTextSize(20); title.setTextColor(text);
-        title.setTextDirection(View.TEXT_DIRECTION_RTL); title.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);
-        title.setTypeface(android.graphics.Typeface.createFromAsset(getAssets(), "cairo-bold.ttf"));
-        content.addView(title, new LinearLayout.LayoutParams(-1, -2));
-        TextView message = new TextView(this); message.setText("هل تريد إغلاق التطبيق؟ سيبقى حسابك مسجّل الدخول.");
-        message.setTextDirection(View.TEXT_DIRECTION_RTL); message.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);
-        message.setTextSize(15); message.setTextColor(muted); message.setPadding(0, dp(12), 0, dp(10));
-        content.addView(message, new LinearLayout.LayoutParams(-1, -2));
-        AlertDialog dialog = new AlertDialog.Builder(this).setView(content)
-            .setPositiveButton("خروج", null).setNegativeButton("البقاء في التطبيق", null).create();
-        exitConfirmation = dialog; dialog.setCanceledOnTouchOutside(true);
-        dialog.setOnDismissListener(value -> {
-            if (exitConfirmation == dialog) { exitConfirmation = null; exitConfirmationGeneration++; nativeBack.invalidate(); }
-        });
-        dialog.show();
-        android.graphics.drawable.GradientDrawable surface = new android.graphics.drawable.GradientDrawable();
-        surface.setColor(panel); surface.setCornerRadius(dp(22)); dialog.getWindow().setBackgroundDrawable(surface);
-        dialog.getWindow().getDecorView().setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-        Button stay = dialog.getButton(AlertDialog.BUTTON_NEGATIVE); stay.setAllCaps(false); stay.setTextColor(text);
-        Button leave = dialog.getButton(AlertDialog.BUTTON_POSITIVE); leave.setAllCaps(false);
-        // Android may resolve DecorView against the device locale. Keep the actual dialog controls RTL independently.
-        ((View) leave.getParent()).setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-        stay.setTextDirection(View.TEXT_DIRECTION_RTL); leave.setTextDirection(View.TEXT_DIRECTION_RTL);
-        android.graphics.drawable.GradientDrawable fill = new android.graphics.drawable.GradientDrawable();
-        fill.setColor(accent); fill.setCornerRadius(dp(12)); leave.setBackgroundTintList(null); leave.setBackground(fill);
-        leave.setTextColor(SystemBarPalette.darkIcons(accent) ? 0xff10242b : 0xffffffff);
-        leave.setPadding(dp(22), dp(6), dp(22), dp(6));
-        leave.setOnClickListener(value -> {
-            if (!validExitConfirmation(dialog, generation, page, document)) { dismissExitConfirmation(); return; }
-            if (busy.get()) { dismissExitConfirmation(); tell("انتظر نتيجة محاولة الطباعة قبل مغادرة التطبيق."); return; }
-            long ticket = nativeBack.begin(); if (ticket == 0) return;
-            leave.setEnabled(false);
-            if (!trustedPage) {
-                // Startup/offline fallback still requires confirmation, without running page code at an untrusted URL.
-                nativeBack.invalidate();
-                if (legacyFallback && !trusted(Uri.parse(web.getUrl() == null ? "" : web.getUrl())) && !web.canGoBack()) finishConfirmedExit(dialog, generation, page, document);
-                else dismissExitConfirmation();
-                return;
-            }
-            try {
-                // A sale or blocking layer may have started since the prompt opened. Ask the current page again.
-                web.evaluateJavascript(NativeBackDispatch.SCRIPT, result -> {
-                    NativeBackDispatch.Action action = nativeBack.complete(ticket, result, busy.get());
-                    if (!validExitConfirmation(dialog, generation, page, document)) { if (exitConfirmation == dialog) dismissExitConfirmation(); return; }
-                    if (action == NativeBackDispatch.Action.IGNORE) { dismissExitConfirmation(); return; }
-                    if (!busy.get() && trusted(Uri.parse(web.getUrl() == null ? "" : web.getUrl()))
-                        && (action == NativeBackDispatch.Action.EXIT || (legacyFallback && action == NativeBackDispatch.Action.FALLBACK && !web.canGoBack())))
-                        finishConfirmedExit(dialog, generation, page, document);
-                    else { dismissExitConfirmation(); if (busy.get()) tell("انتظر نتيجة محاولة الطباعة قبل مغادرة التطبيق."); }
-                });
-            } catch (RuntimeException unavailable) { dismissExitConfirmation(); }
-        });
+    private void requestDoubleBackExit(String navigationContext) {
+        if (destroyed || isFinishing() || busy.get()) { resetExitBack(); return; }
+        String context = documentGeneration + ":" + web.getUrl() + ":" + navigationContext;
+        // Every press reaches this point only after a fresh web decision, so a
+        // sale, reserved order or temporary layer cannot use a previous approval.
+        if (exitBack.press(SystemClock.elapsedRealtime(), context)) {
+            CookieManager.getInstance().flush(); resetExitBack(); finish();
+        } else showBackNotice("اضغط مرة ثانية للخروج");
     }
 
-    private boolean validExitConfirmation(AlertDialog dialog, long generation, String page, long document) {
-        return !destroyed && !isFinishing() && exitConfirmation == dialog && dialog.isShowing()
-            && generation == exitConfirmationGeneration && document == documentGeneration && Objects.equals(page, web.getUrl());
+    private void showBackNotice(String message) {
+        if (exitNotice != null) exitNotice.cancel();
+        exitNotice = Toast.makeText(getApplicationContext(), message, Toast.LENGTH_SHORT); exitNotice.show();
     }
 
-    private void finishConfirmedExit(AlertDialog dialog, long generation, String page, long document) {
-        if (!validExitConfirmation(dialog, generation, page, document) || busy.get()) { dismissExitConfirmation(); return; }
-        CookieManager.getInstance().flush(); dismissExitConfirmation(); finish();
-    }
-
-    private void dismissExitConfirmation() { if (exitConfirmation != null) exitConfirmation.dismiss(); }
+    private void resetExitBack() { exitBack.reset(); if (exitNotice != null) { exitNotice.cancel(); exitNotice = null; } }
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
 
     @Override public void onBackPressed() { handleNativeBack(); }
     @Override protected void onPause() { CookieManager.getInstance().flush(); super.onPause(); }
-    @Override protected void onStop() { dismissExitConfirmation(); nativeBack.invalidate(); bluetoothDiscovery.background(); super.onStop(); }
-    @Override protected void onDestroy() { destroyed=true;dismissExitConfirmation();nativeBack.invalidate();if(unregisterBackCallback!=null)unregisterBackCallback.run();bluetoothDiscovery.close();cancelImageChooser();SafeImageUpload.clear(this);CookieManager.getInstance().flush(); web.destroy(); worker.shutdown(); super.onDestroy(); }
+    @Override protected void onStop() { resetExitBack(); nativeBack.invalidate(); bluetoothDiscovery.background(); super.onStop(); }
+    @Override protected void onDestroy() { destroyed=true;resetExitBack();nativeBack.invalidate();if(printerTestDialog!=null)printerTestDialog.dismiss();if(unregisterBackCallback!=null)unregisterBackCallback.run();bluetoothDiscovery.close();cancelImageChooser();SafeImageUpload.clear(this);CookieManager.getInstance().flush(); web.destroy(); worker.shutdown(); super.onDestroy(); }
 }

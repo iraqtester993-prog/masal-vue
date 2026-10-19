@@ -2,7 +2,7 @@
 import { computed, defineAsyncComponent, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { accountTypeLabel } from '../../app/portal-config.js';
 import { childTypes } from './child-types.js';
-import { accountDraft, accountPayload } from './account-model.js';
+import { accountDraft, accountPayload, accountPhoneError, accountPhonePattern, normalizeAccountPhoneDigits, unchangedAccountPhone } from './account-model.js';
 import { useAccountAccess } from './use-account-access.js';
 import AccountModal from './AccountModal.vue';
 import CreatedLoginDetails from './CreatedLoginDetails.vue';
@@ -11,6 +11,7 @@ import FormField from './FormField.vue';
 import ParentPicker from './ParentPicker.vue';
 import {createReferenceApi} from '../reference/reference-api.js';
 import PosReferenceFields from '../reference/PosReferenceFields.vue';
+import {hasSystemScope} from '../auth/capabilities.js';
 import './accounts.css';
 const AccountAttachments = defineAsyncComponent(() => import('./AccountAttachments.vue'));
 const props = defineProps({parent:Object,account:Object,kind:{type:String,default:'agents'}});
@@ -19,9 +20,10 @@ const {session,handleFailure} = useAccountAccess();
 const parent = ref(props.parent || session.state.identity.account);
 const type = ref(props.account?.type || (props.kind === 'pos' ? 'pos' : childTypes(parent.value).find((entry) => entry !== 'pos') || ''));
 const form = reactive(accountDraft(props.account));
+const phoneUnchanged = computed(() => unchangedAccountPhone(form.phone, props.account?.phone));
 const createdAccount=ref(null),loginDetails=ref(null);
 const login=ref(props.account?.owner_user?.login || props.account?.owner_user?.email || ''),loginReason=ref('');
-const canLogin=computed(()=>session.state.identity?.account.type==='system' && session.state.identity?.membership.kind==='owner' && session.can('account.login'));
+const canLogin=computed(()=>hasSystemScope(session.state.identity)&&session.can('account.login'));
 const loginChanged=computed(()=>login.value.trim().toLowerCase()!==String(props.account?.owner_user?.login || props.account?.owner_user?.email || '').trim().toLowerCase());
 const email = ref(''), password = ref(''), confirmation = ref('');
 const busy = ref(false), loading = ref(false), errors = ref({}), error = ref(''), cities = ref([]);
@@ -31,6 +33,7 @@ const referenceApi = createReferenceApi(session.api), reference = reactive({pos_
 let referenceRevision = 0;
 async function loadReference() {
   if (!isPos.value || !parent.value?.id) return;
+  if(!session.can('pos.type')&&!session.can('pos.representatives')){referenceReady.value=true;return;}
   const expected = ++referenceRevision; loading.value = true; referenceReady.value = false;
   try {
     const result = props.account ? await referenceApi.getProfile(props.account.id,controller.signal) : await referenceApi.posOptions(parent.value.id,controller.signal);
@@ -52,6 +55,8 @@ function close() { if (!busy.value && !mediaBusy.value) { clear(); loginDetails.
 async function submit() {
   if (busy.value || mediaBusy.value || mediaConflict.value || (isPos.value && !referenceReady.value)) return;
   error.value = ''; errors.value = {};
+  const phoneError = accountPhoneError(form.phone, props.account?.phone);
+  if (phoneError) { errors.value = {phone:[phoneError]}; return; }
   if (!props.account && password.value !== confirmation.value) { errors.value = {'user.password_confirmation':['تأكيد كلمة المرور غير مطابق.']}; return; }
   busy.value = true;
   try {
@@ -84,14 +89,14 @@ onBeforeUnmount(() => { controller.abort(); clear(); loginDetails.value=null;cre
           <template v-else><label>{{isPos ? 'الوكيل التابع' : 'الوكيل الأعلى'}}</label><input :value="account.parent?.name || parent.name" readonly aria-readonly="true"/><small>تبعية الحساب ثابتة في هذا النموذج.</small></template>
           <span v-if="errors.parent_id" class="field-error">الجهة الأعلى غير متاحة لهذا النوع.</span>
         </div>
-        <FormField v-model="form.city" name="city" label="المحافظة" required :disabled="isPos && !!account && !session.can('pos.location')" :options="[{value:'',label:'اختر المحافظة'},...cities]" :error="errors.city"/>
-        <FormField v-model="form.phone" name="phone" :label="isPos ? 'الهاتف' : 'رقم الهاتف'" type="tel" required :maxlength="30" :error="errors.phone"/>
+        <FormField v-if="!isPos||!account||session.can('pos.location')" v-model="form.city" name="city" label="المحافظة" required :options="[{value:'',label:'اختر المحافظة'},...cities]" :error="errors.city"/>
+        <FormField :model-value="form.phone" name="phone" :label="isPos ? 'الهاتف' : 'رقم الهاتف'" type="tel" inputmode="numeric" required :maxlength="phoneUnchanged ? 30 : 11" :minlength="phoneUnchanged ? undefined : 11" :pattern="phoneUnchanged ? undefined : accountPhonePattern" hint="11 رقمًا تبدأ بـ 077 أو 078" :error="errors.phone" @update:model-value="form.phone=normalizeAccountPhoneDigits($event)"/>
         <template v-if="isPos">
-          <FormField v-model="form.address" name="address" label="المدينة والعنوان" required :disabled="!!account && !session.can('pos.location')" :maxlength="500" :error="errors.address"/>
-          <div class="form-field full"><label>تقييد البيع بالجهاز المعتمد</label><button type="button" class="device-lock-switch" role="switch" aria-label="تقييد البيع بالجهاز المعتمد" :aria-checked="form.device_lock_enabled" :disabled="!!account&&!session.can('pos.device')" @click="form.device_lock_enabled=!form.device_lock_enabled"><span class="device-lock-track" aria-hidden="true"><span/></span><span>{{form.device_lock_enabled?'تشغيل':'إطفاء'}}</span></button><small>{{form.device_lock_enabled?'يسجَّل الجهاز تلقائيًا؛ اعتمده من تفاصيل نقطة البيع.':'يبقى دخول النقطة من جهاز واحد فقط.'}}</small><span v-if="errors.device_lock_enabled" class="field-error">{{errors.device_lock_enabled.join(' ')}}</span></div><FormField v-model="form.serial" name="serial" label="الرقم التسلسلي للجهاز" :required="!!account && !account.device_binding_enabled && form.device_lock_enabled" :disabled="!!account && !session.can('pos.device')" :maxlength="190" :error="errors.serial"/>
-          <FormField v-model="form.device_model" name="device_model" label="موديل الجهاز (اختياري)" :disabled="!!account && !session.can('pos.device')" :maxlength="190" :error="errors.device_model"/>
-          <FormField v-model="form.app_version" name="app_version" label="إصدار التطبيق (اختياري)" :disabled="!!account && !session.can('pos.device')" :maxlength="190" :error="errors.app_version"/>
-          <PosReferenceFields v-model:type-id="reference.pos_type_id" v-model:representative-ids="reference.representative_ids" :options="referenceOptions" :disabled="busy || loading" :can-type="session.can('pos.type')" :can-representatives="session.can('pos.representatives')" :errors="errors" />
+          <FormField v-if="!account||session.can('pos.location')" v-model="form.address" name="address" label="المدينة والعنوان" required :maxlength="500" :error="errors.address"/>
+          <template v-if="!account||session.can('pos.device')"><div class="form-field full"><label>تقييد البيع بالجهاز المعتمد</label><button type="button" class="device-lock-switch" role="switch" aria-label="تقييد البيع بالجهاز المعتمد" :aria-checked="form.device_lock_enabled"  @click="form.device_lock_enabled=!form.device_lock_enabled"><span class="device-lock-track" aria-hidden="true"><span/></span><span>{{form.device_lock_enabled?'تشغيل':'إطفاء'}}</span></button><small>{{form.device_lock_enabled?'يسجَّل الجهاز تلقائيًا؛ اعتمده من تفاصيل نقطة البيع.':'يبقى دخول النقطة من جهاز واحد فقط.'}}</small><span v-if="errors.device_lock_enabled" class="field-error">{{errors.device_lock_enabled.join(' ')}}</span></div><FormField v-model="form.serial" name="serial" label="الرقم التسلسلي للجهاز" :required="!!account && !account.device_binding_enabled && form.device_lock_enabled"  :maxlength="190" :error="errors.serial"/>
+          <FormField v-model="form.device_model" name="device_model" label="موديل الجهاز (اختياري)"  :maxlength="190" :error="errors.device_model"/>
+          <FormField v-model="form.app_version" name="app_version" label="إصدار التطبيق (اختياري)"  :maxlength="190" :error="errors.app_version"/>
+          </template><PosReferenceFields v-model:type-id="reference.pos_type_id" v-model:representative-ids="reference.representative_ids" :options="referenceOptions" :disabled="busy || loading" :can-type="session.can('pos.type')" :can-representatives="session.can('pos.representatives')" :errors="errors" />
         </template>
         <template v-else>
           <FormField v-model="form.support" name="support" label="معلومات الدعم" :maxlength="500" :error="errors.support"/>
@@ -107,7 +112,7 @@ onBeforeUnmount(() => { controller.abort(); clear(); loginDetails.value=null;cre
           <FormField v-model="confirmation" name="user.password_confirmation" label="تأكيد كلمة المرور" type="password" required :minlength="9" :error="errors['user.password_confirmation']"/>
         </fieldset>
       </section>
-      <section v-else-if="account.owner_user" class="network-login-fields">
+      <section v-else-if="account.owner_user&&canLogin" class="network-login-fields">
         <h3>حساب الدخول</h3><fieldset class="formgrid" :disabled="busy || loading"><FormField v-model="login" name="login" label="بريد أو اسم مستخدم تسجيل الدخول" :disabled="!canLogin" required :maxlength="190" :error="errors.login"/><FormField v-if="canLogin && loginChanged" v-model="loginReason" name="login-reason" label="سبب تعديل حساب الدخول" required :maxlength="500" :error="errors.reason"/></fieldset>
       </section>
       <AccountAttachments v-if="account && session.can('account.attachments.view')" :account="account" :disabled="busy" @version="accountVersion=$event" @changed="emit('changed',$event)" @busy="mediaBusy=$event" @conflict="mediaConflict=true"/>

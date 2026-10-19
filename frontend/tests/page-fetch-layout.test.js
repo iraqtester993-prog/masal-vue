@@ -15,6 +15,7 @@ test('a focused digital sale skips unrelated settings/catalog reads while the hi
  for(const focusedOffer of [null,{id:9,connection_id:2,provider:'topup'}]){
   const mounted=[],calls=[],runtime={identity:ref({account:{type:'pos'},membership:{kind:'owner'}}),pos:ref(true),can:()=>true,load:async(...args)=>calls.push(args)};
   const context={computed,ref,inject:()=>null,watch(){},routeLocationKey,defineProps:()=>({focusedOffer,mode:'digital'}),defineEmits:()=>()=>{},useDigitalRuntime:()=>runtime,digitalDeepLink:()=>({filters:{}}),authorizedDigitalTab:(_,__,fallback)=>fallback,onMounted:callback=>mounted.push(callback)};
+  context.useRouteRefresh=()=>{};
   runInNewContext(script,context);for(const callback of mounted)await callback();
   assert.equal(calls.length,focusedOffer?0:1,'Selecting an existing offer must not fetch configuration, connections and the catalog again');
  }
@@ -25,7 +26,7 @@ test('loaded Topup allocation keeps four labeled balances and preserves its exac
  try{
   const {portalContextKey}=await server.ssrLoadModule('/src/modules/auth/session.js');
   const page=(await server.ssrLoadModule('/src/modules/digital/TopupDistributionPage.vue')).default;
-  const writes=[],data={target_id:2,connection_id:4,targets:[{id:2,name:'الوكيل الفعلي',operational:true}],connections:[{id:4,name:'Topup',available:'36000.00'}],grant:{version:7,balance:'64000.00',category_ids:[2,1],active:true},connection:{id:4,main_account_name:'الوكيل الفعلي',token_present:true,active:true,company_balance:'100000.00'},allocation:{connection_id:4,balance:'64000.00',available:'54000.00',held:'10000.00',spent:'6000.00'},categories:[{id:1,name:'فئة الحساب الفعلية',remote_id:'49',type:'topup',price:'6500.00',admin_price:'6000.00'},{id:2,name:'باقة الحساب الفعلية',remote_id:'50',type:'bundle',price:'7000.00',admin_price:'6500.00'}]};
+  const writes=[],data={can_assign:true,can_allocate:true,can_recover:true,target_id:2,connection_id:4,targets:[{id:2,name:'الوكيل الفعلي',operational:true}],connections:[{id:4,name:'Topup',available:'36000.00'}],grant:{version:7,balance:'64000.00',category_ids:[2,1],active:true},connection:{id:4,main_account_name:'الوكيل الفعلي',token_present:true,active:true,company_balance:'100000.00'},allocation:{connection_id:4,balance:'64000.00',available:'54000.00',held:'10000.00',spent:'6000.00'},categories:[{id:1,name:'فئة الحساب الفعلية',remote_id:'49',type:'topup',price:'6500.00',admin_price:'6000.00'},{id:2,name:'باقة الحساب الفعلية',remote_id:'50',type:'bundle',price:'7000.00',admin_price:'6500.00'}]};
   const session={state:reactive({identity:{account:{id:1,type:'system'},user:{id:9},membership:{kind:'owner'}}}),can:()=>true,api:{request:async path=>{assert.ok(path.startsWith('/topup/distribution?'));return{data};},mutate:async(...args)=>{writes.push(args);return{data:{}};}}};
   let controls;const loaded={...page,setup(props,context){controls=page.setup(props,context);onServerPrefetch(()=>controls.load());return controls;}};
   const router=createRouter({history:createMemoryHistory(),routes:[{path:'/topup/categories',component:{render:()=>null}}]});

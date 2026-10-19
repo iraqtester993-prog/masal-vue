@@ -52,7 +52,7 @@ class FinanceRequest extends FormRequest
             'reviewPriceRequest' => $cas + ['decision' => ['required', Rule::in(['approve', 'reject'])], 'reason' => ['required_if:decision,reject', 'string', 'max:1000']],
             'reversePriceRequest' => $cas + ['reason' => ['required', 'string', 'max:1000']],
             'options' => ['compact' => ['sometimes', 'boolean']],
-            'accounts' => $read + ['account_types' => ['sometimes', 'array', 'max:5'], 'account_types.*' => [Rule::in(['system', 'main_agent', 'sub_agent', 'sub_branch', 'pos'])], 'lookup_ids' => ['sometimes', 'array', 'max:10000'], 'lookup_ids.*' => ['integer', 'min:1', 'distinct']],
+            'accounts' => $read + ['context' => ['sometimes', Rule::in(['staff_scope', 'reports'])], 'account_types' => ['sometimes', 'array', 'max:5'], 'account_types.*' => [Rule::in(['system', 'main_agent', 'sub_agent', 'sub_branch', 'pos'])], 'lookup_ids' => ['sometimes', 'array', 'max:10000'], 'lookup_ids.*' => ['integer', 'min:1', 'distinct']],
             'policy' => [],
             default => $read,
         };

@@ -8,6 +8,10 @@ import {installPosBackNavigation} from '../shared/pos-back-navigation.js';
 export function createPortalRouter(session) {
   const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
+    scrollBehavior(to, from) {
+      if (to.path !== from.path) return {left:0,top:0,behavior:'instant'};
+      return false;
+    },
     routes: [
       { path: "/", redirect: "/dashboard" },
       {
@@ -19,6 +23,7 @@ export function createPortalRouter(session) {
       {path:'/no-access',name:'no-access',meta:{requiresAuth:true,title:'حسابك'},component:()=>import('../modules/auth/NoAccessPage.vue')},
       {path:'/session-unavailable',name:'session-unavailable',component:()=>import('../modules/auth/SessionConnectionIssue.vue')},
       {path:'/more',name:'posMore',meta:{requiresAuth:true,title:'المزيد',accountTypes:['pos']},component:()=>import('../layouts/PosMore.vue')},
+      {path:'/activity',name:'posActivity',meta:{requiresAuth:true,title:'العمليات المالية',permission:'dashboard.view',accountTypes:['pos']},component:()=>import('../modules/dashboard/PosActivityPage.vue')},
       {
         path: "/dashboard",
         name: "dashboard",
@@ -26,26 +31,27 @@ export function createPortalRouter(session) {
         component: () => import("../modules/dashboard/DashboardPage.vue"),
       },
       { path: "/accounts", redirect: "/agents" },
-      { path:'/topup/allocation',name:'topupAllocation',meta:{requiresAuth:true,title:'تخصيص فئات Topup للوكلاء',permission:'integrations.edit',accountTypes:['system'],membershipKinds:['owner'],navigationId:'topupAllocation'},component:()=>import('../modules/digital/TopupDistributionPage.vue') },
-      { path:'/topup/distribution',name:'topupDistribution',meta:{requiresAuth:true,title:'توزيع فئات Topup',permission:'digital.assign',accountTypes:['main_agent','sub_agent','sub_branch'],navigationId:'topupDistribution'},component:()=>import('../modules/digital/TopupDistributionPage.vue') },
-      { path:'/topup/available',name:'topupAvailable',meta:{requiresAuth:true,title:'فئات Topup الممنوحة',permission:'digital.view',accountTypes:['pos'],navigationId:'topupAvailable'},props:{available:true},component:()=>import('../modules/digital/TopupDistributionPage.vue') },
-      { path:'/topup/categories',name:'topupCategories',meta:{requiresAuth:true,title:'فئات شركة Topup',permission:'integrations.edit',accountTypes:['system'],membershipKinds:['owner'],navigationId:'topupCategories'},component:()=>import('../modules/digital/TopupCategoriesPage.vue') },
-      { path:'/digital',name:'digital',meta:{requiresAuth:true,title:'خدمات API',permission:'digital.view',navigationId:'digital'},component:()=>import('../modules/digital/DigitalPage.vue') },
-      { path:'/integrations',name:'integrations',meta:{requiresAuth:true,title:'الربط مع الشركات',permission:'integrations.view',accountTypes:['system'],membershipKinds:['owner']},props:{mode:'integrations'},component:()=>import('../modules/digital/DigitalPage.vue') },
+      { path:'/topup/allocation',name:'topupAllocation',meta:{requiresAuth:true,title:'تخصيص فئات Topup للوكلاء',permission:'topup.view',accountTypes:['system'],navigationId:'topupAllocation'},component:()=>import('../modules/digital/TopupDistributionPage.vue') },
+      { path:'/topup/distribution',name:'topupDistribution',meta:{requiresAuth:true,title:'توزيع فئات Topup',permission:'topup.view',accountTypes:['main_agent','sub_agent','sub_branch'],navigationId:'topupDistribution'},component:()=>import('../modules/digital/TopupDistributionPage.vue') },
+      { path:'/topup/available',name:'topupAvailable',meta:{requiresAuth:true,title:'فئات Topup الممنوحة',permission:'digital.view',accountTypes:['pos'],navigationId:'topupAvailable'},redirect:to=>({name:'sell',query:{...to.query,service:'topup'}}) },
+      { path:'/topup/categories',name:'topupCategories',meta:{requiresAuth:true,title:'فئات شركة Topup',permission:'topup.view',accountTypes:['system'],navigationId:'topupCategories'},component:()=>import('../modules/digital/TopupCategoriesPage.vue') },
+      { path:'/digital',name:'digital',meta:{requiresAuth:true,title:'خدمات API',anyPermissions:['digital.view','integrations.view'],navigationId:'digital'},component:()=>import('../modules/digital/DigitalPage.vue') },
+      { path:'/integrations',name:'integrations',meta:{requiresAuth:true,title:'الربط مع الشركات',permission:'integrations.view',accountTypes:['system'],systemScope:true},props:{mode:'integrations'},component:()=>import('../modules/digital/DigitalPage.vue') },
       { path:'/map',name:'map',meta:{requiresAuth:true,title:'خريطة المستخدمين',permission:'map.view',navigationId:'map'},component:()=>import('../modules/maps/MapPage.vue') },
       { path:'/security',name:'security',meta:{requiresAuth:true,title:'الحماية والأمان',permission:'security.view',navigationId:'security',accountTypes:['system']},component:()=>import('../modules/security/SecurityPage.vue') },
-      { path:'/account-times',name:'accountTime',meta:{requiresAuth:true,title:'أوقات صلاحية الحساب',permission:'security.policies',navigationId:'accountTime',accountTypes:['system'],membershipKinds:['owner']},component:()=>import('../modules/account-times/AccountTimePage.vue') },
+      { path:'/account-times',name:'accountTime',meta:{requiresAuth:true,title:'أوقات صلاحية الحساب',permission:'security.time',accountTypes:['system'],navigationId:'accountTime'},component:()=>import('../modules/account-times/AccountTimePage.vue') },
       { path:'/deleted-accounts',name:'deletedAccounts',meta:{requiresAuth:true,title:'أرشيف المحذوفات',permission:'agents.archiveView',navigationId:'deletedAccounts',accountTypes:['system']},component:()=>import('../modules/archive/ArchivePage.vue') },
-      { path:'/backup',name:'backup',meta:{requiresAuth:true,title:'النسخ الاحتياطي',permission:'backup.view',navigationId:'backup',accountTypes:['system'],membershipKinds:['owner']},component:()=>import('../modules/backups/BackupPage.vue') },
+      { path:'/backup',name:'backup',meta:{requiresAuth:true,title:'النسخ الاحتياطي',permission:'backup.view',navigationId:'backup',accountTypes:['system'],systemScope:true,backupAccess:true},component:()=>import('../modules/backups/BackupPage.vue') },
       { path:'/company',name:'company',meta:{requiresAuth:true,title:'موقع الشركة',permission:'company.view',navigationId:'company'},component:()=>import('../modules/company/CompanyPage.vue') },
-      { path:'/company-settings',name:'company-settings',meta:{requiresAuth:true,title:'تعديل بروفايل الشركة',permission:'company.edit',navigationId:'company-settings',accountTypes:['system']},props:{management:true},component:()=>import('../modules/company/CompanyPage.vue') },
+      {path:'/app-settings',name:'app-settings',meta:{requiresAuth:true,title:'إعدادات التطبيق والطابعات',anyPermissions:['app.settings','printers.manage'],navigationId:'app-settings',accountTypes:['system'],systemScope:true},component:()=>import('../modules/company/AppSettings.vue')},
+      { path:'/company-settings',name:'company-settings',meta:{requiresAuth:true,title:'تعديل بروفايل الشركة',permission:'company.edit',navigationId:'company-settings',accountTypes:['system'],systemScope:true},props:{management:true},component:()=>import('../modules/company/CompanyPage.vue') },
       {
         path:'/sell', name:'sell',
-        meta:{requiresAuth:true,title:'بيع البطاقات',permission:'sell.create',navigationId:'sell',accountTypes:['sub_agent','sub_branch','pos']},
+        meta:{requiresAuth:true,title:'بيع البطاقات',anyPermissions:['sell.create','digital.view'],navigationId:'sell',accountTypes:['sub_agent','sub_branch','pos']},
         component:()=>import('../modules/sales/SellPage.vue'),
       },
       ...[['sales','المبيعات','sales.view'],['exceptions','طلبات إعادة الطباعة','exceptions.view']].map(([name,title,permission])=>({
-        path:`/${name}`,name,meta:{requiresAuth:true,title,permission,navigationId:name},
+        path:`/${name}`,name,meta:{requiresAuth:true,title,permission,navigationId:name,...name==='sales'?{permissionsByAccountType:{pos:{anyPermissions:['sales.view','digital.view']}}}:{}},
         component:()=>import('../modules/sales/SalesPage.vue'),
       })),
       {
@@ -99,7 +105,7 @@ export function createPortalRouter(session) {
         ["representatives", "المندوبون", "representatives.view", "representatives"],
       ].map(([name, title, permission, navigationId]) => ({
         path: `/${name}`, name,
-        meta: { requiresAuth: true, title, permission, navigationId, ...(name === 'governorates' ? {accountTypes:['system'],membershipKinds:['owner']} : {}) },
+        meta: { requiresAuth: true, title, permission, navigationId, ...(name === 'governorates' ? {accountTypes:['system'],systemScope:true} : {}) },
         component: () => import("../modules/reference/ReferencePage.vue"),
       })),
       {

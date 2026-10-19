@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {enabledPrinters,matchPrinter,printerChoices} from '../src/shared/printer-registry.js';
+import {enabledPrinters,matchPrinter,printerChoices,directPrinterDefinitions,resolveDirectPrinterChoice} from '../src/shared/printer-registry.js';
 import {configurePrinterRegistry,printPreparedNativeReceipt,selectPrinterChoice,rememberPrinterRoute,getNativePrinterCapabilities} from '../src/shared/native-print.js';
 
 test('legacy printer types stay enabled and only active matching Bluetooth profiles are selected',()=>{
@@ -97,4 +97,83 @@ test('new YHD direct routing requires native advertised support while old APKs r
  assert.equal(printerChoices(supported,[{...device,name:'Printer001'}],rows).find(choice=>choice.address===device.address).route,'browser');
  assert.equal(printerChoices(supported,[{...device,bonded:false}],rows).find(choice=>choice.address===device.address).unavailable,true);
  assert.equal(matchPrinter(device.name,[{...rows[0],enabled:false}]),null);
+});
+
+test('three Bluetooth devices share one named direct definition while all discovery choices remain distinct',()=>{
+ const registry=[{id:'go',name:'GOOJPRT / MTP-2',profile:'GOOJPRT',match:'GOOJPRT|JingPu|MTP-2|MTP-II'}];
+ const devices=['MTP-2','MTP-II','JingPu'].map((name,index)=>({name,address:`AA:BB:CC:DD:EE:0${index+1}`,bonded:true}));
+ const choices=printerChoices({},devices,registry),before=structuredClone({choices,registry});
+ for(const choice of choices)Object.freeze(choice);Object.freeze(choices);Object.freeze(registry[0]);Object.freeze(registry);
+ const definitions=directPrinterDefinitions(choices,registry);
+ assert.equal(definitions.length,1);assert.equal(definitions[0].key,'registered:go');assert.equal(definitions[0].printerId,'go');assert.equal(definitions[0].name,'GOOJPRT / MTP-2');assert.equal(definitions[0].unavailable,false);
+ assert.equal(definitions[0].deviceChoices.length,3);
+ for(let index=0;index<3;index++)assert.equal(definitions[0].deviceChoices[index],choices[index]);
+ assert.deepEqual({choices,registry},before);assert.equal(choices.filter(row=>row.kind==='bluetooth').length,3);assert.equal(choices.at(-1).key,'browser');
+});
+
+test('multiple paired devices require an explicit address and never choose the first matching model',()=>{
+ const registry=[{id:'go',name:'تعريف واحد',profile:'GOOJPRT',match:'JingPu'}];
+ const devices=[1,2,3].map(index=>({name:'JingPu',address:`AA:BB:CC:DD:EE:0${index}`,bonded:true}));
+ const choices=printerChoices({},devices,registry),definition=directPrinterDefinitions(choices,registry)[0];
+ assert.deepEqual(resolveDirectPrinterChoice(definition),{choice:null,status:'ambiguous',ambiguous:true});
+ const selected=resolveDirectPrinterChoice(definition,'aa:bb:cc:dd:ee:02');
+ assert.equal(selected.choice,choices[1]);assert.equal(selected.status,'ready');assert.equal(selected.ambiguous,false);
+});
+
+test('only one available paired device can be bound automatically',()=>{
+ const registry=[{id:'go',name:'التعريف',profile:'GOOJPRT',match:'JingPu'}];
+ const choices=printerChoices({},[
+  {name:'JingPu',address:'AA:BB:CC:DD:EE:01',bonded:false},
+  {name:'JingPu',address:'AA:BB:CC:DD:EE:02',bonded:true},
+  {name:'JingPu',address:'AA:BB:CC:DD:EE:03',bonded:true,transport:'le'},
+ ],registry),definition=directPrinterDefinitions(choices,registry)[0];
+ assert.equal(definition.deviceChoices.length,2);assert.equal(definition.unavailable,false);
+ assert.equal(resolveDirectPrinterChoice(definition).choice,choices[1]);
+ const unpaired=directPrinterDefinitions(printerChoices({},[{name:'JingPu',address:'AA:BB:CC:DD:EE:01',bonded:false}],registry),registry)[0];
+ assert.equal(unpaired.unavailable,true);assert.deepEqual(resolveDirectPrinterChoice(unpaired),{choice:null,status:'unavailable',ambiguous:false});
+});
+
+test('a missing or unpaired preferred address is stale even when one different paired device remains',()=>{
+ const registry=[{id:'go',name:'التعريف',profile:'GOOJPRT',match:'JingPu'}];
+ const choices=printerChoices({},[{name:'JingPu',address:'AA:BB:CC:DD:EE:01',bonded:false},{name:'JingPu',address:'AA:BB:CC:DD:EE:02',bonded:true}],registry);
+ const definition=directPrinterDefinitions(choices,registry)[0];
+ for(const address of ['AA:BB:CC:DD:EE:01','AA:BB:CC:DD:EE:03'])assert.deepEqual(resolveDirectPrinterChoice(definition,address),{choice:null,status:'stale',ambiguous:false});
+ const missing=directPrinterDefinitions(printerChoices({},[],registry),registry)[0];
+ assert.deepEqual(resolveDirectPrinterChoice(missing,'AA:BB:CC:DD:EE:02'),{choice:null,status:'stale',ambiguous:false});
+});
+
+test('definitions use registry IDs and registry order even when display names are identical',()=>{
+ const registry=[{id:'go',name:'الاسم نفسه',profile:'GOOJPRT',match:'JingPu'},{id:'fsc',name:'الاسم نفسه',profile:'Feasycom',match:'FSC'}];
+ const choices=printerChoices({},[{name:'FSC',address:'AA:BB:CC:DD:EE:01',bonded:true},{name:'JingPu',address:'AA:BB:CC:DD:EE:02',bonded:true}],registry);
+ const definitions=directPrinterDefinitions(choices,registry);
+ assert.deepEqual(definitions.map(row=>row.key),['registered:go','registered:fsc']);assert.equal(definitions[0].name,definitions[1].name);
+ assert.equal(resolveDirectPrinterChoice(definitions[0]).choice,choices[1]);assert.equal(resolveDirectPrinterChoice(definitions[1]).choice,choices[0]);
+ assert.equal(resolveDirectPrinterChoice(definitions[0],choices[0].address).status,'stale');
+});
+
+test('a detected internal definition keeps its registry label and never recreates its placeholder',()=>{
+ const registry=[{id:'sun',name:'الاسم نفسه',profile:'sunmi'},{id:'go',name:'الاسم نفسه',profile:'GOOJPRT',match:'JingPu'}];
+ const choices=printerChoices({internalPrinterAvailable:true,internalPrinterMode:'sunmi',internalPrinterName:'SUNMI V2'},[],registry);
+ const definitions=directPrinterDefinitions(choices,registry);
+ assert.deepEqual(definitions.map(row=>row.key),['internal','registered:go']);assert.equal(definitions[0].kind,'internal');assert.equal(definitions[0].name,'الاسم نفسه');assert.equal(definitions[0].deviceChoices[0],choices[0]);
+ assert.equal(resolveDirectPrinterChoice(definitions[0]).choice,choices[0]);assert.equal(resolveDirectPrinterChoice(definitions[0],'AA:BB:CC:DD:EE:01').choice,choices[0]);
+ assert.equal(definitions[1].unavailable,true);
+ const fallback=directPrinterDefinitions(printerChoices({internalPrinterAvailable:true,internalPrinterName:'Internal device'},[],[]),[])[0];
+ assert.equal(fallback.name,'Internal device');assert.equal(fallback.key,'internal');
+});
+
+test('overlapping matches retain the first routing definition and leave the other definition unavailable',()=>{
+ const registry=[{id:'first',name:'تعريف أول',profile:'GOOJPRT',match:'JingPu'},{id:'second',name:'تعريف ثان',profile:'GOOJPRT',match:'JingPu'}];
+ const choices=printerChoices({},[{name:'JingPu',address:'AA:BB:CC:DD:EE:01',bonded:true}],registry),definitions=directPrinterDefinitions(choices,registry);
+ assert.equal(matchPrinter('JingPu',registry).id,'first');assert.deepEqual(definitions.map(row=>row.key),['registered:first','registered:second']);
+ assert.equal(resolveDirectPrinterChoice(definitions[0]).choice,choices[0]);assert.equal(definitions[1].deviceChoices.length,0);assert.equal(definitions[1].unavailable,true);
+});
+
+test('disabled, unsupported and browser devices cannot become an available direct definition',()=>{
+ const registry=[{id:'yhd',name:'YHD-8006',profile:'YHD-8006',match:'YHD8006'},{id:'disabled',name:'معطل',profile:'GOOJPRT',match:'JingPu',enabled:false}];
+ const choices=printerChoices({bluetoothPrinterProfiles:[]},[{name:'YHD8006',address:'AA:BB:CC:DD:EE:01',bonded:true},{name:'JingPu',address:'AA:BB:CC:DD:EE:02',bonded:true}],registry);
+ const definitions=directPrinterDefinitions(choices,registry);
+ assert.deepEqual(definitions.map(row=>row.key),['registered:yhd']);assert.equal(definitions[0].unavailable,true);assert.equal(definitions[0].deviceChoices.length,0);
+ assert.equal(choices.filter(row=>row.kind==='bluetooth'&&row.route==='browser').length,2);assert.deepEqual(resolveDirectPrinterChoice(definitions[0]),{choice:null,status:'unavailable',ambiguous:false});
+ assert.deepEqual(resolveDirectPrinterChoice(null),{choice:null,status:'unavailable',ambiguous:false});assert.deepEqual(directPrinterDefinitions(),[]);
 });

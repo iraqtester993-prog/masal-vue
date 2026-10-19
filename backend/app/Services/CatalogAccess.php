@@ -17,7 +17,6 @@ class CatalogAccess
     public function require(User $actor, string $permission, bool $global = false): void
     {
         $this->authority->require($actor, $permission);
-        $this->authority->require($actor, 'account.view');
         $module = explode('.', $permission)[0];
         if (in_array($module, ['products', 'providers'], true) && $permission !== $module.'.view') {
             $this->authority->require($actor, $module.'.view');

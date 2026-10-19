@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Enums\AccountType;
+
 class PermissionCatalog
 {
     public const LABELS = [
@@ -51,6 +53,12 @@ class PermissionCatalog
         'integrations.view' => 'عرض الربط مع الشركات', 'integrations.edit' => 'إعداد الربط مع الشركات',
         'company.view' => 'عرض موقع الشركة', 'company.edit' => 'إدارة محتوى موقع الشركة',
         'map.view' => 'عرض خريطة المستخدمين',
+        'app.settings' => 'تعديل إعدادات التطبيق', 'printers.manage' => 'إدارة الطابعات المعتمدة',
+        'staff.password_reset' => 'إعادة تعيين كلمة مرور الموظف', 'digital.print' => 'طباعة وصل الخدمة الرقمية',
+        'integrations.credentials' => 'تغيير مفتاح ربط المزود', 'integrations.sync' => 'مزامنة فئات المزود', 'integrations.balance' => 'تحديث رصيد المزود',
+        'topup.view' => 'عرض توزيع Topup', 'topup.assign' => 'توزيع فئات Topup', 'topup.prices' => 'تعديل أسعار Topup',
+        'topup.allocate' => 'تخصيص رصيد Topup', 'topup.recover' => 'استرجاع رصيد Topup', 'topup.categories' => 'إدارة فئات Topup المركزية',
+        'security.time' => 'إدارة أوقات عمل الموظفين',
         'backup.view' => 'عرض النسخ الاحتياطية', 'backup.create' => 'إنشاء نسخة احتياطية', 'backup.restore' => 'استرجاع نسخة احتياطية',
     ];
 
@@ -61,6 +69,13 @@ class PermissionCatalog
         }
         if ($role === 'employee') {
             return false;
+        }
+        if (in_array($permission, self::GRANULAR_PERMISSIONS, true)) {
+            return match ($permission) {
+                'digital.print' => $role === 'pos',
+                'integrations.balance', 'topup.view', 'topup.assign', 'topup.prices' => $role === 'agent',
+                default => false,
+            };
         }
         if (str_starts_with($permission, 'backup.')) {
             return false;
@@ -95,8 +110,46 @@ class PermissionCatalog
             && ! ($role === 'pos' && str_starts_with($permission, 'pos.'));
     }
 
-    public static function rows(): array
+    public static function rows(?array $permissions = null, ?AccountType $accountType = null): array
     {
-        return collect(self::LABELS)->map(fn (string $label, string $key): array => ['key' => $key, 'label' => $label, 'group' => explode('.', $key)[0]])->values()->all();
+        $permissions ??= array_keys(self::LABELS);
+
+        return collect(self::LABELS)->only($permissions)->map(fn (string $label, string $key): array => ['key' => $key, 'label' => $label, 'group' => explode('.', $key)[0], 'dependencies' => array_values(array_intersect(self::dependencies($key), $permissions)), 'employee_allowed' => self::employeeAllowed($key, $accountType)])->values()->all();
+    }
+
+    public const GRANULAR_PERMISSIONS = ['app.settings', 'printers.manage', 'staff.password_reset', 'digital.print', 'integrations.credentials', 'integrations.sync', 'integrations.balance', 'topup.view', 'topup.assign', 'topup.prices', 'topup.allocate', 'topup.recover', 'topup.categories', 'security.time'];
+
+    public static function dependencies(string $permission): array
+    {
+        $module = explode('.', $permission)[0];
+        if ($permission === 'integrations.balance') {
+            return ['digital.view'];
+        }
+        if ($permission === 'digital.print') {
+            return ['digital.view', 'digital.receipt', 'data.pin'];
+        }
+        if ($module === 'sell') {
+            return ['sales.view'];
+        }
+        if ($permission === 'agents.archive') {
+            return ['agents.archiveView', 'account.view'];
+        }
+        if ($module === 'security' && ! in_array($permission, ['security.view', 'security.fundingRequests', 'security.fundingRecovery'], true)) {
+            return ['security.view'];
+        }
+        if (! str_ends_with($permission, '.view') && in_array($module, ['staff', 'permission_profile', 'products', 'providers', 'governorates', 'sources', 'posTypes', 'representatives', 'wallets', 'ledger', 'invoices', 'prices', 'import', 'inventory', 'claims', 'exports', 'sales', 'exceptions', 'branding', 'support', 'notifications', 'reports', 'digital', 'integrations', 'company', 'backup', 'topup'], true)) {
+            return [$module.'.view'];
+        }
+
+        return [];
+    }
+
+    public static function employeeAllowed(string $permission, ?AccountType $accountType = null): bool
+    {
+        if ($accountType === AccountType::System) {
+            return true;
+        }
+
+        return ! str_starts_with($permission, 'backup.') && ! str_starts_with($permission, 'governorates.') && ! in_array($permission, ['account.create', 'account.login', 'account.password_reset'], true);
     }
 }

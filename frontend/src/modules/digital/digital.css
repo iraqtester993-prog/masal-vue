@@ -496,3 +496,4 @@ html[data-theme="dark"] .digital-services tbody tr:hover {
     color: #000;
   }
 }
+.digital-readiness-notice ul{margin:.6rem 0 0;padding-inline-start:1.2rem;display:grid;gap:.55rem}.digital-readiness-notice li b,.digital-readiness-notice li span{display:block}.digital-readiness-notice li span{font-size:.9em;margin-top:.2rem;line-height:1.65}.digital-readiness-notice{overflow-wrap:anywhere}

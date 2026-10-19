@@ -5,6 +5,7 @@ namespace App\Services\Maps;
 use App\Enums\AccountType;
 use App\Models\Maps\UserPresence;
 use App\Models\User;
+use App\Services\AccountPrivacy;
 use App\Services\AccountScope;
 use App\Services\ManagementAuthority;
 use App\Services\Operations\MutationGuard;
@@ -49,7 +50,7 @@ class MapAccess
         }
         if (! empty($filters['query'])) {
             $pattern = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $filters['query']).'%';
-            $query->where(fn ($search) => $search->whereRaw("users.name LIKE ? ESCAPE '!'", [$pattern])->orWhereHas('membership.account', fn ($account) => $account->whereRaw("accounts.name LIKE ? ESCAPE '!'", [$pattern])));
+            $query->where(fn ($search) => $search->whereRaw("users.name LIKE ? ESCAPE '!'", [$pattern])->orWhereHas('membership.account', fn ($account) => $account->where('accounts.type', '<>', 'system')->whereRaw("accounts.name LIKE ? ESCAPE '!'", [$pattern])));
         }
         if (array_key_exists('user_ids', $filters)) {
             $query->whereIn('id', $filters['user_ids']);
@@ -117,9 +118,10 @@ class MapAccess
 
         return $users->map(function (User $user) use ($presences, $locations, $networks, $activeAccounts, $visibleIds): array {
             $account = $user->membership->account;
+            $privacy = app(AccountPrivacy::class);
             $sessions = $presences->get($user->id, collect());
             $presence = $sessions->first();
-            $fixed = $locations->get($account->id);
+            $fixed = $account->type === AccountType::System ? null : $locations->get($account->id);
             $network = $networks->get($account->id);
             if ($network && ! isset($visibleIds[$network->id])) {
                 $network = null;
@@ -135,7 +137,7 @@ class MapAccess
 
             return ['id' => $user->id, 'name' => $user->name, 'role' => $employee ? 'employee' : $account->type->value, 'kind' => $kind, 'symbol' => $employee ? '●' : match ($account->type) {
                 AccountType::MainAgent => '◆',AccountType::Pos => '▲',default => '■'
-            }, 'account_id' => $account->id, 'parent_id' => isset($visibleIds[$account->parent_id]) ? $account->parent_id : null, 'agent' => $account->type === AccountType::Pos ? (isset($visibleIds[$account->parent_id]) ? $account->parent_id : null) : $account->id, 'account' => $account->name, 'parentName' => isset($visibleIds[$account->parent_id]) ? ($account->parent?->name ?? '') : '', 'phone' => $account->phone ?? '', 'city' => $account->city ?? '', 'address' => $account->address ?? '', 'active' => $active, 'online' => (bool) $online, 'lastSeen' => $presence?->last_seen_at?->toIso8601String(), 'location' => $location, 'source' => $device ? 'آخر موقع للجهاز' : ($location ? 'موقع الحساب المسجل' : 'بدون موقع'), 'locationTime' => $device ? $presence->location_at?->toIso8601String() : $fixed?->updated_at, 'accuracy' => $device ? $presence->accuracy : null, 'device_model' => $presence?->device_model ?? '', 'app_version' => $presence?->app_version ?? '', 'networkId' => $network?->id, 'networkName' => $network?->name ?? 'حسابات النظام', 'networkColor' => preg_match('/^#[0-9a-f]{6}$/i', $network?->color ?? '') ? $network->color : '#0898b5'];
+            }, 'account_id' => $account->id, 'parent_id' => isset($visibleIds[$account->parent_id]) ? $account->parent_id : null, 'agent' => $account->type === AccountType::Pos ? (isset($visibleIds[$account->parent_id]) ? $account->parent_id : null) : $account->id, 'account' => $privacy->accountName($account), 'parentName' => isset($visibleIds[$account->parent_id]) && $account->parent ? $privacy->accountName($account->parent) : '', 'phone' => $account->type === AccountType::System ? '' : ($account->phone ?? ''), 'city' => $account->type === AccountType::System ? '' : ($account->city ?? ''), 'address' => $account->type === AccountType::System ? '' : ($account->address ?? ''), 'active' => $active, 'online' => (bool) $online, 'lastSeen' => $presence?->last_seen_at?->toIso8601String(), 'location' => $location, 'source' => $device ? 'آخر موقع للجهاز' : ($location ? 'موقع الحساب المسجل' : 'بدون موقع'), 'locationTime' => $device ? $presence->location_at?->toIso8601String() : $fixed?->updated_at, 'accuracy' => $device ? $presence->accuracy : null, 'device_model' => $presence?->device_model ?? '', 'app_version' => $presence?->app_version ?? '', 'networkId' => $network?->id, 'networkName' => $network?->name ?? 'حسابات النظام', 'networkColor' => preg_match('/^#[0-9a-f]{6}$/i', $network?->color ?? '') ? $network->color : '#0898b5'];
         })->all();
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Services\Reports;
 
+use App\Services\Finance\FinanceServiceIdentity;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 
@@ -27,6 +28,9 @@ class ReportDataset
     {
         $query = DB::query()->fromSub(clone $this->query, 'report_rows');
         $columns = array_column($this->schema['columns'], 'key');
+        if (! empty($filters['service']) && str_starts_with($this->schema['id'], 'wallets') && in_array('source_label', $columns, true)) {
+            $query->whereIn('_source_service', app(FinanceServiceIdentity::class)->family($filters['service']));
+        }
         if (! empty($filters['q'])) {
             $pattern = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $filters['q']).'%';
             $query->where(function ($search) use ($columns, $pattern): void {
@@ -82,6 +86,10 @@ class ReportDataset
                 }
             }
             $row[$column['key']] = $value;
+        }
+
+        if (isset($raw['_source_service'])) {
+            $row = array_replace($row, app(FinanceServiceIdentity::class)->metadata($raw['_source_service']));
         }
 
         return $row;

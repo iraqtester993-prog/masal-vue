@@ -8,12 +8,15 @@ use App\Models\Account;
 use App\Models\AccountMembership;
 use App\Models\PermissionProfile;
 use App\Models\User;
+use App\Services\AccountPrivacy;
 use App\Services\AccountScope;
 use App\Services\AuditLogger;
 use App\Services\ManagementAuthority;
+use App\Services\PasswordReset;
 use App\Services\SessionRevoker;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -22,7 +25,8 @@ class StaffController extends Controller
     public function index(AccountsQueryRequest $request, int $id, ManagementAuthority $authority, AccountScope $scope): JsonResponse
     {
         $authority->account($request->user(), $id, 'staff.view');
-        $query = $scope->members($request->user(), $id)->with(['user', 'profile:id,name']);
+        $query = $scope->members($request->user(), $id)->with(['user', 'profile:id,name,status']);
+        $query->where(fn ($members) => $members->where('kind', '<>', 'owner')->orWhereHas('account', fn ($accounts) => $accounts->where('type', '<>', 'system')));
         if ($request->filled('q')) {
             $q = $request->validated('q');
             $query->whereHas('user', fn ($builder) => $builder->where(fn ($names) => $names->where('name', 'like', '%'.$q.'%')->orWhere('email', 'like', '%'.$q.'%')));
@@ -31,10 +35,32 @@ class StaffController extends Controller
             $query->where('status', $request->validated('status'));
         }
         $page = $query->orderBy('id')->paginate($request->validated('per_page', 25));
-        $roots = DB::table('membership_scope_roots')->join('accounts', 'accounts.id', '=', 'account_id')->whereIn('membership_id', $page->getCollection()->modelKeys())
+        $roots = DB::table('membership_scope_roots')->joinSub(app(AccountPrivacy::class)->accounts(), 'accounts', 'accounts.id', '=', 'account_id')->whereIn('membership_id', $page->getCollection()->modelKeys())
             ->orderBy('account_id')->get(['membership_id', 'accounts.id', 'accounts.name'])->groupBy('membership_id');
+        $actor = $request->user();
+        $actorPermissions = $actor->membership->permissions();
+        $profilePermissions = DB::table('permission_profile_permissions')->join('permissions', 'permissions.id', '=', 'permission_id')
+            ->whereIn('permission_profile_id', $page->pluck('permission_profile_id')->filter())->get(['permission_profile_id', 'permissions.name'])->groupBy('permission_profile_id');
 
-        return response()->json(['data' => $page->getCollection()->map(fn (AccountMembership $member): array => $member->resource(($roots[$member->id] ?? collect())->map(fn ($account): array => ['id' => (int) $account->id, 'name' => $account->name])->all())), 'links' => ['next' => $page->nextPageUrl(), 'prev' => $page->previousPageUrl()], 'meta' => ['total' => $page->total(), 'current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'per_page' => $page->perPage()]]);
+        return response()->json(['data' => $page->getCollection()->map(function (AccountMembership $member) use ($roots, $actor, $actorPermissions, $profilePermissions): array {
+            $data = $member->resource(($roots[$member->id] ?? collect())->map(fn ($account): array => ['id' => (int) $account->id, 'name' => $account->name])->all());
+            $manageable = $member->kind === 'employee' && $member->user_id !== $actor->id && ($actor->membership->kind !== 'employee' || ! array_diff(($profilePermissions[$member->permission_profile_id] ?? collect())->pluck('name')->all(), $actorPermissions));
+            $data['abilities'] = ['update' => $manageable && in_array('staff.update', $actorPermissions, true), 'toggle' => $manageable && in_array('staff.toggle', $actorPermissions, true), 'password_reset' => $manageable && $member->status === 'active' && $member->profile?->status === 'active' && in_array('staff.password_reset', $actorPermissions, true)];
+
+            return $data;
+        }), 'links' => ['next' => $page->nextPageUrl(), 'prev' => $page->previousPageUrl()], 'meta' => ['total' => $page->total(), 'current_page' => $page->currentPage(), 'last_page' => $page->lastPage(), 'per_page' => $page->perPage()]]);
+    }
+
+    public function passwordReset(Request $request, int $id, int $memberId, PasswordReset $resets): JsonResponse
+    {
+        if ($request->isMethod('GET')) {
+            return response()->json(['data' => $resets->staffRequests($request->user(), $id, $memberId)]);
+        }
+        abort_if(array_diff(array_keys($request->except('_token')), ['version', 'reason', 'request_id']), 422);
+        $data = $request->validate(['version' => ['required', 'integer', 'min:1'], 'reason' => ['required', 'string', 'min:3', 'max:500'], 'request_id' => ['sometimes', 'nullable', 'uuid']]);
+        $resets->issueStaff($request, $id, $memberId, $data);
+
+        return response()->json(['data' => ['requested' => true]]);
     }
 
     public function store(StaffRequest $request, int $id, ManagementAuthority $authority, AuditLogger $audit): JsonResponse
@@ -114,7 +140,7 @@ class StaffController extends Controller
             $data = $request->validated();
             $authority->version($member, $data['version']);
             if ($data['status'] === 'active') {
-                $authority->grants($actor, $member->profile->permissions());
+                $authority->grants($actor, $member->profile->permissions(), employer: $member->account);
                 abort_unless($member->profile->status === 'active', 422, 'نوع الصلاحية موقوف.');
             }
             $member->status = $data['status'];
@@ -135,7 +161,7 @@ class StaffController extends Controller
         if ($profile->status !== 'active') {
             throw ValidationException::withMessages(['permission_profile_id' => 'اختر نوع صلاحية فعالاً.']);
         }
-        $authority->grants($actor, $profile->permissions());
+        $authority->grants($actor, $profile->permissions(), employer: $account);
         $owner = AccountMembership::where('account_id', $account->id)->where('kind', 'owner')->firstOrFail();
         if (array_diff($profile->permissions(), $owner->permissions())) {
             throw ValidationException::withMessages(['permission_profile_id' => 'نوع الصلاحية يتجاوز صلاحيات الحساب.']);

@@ -1,4 +1,5 @@
 <script setup>
+import AppSelect from '../../shared/components/AppSelect.vue';
 import {RouterLink} from "vue-router";
 import {usePreferencesTranslator} from "../preferences/preferences-state.js";
 const uiLabel=usePreferencesTranslator();
@@ -13,26 +14,36 @@ import {computed,onBeforeUnmount,onMounted,ref} from 'vue';
 
 import {useRoute} from 'vue-router';
 import {usePortal} from '../auth/session.js';
+import {useListNavigation} from '../../shared/api/list-navigation.js';
+import {useRouteRefresh} from '../../shared/route-refresh.js';
 
 import {createMutationKey,errorText,money} from '../finance/finance-model.js';
 
 import './digital.css';
 import DigitalPage from './DigitalPage.vue';
 import DigitalExcludedCatalog from './DigitalExcludedCatalog.vue';
+import DigitalReadinessNotice from './DigitalReadinessNotice.vue';
 import {exportCategories} from './category-export.js';
 async function downloadCategories(pdf){try{await exportCategories({allocation:!props.available,account_name:targetAccount.value?.name||data.value.connection?.main_account_name,provider:'topup',catalog_updated_at:data.value.connection?.catalog_updated_at,excluded_catalog:data.value.connection?.excluded_catalog,offers:data.value.categories.map(row=>({name:row.name,remote_id:row.remote_id,type:row.type,retail:row.price,active:props.available?row.active:selected.value.includes(row.id)&&active.value}))},pdf);}catch(e){error.value=e.message||'تعذر التصدير.';}}
 
 const props=defineProps({available:{type:Boolean,default:false}});
 
 const {session}=usePortal(),data=ref(null),target=ref(''),selected=ref([]),active=ref(true),error=ref(''),notice=ref(''),loading=ref(false),busy=ref(false),query=ref(''),page=ref(1);
+const readReady=ref(false);
+const navigation=useListNavigation(session.api,props.available?'topup-available':'topup-distribution');
 
 const selling=ref(null),connectionId=ref(''),allocationBalance=ref('0.00'),retailPrices=ref({});
 const route=useRoute(),type=ref('');
-if(!props.available&&/^\d+$/.test(String(route.query.target_account_id||'')))target.value=String(route.query.target_account_id);
+const routeTarget=!props.available&&/^\d+$/.test(String(route.query.target_account_id||''))?String(route.query.target_account_id):'';
+target.value=routeTarget||navigation.saved?.target||'';
+connectionId.value=routeTarget?'':navigation.saved?.connection||'';
+query.value=navigation.saved?.query||'';type.value=navigation.saved?.type||'';page.value=navigation.saved?.page||1;
 const counts=computed(()=>['topup','bundle','bill'].map(key=>({key,name:labels[key],count:(data.value?.categories||[]).filter(row=>row.type===key).length,selected:(data.value?.categories||[]).filter(row=>row.type===key&&selected.value.includes(row.id)).length})).filter(row=>row.count));
 const controller=new AbortController(),key=createMutationKey(); let revision=0;
 
 const system=computed(()=>session.state.identity?.account.type==='system');
+const canMoney=computed(()=>!!(data.value?.can_allocate||data.value?.can_recover));
+const canSave=computed(()=>!!(data.value?.can_assign||canMoney.value));
 
 const labels={topup:'تعبئة رصيد',bundle:'باقة',bill:'تسديد فاتورة',main_agent:'وكيل رئيسي',sub_agent:'وكيل فرعي',sub_branch:'فرع فرعي',pos:'نقطة بيع'};
 
@@ -43,27 +54,33 @@ const pages=computed(()=>Math.max(1,Math.ceil(filtered.value.length/25)));
 const shown=computed(()=>filtered.value.slice((page.value-1)*25,page.value*25));
 
 const targetAccount=computed(()=>data.value?.targets?.find(row=>String(row.id)===String(target.value)));
+const pathFor=next=>props.available?'/topup/available':'/topup/distribution?'+new URLSearchParams({compact_targets:1,...next?{target_account_id:next}:{},...system.value&&connectionId.value?{connection_id:connectionId.value}:{}});
+let displayPath=pathFor(target.value);
+function apply(result){
+ data.value=result;target.value=String(result.target_id||'');connectionId.value=String(result.connection_id||'');allocationBalance.value=result.grant?.balance||'0.00';retailPrices.value=Object.fromEntries(result.categories.map(row=>[row.id,row.price]));
+ const allowed=new Set(result.categories.map(row=>row.id));selected.value=result.can_assign?(result.grant?.category_ids||[]).filter(id=>allowed.has(id)):[...(result.grant?.category_ids||[])];active.value=result.grant?.active??true;
+ page.value=Math.min(page.value,pages.value);
+}
+function hydrate(path){const cached=session.api.peekRequest?.(path);if(cached?.data){apply(cached.data);return cached;}return null;}
+if(!hydrate(displayPath)&&!routeTarget&&navigation.saved?.readPath){
+ const cached=session.api.peekRequest?.(navigation.saved.readPath);
+ if(cached?.data&&String(cached.data.target_id||'')===target.value&&String(cached.data.connection_id||'')===connectionId.value){apply(cached.data);displayPath=navigation.saved.readPath;}
+}
 
 async function load(next=target.value){
 
-  const current=++revision; loading.value=true; error.value=''; data.value=null; key.clear();
+  const current=++revision,path=pathFor(next),sameContext=props.available||data.value&&String(data.value.target_id||'')===String(next||'')&&(!system.value||String(data.value.connection_id||'')===connectionId.value);
+  const cached=hydrate(path);
+  if(!cached&&!sameContext){data.value=null;page.value=1;}
+  displayPath=path;readReady.value=false;loading.value=true; error.value='';key.clear();
 
   try{
 
-    const params=new URLSearchParams({compact_targets:1,...next?{target_account_id:next}:{},...system.value&&connectionId.value?{connection_id:connectionId.value}:{}});
-    const path=props.available?'/topup/available':'/topup/distribution?'+params;
-
-    const result=await session.api.request(path,{signal:controller.signal});
+    const result=await session.api.request(path,{signal:controller.signal,fresh:true});
 
     if(current!==revision)return;
 
-    data.value=result.data;target.value=String(result.data.target_id||'');connectionId.value=String(result.data.connection_id||'');allocationBalance.value=result.data.grant?.balance||'0.00';retailPrices.value=Object.fromEntries(result.data.categories.map(row=>[row.id,row.price]));
-
-    const allowed=new Set(result.data.categories.map(row=>row.id));
-
-    selected.value=(result.data.grant?.category_ids||[]).filter(id=>allowed.has(id));
-
-    active.value=result.data.grant?.active??true; page.value=1;type.value='';
+    apply(result.data);readReady.value=true;void navigation.restoreScroll();
 
   }catch(e){if(current===revision&&e.name!=='AbortError')error.value=errorText(e);}
 
@@ -79,11 +96,11 @@ async function synchronize(){
 async function finishSale(){selling.value=null;await load();}
 async function save(){
 
-  if(busy.value||loading.value||!data.value||!target.value)return;
+  if(busy.value||loading.value||!readReady.value||!data.value||!target.value)return;
 
   busy.value=true;error.value='';notice.value='';
 
-  const id=target.value,payload={category_ids:[...selected.value].sort((a,b)=>a-b),active:active.value,version:data.value.grant.version,...system.value?{connection_id:Number(connectionId.value),allocation_balance:allocationBalance.value}:{}};
+  const id=target.value,payload={category_ids:[...selected.value].sort((a,b)=>a-b),active:active.value,version:data.value.grant.version,...system.value?{connection_id:Number(connectionId.value),...(canMoney.value?{allocation_balance:allocationBalance.value}:{})}:{}};
 
   try{
 
@@ -97,8 +114,14 @@ async function save(){
 
 }
 
-async function savePrices(){if(busy.value||!data.value)return;busy.value=true;error.value='';try{const payload={version:data.value.allocation.version,prices:data.value.categories.map(row=>({category_id:row.id,price:String(retailPrices.value[row.id])}))};await session.api.mutate('/topup/prices','PUT',{...payload,idempotency_key:key.for(payload)},controller.signal);notice.value='تم حفظ أسعار الوكيل.';await load();}catch(e){error.value=errorText(e);}finally{busy.value=false;}}
-onMounted(()=>load());onBeforeUnmount(()=>{revision++;controller.abort();});
+async function savePrices(){if(busy.value||loading.value||!readReady.value||!data.value)return;busy.value=true;error.value='';try{const payload={version:data.value.allocation.version,prices:data.value.categories.map(row=>({category_id:row.id,price:String(retailPrices.value[row.id])}))};await session.api.mutate('/topup/prices','PUT',{...payload,idempotency_key:key.for(payload)},controller.signal);notice.value='تم حفظ أسعار الوكيل.';await load();}catch(e){error.value=errorText(e);}finally{busy.value=false;}}
+function hasDistributionDraft(){
+ if(props.available||!data.value)return false;
+ const grant=data.value.grant,ids=values=>JSON.stringify([...(values||[])].sort((a,b)=>Number(a)-Number(b)));
+ return active.value!==(grant?.active??true)||ids(selected.value)!==ids(grant?.category_ids)||String(allocationBalance.value)!==String(grant?.balance||'0.00')||data.value.categories.some(row=>String(retailPrices.value[row.id])!==String(row.price));
+}
+useRouteRefresh(async()=>{await load();return !error.value;},{canRefresh:()=>!busy.value&&!selling.value&&!hasDistributionDraft()});
+onMounted(()=>{if(data.value)void navigation.restoreScroll();return load();});onBeforeUnmount(()=>{navigation.remember({target:target.value,connection:connectionId.value,query:query.value,type:type.value,page:page.value,readPath:displayPath});revision++;controller.abort();});
 
 </script>
 
@@ -110,7 +133,7 @@ onMounted(()=>load());onBeforeUnmount(()=>{revision++;controller.abort();});
 
   <p v-if="error" class="notice warn" role="alert">{{error}}</p><p v-if="notice" class="notice" role="status">{{notice}}</p>
 
-  <p class="read-loading" v-if="loading" role="status">جارٍ تحميل فئات Topup…</p>
+  <p class="read-loading" v-if="loading&&!data" role="status">جارٍ تحميل فئات Topup…</p>
 
   <section class="card">
 
@@ -119,11 +142,11 @@ onMounted(()=>load());onBeforeUnmount(()=>{revision++;controller.abort();});
 
       <label>{{system?'الوكيل الرئيسي':'الحساب التابع مباشرة'}}<AccountPicker v-model="target" :vm="lookup" :parameters="{parent_id:session.state.identity.account.id,account_types:system?['main_agent']:['sub_agent','sub_branch','pos']}" label="الحساب المستلم للفئات" :disabled="busy||loading" :clearable="false" @update:model-value="notice='';connectionId='';load(target)"/></label>
 
-      <label v-if="system">توكن Topup<select v-model="connectionId" :disabled="busy" @change="load(target)"><option v-for="row in data.connections" :key="row.id" :value="String(row.id)">{{row.name}} · المتاح: {{row.available===null?'غير معلوم':money(row.available)+' د.ع'}}</option></select></label><label v-if="system">رصيد الوكيل بعد التخصيص · د.ع<input v-model="allocationBalance" inputmode="decimal" :disabled="busy" /></label><label>حالة تخصيص الفئات<select v-model="active" :disabled="busy||!target"><option :value="true">مفعّل</option><option :value="false">موقوف</option></select></label>
+      <label v-if="system">توكن Topup<AppSelect v-model="connectionId" :disabled="busy" @change="load(target)"><option v-for="row in data.connections" :key="row.id" :value="String(row.id)">{{row.name}} · المتاح: {{row.available===null?'غير معلوم':money(row.available)+' د.ع'}}</option></AppSelect></label><label v-if="system">رصيد الوكيل بعد التخصيص · د.ع<input v-model="allocationBalance" inputmode="decimal" :disabled="busy||!readReady||!canMoney" /></label><label>حالة تخصيص الفئات<AppSelect v-model="active" :disabled="busy||!readReady||!target||!data.can_assign"><option :value="true">مفعّل</option><option :value="false">موقوف</option></AppSelect></label>
 
       
       </div>
-      <div class="topup-heading-actions"><button v-if="data&&!available" type="button" class="btn primary" :disabled="busy||loading||!target||!targetAccount?.operational" @click="save">{{busy?'جارٍ الحفظ…':system?'حفظ الرصيد والفئات':'حفظ تخصيص الفئات'}}</button><button v-if="system&&data?.connection?.id" class="btn topup-sync" :disabled="busy||loading||!data.connection.token_present" @click="synchronize">استعلام الرصيد والفئات</button><RouterLink v-if="system" class="btn" to="/topup/categories">فئات الشركة</RouterLink><button class="btn" :disabled="busy||loading" @click="load()">تحديث</button></div>
+      <div class="topup-heading-actions"><button v-if="data&&!available" type="button" class="btn primary" :disabled="busy||loading||!readReady||!target||!targetAccount?.operational||!canSave" @click="save">{{busy?'جارٍ الحفظ…':system?'حفظ الرصيد والفئات':'حفظ تخصيص الفئات'}}</button><button v-if="system&&data?.connection?.id&&session.can('integrations.sync')" class="btn topup-sync" :disabled="busy||loading||!data.connection.token_present" @click="synchronize">استعلام الرصيد والفئات</button><RouterLink v-if="system&&session.can('topup.view')" class="btn" to="/topup/categories">فئات الشركة</RouterLink><button class="btn" :disabled="busy||loading" @click="load()">تحديث</button></div>
     </div>
 
     <template v-if="data">
@@ -134,14 +157,15 @@ onMounted(()=>load());onBeforeUnmount(()=>{revision++;controller.abort();});
 
     <dl v-if="data.allocation?.connection_id" class="digital-status-summary topup-balance-summary"><div><dt>حصة الوكيل</dt><dd>{{money(data.allocation.balance)}} <small>د.ع</small></dd></div><div><dt>المتاح</dt><dd>{{money(data.allocation.available)}} <small>د.ع</small></dd></div><div><dt>المحجوز</dt><dd>{{money(data.allocation.held)}} <small>د.ع</small></dd></div><div><dt>المصروف:</dt><dd>{{money(data.allocation.spent)}} <small>د.ع</small></dd></div></dl><div class="digital-status-summary topup-counts"><span class="badge">الفئات المتاحة: {{data.categories.length}}</span><span v-for="item in counts" :key="item.key" class="badge">{{uiLabel(item.name)}}: {{item.count}}<template v-if="!available"> · المحدد: {{item.selected}}</template></span></div>
     </div>
-    <p v-if="data.execution_ready===false" class="notice warn">التعبئة غير متاحة حاليًا.</p>
-    <FilterBar class="topup-filter-tools"><select v-model="type" aria-label="نوع فئات Topup" @change="page=1"><option value="">كل الأنواع</option><option v-for="item in counts" :key="item.key" :value="item.key">{{uiLabel(item.name)}}</option></select><input v-model="query" aria-label="بحث فئات Topup" placeholder="بحث باسم الفئة أو الباقة" @input="page=1"><span v-if="!available" class="badge">{{selected.length}} فئة محددة</span><button class="btn small" :disabled="busy||loading" @click="downloadCategories(false)">تصدير Excel</button><button class="btn small" :disabled="busy||loading" @click="downloadCategories(true)">PDF / طباعة</button></FilterBar>
+    <DigitalReadinessNotice :readiness="data.readiness" service="Topup"/>
+    <p v-if="data.execution_ready===false&&!data.readiness?.issues?.length" class="notice warn">Topup غير متاح حاليًا؛ راجع الربط وتخصيص الفئات.</p>
+    <FilterBar class="topup-filter-tools"><AppSelect v-model="type" aria-label="نوع فئات Topup" @change="page=1"><option value="">كل الأنواع</option><option v-for="item in counts" :key="item.key" :value="item.key">{{uiLabel(item.name)}}</option></AppSelect><input v-model="query" aria-label="بحث فئات Topup" placeholder="بحث باسم الفئة أو الباقة" @input="page=1"><span v-if="!available" class="badge">{{selected.length}} فئة محددة</span><button class="btn small" :disabled="busy||loading" @click="downloadCategories(false)">تصدير Excel</button><button class="btn small" :disabled="busy||loading" @click="downloadCategories(true)">PDF / طباعة</button></FilterBar>
 
     <form @submit.prevent="save">
 
-      <div v-if="available" class="topup-mobile-categories"><article v-for="category in shown" :key="category.id" class="topup-mobile-category"><strong dir="auto">{{category.name}}</strong><small>{{uiLabel(labels[category.type])}}</small><b>{{money(category.price)}} د.ع</b><button type="button" class="btn primary" :disabled="!category.offer||!data.execution_ready||!session.can('digital.create')" @click="selling=category.offer">تعبئة رقم الزبون</button></article></div><TablePanel :start="(page-1)*25+1" class="tablewrap" :class="{'topup-available-table':available}"><table><thead><tr><th v-if="!available">تخصيص</th><th>الفئة / الباقة</th><th>معرف الشركة</th><th>الخدمة</th><th>{{available?'سعر البيع · د.ع':'سعر المدير · د.ع'}}</th><th v-if="!available">سعر الوكيل · د.ع</th><th v-if="available">التعبئة</th></tr></thead><tbody>
+      <div v-if="available" class="topup-mobile-categories"><article v-for="category in shown" :key="category.id" class="topup-mobile-category"><strong dir="auto">{{category.name}}</strong><small>{{uiLabel(labels[category.type])}}</small><b>{{money(category.price)}} د.ع</b><button type="button" class="btn primary" :disabled="!readReady||!category.offer||!data.execution_ready||!session.can('digital.create')" @click="selling=category.offer">تعبئة رقم الزبون</button></article></div><TablePanel :start="(page-1)*25+1" class="tablewrap" :class="{'topup-available-table':available}"><table><thead><tr><th v-if="!available">تخصيص</th><th>الفئة / الباقة</th><th>معرف الشركة</th><th>الخدمة</th><th>{{available?'سعر البيع · د.ع':'سعر المدير · د.ع'}}</th><th v-if="!available">سعر الوكيل · د.ع</th><th v-if="available">التعبئة</th></tr></thead><tbody>
 
-        <tr v-for="category in shown" :key="category.id"><td v-if="!available"><input v-model="selected" type="checkbox" :value="category.id" :aria-label="'منح '+category.name" :disabled="busy||!target||!targetAccount?.operational"></td><td>{{category.name}}</td><td dir="ltr">{{category.remote_id}}</td><td>{{labels[category.type]}}</td><td>{{money(available?category.price:category.admin_price)}}</td><td v-if="!available"><input v-if="data.can_edit_prices" v-model="retailPrices[category.id]" inputmode="decimal" :aria-label="'سعر بيع '+category.name" :disabled="busy"><span v-else>{{money(category.price)}}</span></td><td v-if="available"><button type="button" class="btn primary" :disabled="!category.offer||!data.execution_ready||!session.can('digital.create')" @click="selling=category.offer">تعبئة رقم الزبون</button></td></tr>
+        <tr v-for="category in shown" :key="category.id"><td v-if="!available"><input v-model="selected" type="checkbox" :value="category.id" :aria-label="'منح '+category.name" :disabled="busy||!readReady||!target||!targetAccount?.operational||!data.can_assign"></td><td>{{category.name}}</td><td dir="ltr">{{category.remote_id}}</td><td>{{labels[category.type]}}</td><td>{{money(available?category.price:category.admin_price)}}</td><td v-if="!available"><input v-if="data.can_edit_prices" v-model="retailPrices[category.id]" inputmode="decimal" :aria-label="'سعر بيع '+category.name" :disabled="busy||!readReady"><span v-else>{{money(category.price)}}</span></td><td v-if="available"><button type="button" class="btn primary" :disabled="!readReady||!category.offer||!data.execution_ready||!session.can('digital.create')" @click="selling=category.offer">تعبئة رقم الزبون</button></td></tr>
 
         <tr v-if="!shown.length"><td colspan="5" class="empty">{{query?'لا توجد فئات مطابقة':system?'لا توجد فئات متاحة؛ استعلم عن فئات الشركة لهذا الوكيل.':'لم تمنح فئات Topup مفعّلة لهذا الحساب بعد.'}}</td></tr>
 
@@ -149,7 +173,7 @@ onMounted(()=>load());onBeforeUnmount(()=>{revision++;controller.abort();});
 
       <div class="pager"><button type="button" class="btn" :disabled="page<=1" @click="page--">السابق</button><span>الصفحة {{page}} من {{pages}}</span><button type="button" class="btn" :disabled="page>=pages" @click="page++">التالي</button></div>
 
-      <div v-if="!available" class="formfoot"><button class="btn primary" :disabled="busy||loading||!target||!targetAccount?.operational">{{busy?'جارٍ الحفظ…':'حفظ تخصيص الفئات'}}</button><button v-if="data.can_edit_prices" type="button" class="btn" :disabled="busy" @click="savePrices">حفظ أسعار الوكيل</button></div>
+      <div v-if="!available" class="formfoot"><button class="btn primary" :disabled="busy||loading||!readReady||!target||!targetAccount?.operational||!canSave">{{busy?'جارٍ الحفظ…':'حفظ تخصيص الفئات'}}</button><button v-if="data.can_edit_prices" type="button" class="btn" :disabled="busy||!readReady" @click="savePrices">حفظ أسعار الوكيل</button></div>
 
     </form><DigitalExcludedCatalog v-if="system" compact :records="data.connection?.excluded_catalog??null"/>
 

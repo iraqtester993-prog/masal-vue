@@ -9,8 +9,8 @@ export function createFinanceApi(api) {
     return parameters.toString();
   };
   return {
-    options: (signal) => api.request('/finance/options?compact=1', { signal }),
-    peekList: (kind,parameters={}) => api.peekRequest?.(`/finance/${kind}?${query(parameters)}`,120000),
+    options: (signal, { fresh = false } = {}) => api.request('/finance/options?compact=1', { signal, fresh }),
+    peekList: (kind,parameters={}) => api.peekRequest?.(`/finance/${kind}?${query(parameters)}`),
     list: (kind, parameters = {}, signal, { fresh = false } = {}) => api.request(`/finance/${kind}?${query(parameters)}`, { signal, fresh }),
     create: (kind, payload, signal) => api.mutate(`/finance/${kind}`, 'POST', payload, signal),
     action: (kind, id, action, payload, signal) => api.mutate(`/finance/${kind}/${id}/${action}`, 'POST', payload, signal),

@@ -20,7 +20,7 @@ class AccountManagementTest extends TestCase
 
     private function business(Account $account): array
     {
-        return ['name' => $account->name, 'city' => 'بغداد', 'phone' => '07700000000']
+        return ['name' => $account->name, 'city' => 'بغداد', 'phone' => '077'.str_pad((string) $account->id, 8, '0', STR_PAD_LEFT)]
             + ($account->type === AccountType::Pos ? ['owner_name' => 'Office Owner', 'address' => 'Office Address', 'serial' => 'TEST-'.$account->id, 'device_model' => 'Recorded Model', 'app_version' => '1.0'] : ['color' => '#4F46E5']);
     }
 

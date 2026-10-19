@@ -36,14 +36,15 @@ export function useFinanceRuntime({ balances = false } = {}) {
     onBeforeUnmount(() => { value.dispose(); const index=resources.indexOf(value); if(index>=0)resources.splice(index,1); });
     return value;
   }
-  async function loadOptions() {
+  async function loadOptions({fresh=false} = {}) {
     controller?.abort(); controller = new AbortController(); const signal = controller.signal, expected = ++revision;
-    loading.value = true; error.value = ''; balanceGeneration.value++; loadedAccounts.clear(); walletReads.clear(); wallets.value=[]; balancesReady.value=false;
-    if (balances) void loadWallets(signal).catch(failed => { if (failed.name !== 'AbortError') balancesError.value = errorText(failed); });
+    loading.value = !session.api.peekRequest?.('/finance/options?compact=1'); error.value = ''; balanceGeneration.value++; walletReads.clear();
+    const balanceRead = balances ? loadWallets(signal,undefined,{fresh}).catch(failed => { if (failed.name !== 'AbortError') balancesError.value = errorText(failed); }) : null;
     try {
-      const result = await api.options(signal);
+      const result = await api.options(signal,{fresh});
       if (expected !== revision) return;
       Object.assign(options, result.data);
+      if(fresh)await balanceRead;
     } catch (failed) { if (failed.name !== 'AbortError' && expected === revision) error.value = await failure(failed); }
     finally { if (expected === revision) loading.value = false; }
   }

@@ -1,24 +1,25 @@
 // Destination labels, order and groups follow the final legacy navigation.
 // Routes are shown only after their real page is registered and authorized.
+import {routeAllowed} from '../router/access.js';
 export const NAVIGATION_DESTINATIONS = Object.freeze([
   { id: "dashboard", label: "لوحة التحكم", permission: null },
   { id: "reports", label: "مركز التقارير والعمليات" },
   { id: "company", label: "موقع الشركة" },
+  { id: "app-settings", label: "إعدادات التطبيق والطابعات", permission: null, anyPermissions: ["app.settings", "printers.manage"] },
   { id: "wallets", label: "المحافظ والتحويلات" },
-  { id: "profile", label: "حسابي", permission: null, excludedAccountTypes: ["pos"], membershipKinds: ["owner"] },
   { id: "inventory", label: "المخزون" },
   { id: "import", label: "الطلبيات" },
   { id: "products", label: "الفئات" },
   { id: "prices", label: "الأسعار" },
   { id: "providers", label: "الشركات", accountTypes: ["system"] },
   { id: "sources", label: "المصادر" },
-  { id: "sell", label: "البيع والطباعة" },
+  { id: "sell", label: "البيع والطباعة", permission:null, anyPermissions:["sell.create","digital.view"] },
   { id: "sales", label: "سجل العمليات", accountTypes: ["pos"] },
   { id: "digital", label: "خدمات API" },
-  { id: "topupAllocation", label: "تخصيص الفئات للوكلاء", path: "/topup/allocation", permission: "integrations.edit", accountTypes: ["system"], membershipKinds: ["owner"] },
-  { id: "topupDistribution", label: "توزيع الفئات للتابعين", path: "/topup/distribution", permission: "digital.assign", accountTypes: ["main_agent", "sub_agent", "sub_branch"] },
+  { id: "topupAllocation", label: "تخصيص الفئات للوكلاء", path: "/topup/allocation", permission: "topup.view", accountTypes: ["system"] },
+  { id: "topupDistribution", label: "توزيع الفئات للتابعين", path: "/topup/distribution", permission: "topup.view", accountTypes: ["main_agent", "sub_agent", "sub_branch"] },
   { id: "topupAvailable", label: "الفئات الممنوحة", path: "/topup/available", permission: "digital.view", accountTypes: ["pos"] },
-  { id: "topupCategories", label: "فئات الشركة", path: "/topup/categories", permission: "integrations.edit", accountTypes: ["system"], membershipKinds: ["owner"] },
+  { id: "topupCategories", label: "فئات الشركة", path: "/topup/categories", permission: "topup.view", accountTypes: ["system"] },
   { id: "exports", label: "تصدير البطاقات" },
   { id: "claims", label: "البطاقات التالفة" },
   { id: "exceptions", label: "استثناءات الطباعة" },
@@ -47,7 +48,7 @@ export const NAVIGATION_DESTINATIONS = Object.freeze([
 })));
 
 export const NAVIGATION_GROUPS = Object.freeze([
-  { id: "overview", title: "نظرة عامة", direct: true, icon: "dashboard", ids: ["dashboard", "reports", "company", "wallets", "profile"] },
+  { id: "overview", title: "نظرة عامة", direct: true, icon: "dashboard", ids: ["dashboard", "reports", "company", "wallets"] },
   { id: "catalog", title: "البطاقات والمخزون", icon: "inventory", ids: ["inventory", "import", "products", "prices", "providers", "sources"] },
   { id: "operations", title: "عمليات البطاقات", icon: "sell", ids: ["sell", "sales", "digital", "exports", "claims", "exceptions"] },
   { id: "topup", title: "Topup — آسياسيل", icon: "sell", ids: ["topupCategories", "topupAllocation", "topupDistribution", "topupAvailable"] },
@@ -55,7 +56,7 @@ export const NAVIGATION_GROUPS = Object.freeze([
   { id: "communication", title: "التواصل والدعم", icon: "support", ids: ["support", "notifications"] },
   { id: "identity", title: "المستخدمون والصلاحيات", icon: "users", ids: ["users", "permissions", "accountTime", "deletedAccounts"] },
   { id: "system", title: "إعدادات النظام", icon: "security", ids: ["security", "backup", "governorates"] },
-  { id: "appearance", title: "إعدادات البطاقات والموقع", icon: "branding", ids: ["branding", "printPolicies", "company-settings"] },
+  { id: "appearance", title: "إعدادات البطاقات والموقع", icon: "branding", ids: ["branding", "printPolicies", "company-settings", "app-settings"] },
 ].map((group) => Object.freeze({ ...group, ids: Object.freeze(group.ids) })));
 
 const icons = Object.freeze({
@@ -101,14 +102,18 @@ export function navigationGroups({ routes, identity, can, search = "", labelFor 
       || item.routeNames.map((name) => routes.find((candidate) => candidate.name === name)).find(Boolean)
       || routes.find((candidate) => candidate.path === item.path && !candidate.redirect);
     if (!route || !route.meta?.requiresAuth) continue;
+    if(!routeAllowed(route,{state:{identity},can}))continue;
     const type = identity.account.type;
     if (item.accountTypes && !item.accountTypes.includes(type)) continue;
     if (item.membershipKinds && !item.membershipKinds.includes(identity.membership?.kind)) continue;
     if (item.excludedAccountTypes?.includes(type)) continue;
     if (route.meta.accountTypes && !route.meta.accountTypes.includes(type)) continue;
     if (route.meta.membershipKinds && !route.meta.membershipKinds.includes(identity.membership?.kind)) continue;
-    const permission = route.meta.permission ?? item.permission;
+    const access=route.meta.permissionsByAccountType?.[type]||route.meta;
+    const anyPermissions=access.anyPermissions||item.anyPermissions;
+    const permission = anyPermissions ? null : access.permission ?? item.permission;
     if (permission && !can(permission)) continue;
+    if (anyPermissions && !anyPermissions.some(key=>can(key))) continue;
     if (query && !`${item.label} ${labelFor(item.label)}`.toLocaleLowerCase().includes(query)) continue;
     registered.set(item.id, {
       ...item,

@@ -435,11 +435,6 @@ html[data-theme=dark] :where(.reports-workspace, .reports-modal){--accent:#40c4d
   }
 }
 @media print {
-  :where(.reports-workspace, .reports-modal) html[data-theme] {
-    color-scheme: light;
-  }
-}
-@media print {
   :where(.reports-workspace, .reports-modal) .card {
     box-shadow: none;
   }
@@ -770,15 +765,8 @@ html[data-theme=dark] :where(.reports-workspace, .reports-modal){--accent:#40c4d
 .reports-modal {
   animation: dialog-in 0.18s ease-out;
 }
-html[dir="ltr"] :where(.reports-workspace, .reports-modal) body {
-  font-family: "Segoe UI", Cairo, sans-serif;
-}
 html[dir="ltr"] :where(.reports-workspace, .reports-modal) table {
   text-align: left;
-}
-html[lang="ckb"] :where(.reports-workspace, .reports-modal) body {
-  font-family: Cairo, "Segoe UI", Tahoma, sans-serif;
-  line-height: 1.9;
 }
 @media (min-width: 1900px) {
   :where(.reports-workspace, .reports-modal) .card {
@@ -913,12 +901,6 @@ html[lang="ckb"] :where(.reports-workspace, .reports-modal) body {
   .reports-modal .report-filter-grid {
     grid-template-columns: 1fr;
   }
-}
-html :where(.reports-workspace, .reports-modal) body,
-html :where(.reports-workspace, .reports-modal) body *,
-html :where(.reports-workspace, .reports-modal) body *::before,
-html :where(.reports-workspace, .reports-modal) body *::after {
-  font-family: Cairo, "Segoe UI", Tahoma, sans-serif !important;
 }
 :where(.reports-workspace, .reports-modal) .inline-check {
   display: flex;
@@ -1562,10 +1544,6 @@ html[data-theme="light"] :where(.reports-workspace, .reports-modal) .card {
   border-color: #e5ebf3;
   box-shadow: 0 3px 14px #203b6003;
 }
-:where(.reports-workspace, .reports-modal) html[data-theme="light"] {
-  --canvas-top: #f5f6f8;
-  --canvas-bottom: #f5f6f8;
-}
 html[data-theme="light"] :where(.reports-workspace, .reports-modal) .card {
   background: #fff;
   border-color: #e8ebef;
@@ -1580,31 +1558,6 @@ html[data-theme="light"] :where(.reports-workspace, .reports-modal) .toolbar:not
 html[data-theme="light"] :where(.reports-workspace, .reports-modal) .card .btn.primary {
   background: #175ce6;
   border-color: #175ce6;
-}
-:where(.reports-workspace, .reports-modal) html[data-theme="light"] {
-  --canvas-top: #edf4f6;
-  --canvas-bottom: #edf4f6;
-  --panel: #fff;
-  --panel-glass: #fff;
-  --raised: #f2f7f9;
-  --subtle: #f7fafb;
-  --ink: #123d57;
-  --text: #416078;
-  --muted: #68869d;
-  --soft-line: #e1ebef;
-  --cyan: #0898b5;
-  --sky: #0898b5;
-  --blue-bg: #e4f3f7;
-  --blue-text: #078ba8;
-  --teal-bg: #e7f5f0;
-  --teal-text: #079b78;
-  --amber-bg: #fff5e8;
-  --amber-text: #cd810a;
-  --red-bg: #fff0f1;
-  --red-text: #df3947;
-  --brand-gradient: linear-gradient(110deg, #0898b5, #087f9b);
-  --shadow: 0 3px 14px #123d5704;
-  --line: #ccdbe3;
 }
 html[data-theme="light"] :where(.reports-workspace, .reports-modal) .card {
   background: #fff;
@@ -1647,28 +1600,6 @@ html[data-theme="light"] :where(.reports-workspace, .reports-modal) input[type="
 }
 :where(.reports-workspace, .reports-modal) tr[draggable="true"]:active {
   cursor: grabbing;
-}
-html[data-theme] :where(.reports-workspace, .reports-modal) body select:not([multiple]):not([size]),
-html[data-theme] :where(.reports-workspace, .reports-modal) body select:not([multiple])[size="1"] {
-  appearance: none;
-  -webkit-appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236789a0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E") !important;
-  background-repeat: no-repeat !important;
-  background-size: 16px 16px !important;
-  background-position: left 12px center !important;
-  padding-inline-start: 12px !important;
-  padding-inline-end: 38px !important;
-  text-align: start;
-  text-overflow: ellipsis;
-  cursor: pointer;
-}
-:where(.reports-workspace, .reports-modal) html[dir="ltr"][data-theme] body select:not([multiple]):not([size]),
-:where(.reports-workspace, .reports-modal) html[dir="ltr"][data-theme] body select:not([multiple])[size="1"] {
-  background-position: right 12px center !important;
-}
-html[data-theme="dark"] :where(.reports-workspace, .reports-modal) body select:not([multiple]):not([size]),
-html[data-theme="dark"] :where(.reports-workspace, .reports-modal) body select:not([multiple])[size="1"] {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23b2c5d5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7 10 5 5 5-5'/%3E%3C/svg%3E") !important;
 }
 :where(.reports-workspace, .reports-modal) :is(.tablewrap td) {
   font-size: 12px;
@@ -2035,17 +1966,6 @@ html[data-theme="dark"] :where(.reports-workspace, .reports-modal) body select:n
   :where(.reports-workspace, .reports-modal) .report-record-fields {
     grid-template-columns: 1fr;
   }
-}
-:where(.reports-workspace, .reports-modal) body * {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-}
-:where(.reports-workspace, .reports-modal) html::-webkit-scrollbar,
-:where(.reports-workspace, .reports-modal) body::-webkit-scrollbar,
-:where(.reports-workspace, .reports-modal) body *::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
 }
 [data-theme="dark"] :where(.reports-workspace, .reports-modal) .report-group-inventory {
   --report-accent: #b6c5d3;

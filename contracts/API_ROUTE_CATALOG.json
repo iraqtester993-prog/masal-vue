@@ -209,6 +209,20 @@
   },
   {
     "domain": null,
+    "method": "POST",
+    "uri": "api/v1/accounts/{id}/password-reset",
+    "name": null,
+    "action": "App\\Http\\Controllers\\PasswordResetController@issue",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:10,1"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
     "method": "GET|HEAD",
     "uri": "api/v1/accounts/{id}/permission-profiles",
     "name": null,
@@ -235,10 +249,10 @@
   },
   {
     "domain": null,
-    "method": "PATCH",
+    "method": "DELETE",
     "uri": "api/v1/accounts/{id}/permission-profiles/{profileId}",
     "name": null,
-    "action": "App\\Http\\Controllers\\PermissionProfileController@update",
+    "action": "App\\Http\\Controllers\\PermissionProfileController@destroy",
     "middleware": [
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
@@ -248,10 +262,10 @@
   },
   {
     "domain": null,
-    "method": "DELETE",
+    "method": "PATCH",
     "uri": "api/v1/accounts/{id}/permission-profiles/{profileId}",
     "name": null,
-    "action": "App\\Http\\Controllers\\PermissionProfileController@destroy",
+    "action": "App\\Http\\Controllers\\PermissionProfileController@update",
     "middleware": [
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
@@ -352,6 +366,20 @@
   },
   {
     "domain": null,
+    "method": "GET|POST|HEAD",
+    "uri": "api/v1/accounts/{id}/staff/{memberId}/password-reset",
+    "name": null,
+    "action": "App\\Http\\Controllers\\StaffController@passwordReset",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:10,1"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
     "method": "PATCH",
     "uri": "api/v1/accounts/{id}/staff/{memberId}/status",
     "name": null,
@@ -432,6 +460,106 @@
     "uri": "api/v1/auth/me",
     "name": null,
     "action": "App\\Http\\Controllers\\AuthController@me",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/auth/password-reset/complete",
+    "name": null,
+    "action": "App\\Http\\Controllers\\PasswordResetController@complete",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:10,1"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/auth/password-reset/complete-request",
+    "name": null,
+    "action": "App\\Http\\Controllers\\PasswordResetController@completeRequest",
+    "middleware": [
+      "web",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:10,1"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/auth/password-reset/device-bind",
+    "name": null,
+    "action": "App\\Http\\Controllers\\PasswordResetController@deviceBind",
+    "middleware": [
+      "web",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:10,1"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/auth/password-reset/device-challenge",
+    "name": null,
+    "action": "App\\Http\\Controllers\\PasswordResetController@deviceChallenge",
+    "middleware": [
+      "web",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:10,1"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/auth/password-reset/request",
+    "name": null,
+    "action": "App\\Http\\Controllers\\PasswordResetController@request",
+    "middleware": [
+      "web",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:5,1"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/auth/password-reset/request-status",
+    "name": null,
+    "action": "App\\Http\\Controllers\\PasswordResetController@requestStatus",
+    "middleware": [
+      "web",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:60,1"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/auth/password-reset/status",
+    "name": null,
+    "action": "App\\Http\\Controllers\\PasswordResetController@status",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "GET|HEAD",
+    "uri": "api/v1/auth/personal-image",
+    "name": null,
+    "action": "App\\Http\\Controllers\\AuthController@personalImage",
     "middleware": [
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
@@ -807,18 +935,6 @@
   },
   {
     "domain": null,
-    "method": "POST",
-    "uri": "api/v1/company/inquiries",
-    "name": null,
-    "action": "App\\Http\\Controllers\\Company\\CompanyPublicController@inquiry",
-    "middleware": [
-      "web",
-      "Illuminate\\Routing\\Middleware\\ThrottleRequests:5,1,company-inquiries:"
-    ],
-    "path": null
-  },
-  {
-    "domain": null,
     "method": "GET|HEAD",
     "uri": "api/v1/company/inquiries",
     "name": null,
@@ -827,6 +943,18 @@
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
       "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "POST",
+    "uri": "api/v1/company/inquiries",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Company\\CompanyPublicController@inquiry",
+    "middleware": [
+      "web",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:5,1,company-inquiries:"
     ],
     "path": null
   },
@@ -1033,6 +1161,20 @@
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
       "App\\Http\\Middleware\\EnsurePortalMembership"
+    ],
+    "path": null
+  },
+  {
+    "domain": null,
+    "method": "PATCH",
+    "uri": "api/v1/digital/connections/{id}/credential",
+    "name": null,
+    "action": "App\\Http\\Controllers\\Digital\\DigitalController@credential",
+    "middleware": [
+      "web",
+      "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
+      "App\\Http\\Middleware\\EnsurePortalMembership",
+      "Illuminate\\Routing\\Middleware\\ThrottleRequests:10,1"
     ],
     "path": null
   },
@@ -1559,10 +1701,10 @@
   },
   {
     "domain": null,
-    "method": "POST",
+    "method": "GET|HEAD",
     "uri": "api/v1/finance/transfers",
     "name": null,
-    "action": "App\\Http\\Controllers\\Finance\\FinanceController@transfers",
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@transferHistory",
     "middleware": [
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",
@@ -1572,10 +1714,10 @@
   },
   {
     "domain": null,
-    "method": "GET|HEAD",
+    "method": "POST",
     "uri": "api/v1/finance/transfers",
     "name": null,
-    "action": "App\\Http\\Controllers\\Finance\\FinanceController@transferHistory",
+    "action": "App\\Http\\Controllers\\Finance\\FinanceController@transfers",
     "middleware": [
       "web",
       "Illuminate\\Auth\\Middleware\\Authenticate:sanctum",

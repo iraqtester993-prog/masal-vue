@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Operations\OperationRequest;
 use App\Http\Resources\Operations\OperationResource;
 use App\Models\AccountAttachment;
-use App\Models\AccountMembership;
 use App\Models\Operations\AccountTimePolicy;
 use App\Models\Operations\DirectStop;
 use App\Models\User;
@@ -55,7 +54,7 @@ class OperationController extends Controller
         $total = $restricted->count();
         $global = $this->access->canRestoreGlobal($actor) ? DirectStop::find($actor->membership->account_id) : null;
 
-        return response()->json(['data' => ['account_totals' => $totals, 'accounts' => $request->boolean('compact_accounts') ? [] : $rows->map(fn ($a) => array_intersect_key($a, array_flip(['id', 'name', 'type'])))->values()->all(), 'active_stops' => OperationResource::collection($rules)->resolve($request), 'restricted' => $restricted->slice(($page - 1) * $perPage, $perPage)->values()->all(), 'restricted_total' => $rows->filter(fn ($row) => count($row['stops']) > 0)->count(), 'legacy_global' => $global ? ['stops' => $global->stops, 'version' => $global->version] : null, 'can_manage' => in_array('security.policies', $actor->membership->permissions(), true)], 'meta' => ['current_page' => $page, 'last_page' => max(1, (int) ceil($total / $perPage)), 'total' => $total, 'per_page' => $perPage]]);
+        return response()->json(['data' => ['account_totals' => $totals, 'accounts' => $request->boolean('compact_accounts') ? [] : $rows->map(fn ($a) => array_intersect_key($a, array_flip(['id', 'name', 'type'])))->values()->all(), 'active_stops' => OperationResource::collection($rules)->resolve($request), 'restricted' => $restricted->slice(($page - 1) * $perPage, $perPage)->values()->all(), 'restricted_total' => $rows->filter(fn ($row) => count($row['stops']) > 0)->count(), 'legacy_global' => $global ? ['stops' => $global->stops, 'version' => $global->version] : null, 'can_manage' => (bool) array_intersect(['security.app', 'security.login', 'security.sales', 'security.printing', 'security.import'], $actor->membership->permissions())], 'meta' => ['current_page' => $page, 'last_page' => max(1, (int) ceil($total / $perPage)), 'total' => $total, 'per_page' => $perPage]]);
     }
 
     public function createStop(OperationRequest $request): OperationResource
@@ -91,7 +90,7 @@ class OperationController extends Controller
     {
         $actor = $request->user();
         $this->access->requireSecurity($actor, false, true);
-        $users = User::whereIn('id', AccountMembership::where('kind', 'employee')->select('user_id'))->whereHas('membership.account', fn ($q) => $q->whereNull('archived_at'))->orderBy('id')->limit(10001)->get(['id', 'name', 'login', 'email', 'status']);
+        $users = User::whereIn('id', $this->access->timeMembers($actor)->select('user_id'))->whereHas('membership.account', fn ($q) => $q->whereNull('archived_at'))->orderBy('id')->limit(10001)->get(['id', 'name', 'login', 'email', 'status']);
         abort_if($users->count() > 10000, 422, 'تجاوز عدد المستخدمين حد العرض.');
         $policies = AccountTimePolicy::whereIn('user_id', $users->pluck('id'))->get()->keyBy('user_id');
 

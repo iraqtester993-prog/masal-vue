@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Models\AccountMembership;
+use App\Services\AccountPrivacy;
 use App\Services\AccountScope;
 use App\Services\ManagementAuthority;
 use App\Services\PasswordReset;
@@ -15,6 +16,7 @@ class AccountResource extends JsonResource
     public function toArray(Request $request): array
     {
         $context = $request->attributes->get('account_list_context');
+        $privacy = app(AccountPrivacy::class);
         if ($context !== null) {
             $parent = $context['parents']->get($this->parent_id);
             $childrenCount = (int) $context['children']->get($this->id, 0);
@@ -27,21 +29,21 @@ class AccountResource extends JsonResource
         }
         $data = [
             'id' => $this->id,
-            'name' => $this->name,
+            'name' => $privacy->accountName($this->resource),
             'type' => $this->type->value,
             'parent_id' => $this->parent_id,
             'status' => $this->status,
             'version' => $this->version,
             'device_lock_enabled' => $this->device_lock_enabled,
             'device_binding_enabled' => $this->device_binding_enabled,
-            'parent' => $parent ? ['id' => $parent->id, 'name' => $parent->name, 'type' => $parent->type->value] : null,
+            'parent' => $parent ? ['id' => $parent->id, 'name' => $privacy->accountName($parent), 'type' => $parent->type->value] : null,
             'children_count' => $childrenCount,
             'network_pos_count' => $networkPosCount,
             'created_at' => $this->created_at?->toISOString(),
             'can_reset_password' => app(PasswordReset::class)->canReset($request->user(), $this->resource, true),
         ];
         foreach (['city', 'phone', 'support', 'color', 'owner_name', 'address', 'serial', 'device_model', 'app_version', 'notes'] as $field) {
-            $data[$field] = $this->{$field};
+            $data[$field] = $this->type->value === 'system' ? null : $this->{$field};
         }
         if ($context !== null && $this->type->value === 'pos') {
             $data['representative_names'] = $context['representatives']->get($this->id, []);
@@ -51,14 +53,16 @@ class AccountResource extends JsonResource
             $data['password_reset_requests'] = app(PasswordReset::class)->pendingRequests($request->user(), $this->resource);
             $owner = AccountMembership::where('account_id', $this->id)->where('kind', 'owner')->first();
             if ($owner) {
-                $data['owner_user'] = ['id' => $owner->user->id, 'name' => $owner->user->name, 'login' => $owner->user->login, 'email' => $owner->user->email];
+                if (! $privacy->isOwner($owner->user_id)) {
+                    $data['owner_user'] = ['id' => $owner->user->id, 'name' => $owner->user->name, 'login' => $owner->user->login, 'email' => $owner->user->email];
+                }
                 $actorPermissions = $request->user()->membership->permissions();
                 if (in_array('account.permissions', $actorPermissions, true)) {
-                    $data['permissions'] = $owner->permissions();
                     $data['grantable_permissions'] = app(ManagementAuthority::class)->permissionLimits($request->user(), $owner);
+                    $data['permissions'] = array_values(array_intersect($owner->permissions(), array_unique(array_merge($actorPermissions, $data['grantable_permissions']))));
                 }
-                if (in_array('permission_profile.view', $actorPermissions, true) || in_array('staff.create', $actorPermissions, true)) {
-                    $data['profile_grantable_permissions'] = array_values(array_intersect($actorPermissions, $owner->permissions()));
+                if (array_intersect(['permission_profile.view', 'permission_profile.create', 'permission_profile.update', 'staff.create', 'staff.role'], $actorPermissions)) {
+                    $data['profile_grantable_permissions'] = app(ManagementAuthority::class)->profilePermissions($request->user(), $owner);
                 }
             }
         }

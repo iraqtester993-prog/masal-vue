@@ -18,7 +18,7 @@ test('quick actions obey hierarchy and all relevant view/write permissions', () 
   const actions = (type, permissions) => quickActions({ account: { type, status: 'active' } }, p => permissions.includes(p)).map(a => a.id);
   assert.deepEqual(actions('system', []), []);
   assert.deepEqual(actions('pos', ['account.view', 'account.create', 'sell.create']), []);
-  assert.deepEqual(actions('pos', ['sell.view', 'sell.create']), ['sell']);
+  assert.deepEqual(actions('pos', ['sales.view', 'sell.create']), ['sell']);
   assert.deepEqual(actions('sub_branch', ['account.view', 'account.create']), ['pos']);
   assert.deepEqual(actions('main_agent', ['account.view', 'account.create']), ['agent', 'pos']);
   assert.deepEqual(actions('main_agent', ['wallets.view', 'wallets.deposit']), []);

@@ -22,7 +22,9 @@ export function normalizePhone(value) {
   return phone;
 }
 export function salePayload(offer,form) {
-  if(!offer?.gateway?.configured||!offer.gateway.purchases_enabled)throw Error('تنفيذ الخدمة غير مفعّل؛ يلزم اعتماد الربط الفعلي مع الشركة.');
+  const service=providerNames[offer?.provider]||'الخدمة';
+  if(!offer?.gateway?.configured)throw Error(`${service}: إعداد الربط الفعلي غير مكتمل${offer?.gateway?.missing?.length?'؛ الناقص: '+offer.gateway.missing.join('، '):'؛ راجع التوكن وإعداد الاتصال لدى الإدارة'}.`);
+  if(!offer.gateway.purchases_enabled)throw Error(`${service}: الشراء غير مفعّل؛ فعّل تنفيذ المبيعات بعد اعتماد الربط الفعلي مع الشركة.`);
   const payload={connection_id:Number(offer.connection_id),offer_id:Number(offer.id),offer_version:Number(offer.version),expected_retail:amount(offer.retail)};
   if(offer.provider==='topup'||offer.package_type==='premium') {
     const phone=normalizePhone(form.mobile),confirm=normalizePhone(form.confirm_mobile);

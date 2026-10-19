@@ -248,6 +248,8 @@ class CompanySiteTest extends TestCase
         $member = AccountMembership::create(['user_id' => $staff->id, 'account_id' => $tree['system']->id, 'kind' => 'employee', 'role_id' => DB::table('roles')->where('name', 'employee')->value('id'), 'permission_profile_id' => $profile->id, 'include_descendants' => false, 'status' => 'active']);
         DB::table('membership_scope_roots')->insert(['membership_id' => $member->id, 'account_id' => $tree['main']->id]);
         $this->asPortalUser($staff);
+        $this->getJson('/api/v1/company/profile')->assertForbidden();
+        DB::table('membership_scope_roots')->where('membership_id', $member->id)->update(['account_id' => $tree['system']->id]);
         $this->getJson('/api/v1/company/profile')->assertOk();
         app(ManagementAuthority::class)->replaceProfilePermissions($profile->id, ['account.view']);
         $this->getJson('/api/v1/company/profile')->assertForbidden();

@@ -1,12 +1,16 @@
 import {passwordChangeRequired} from '../modules/auth/password-reset.js';
+import {hasSystemScope,hasBackupAccess} from '../modules/auth/capabilities.js';
 
 export function routeAllowed(route, session) {
   const identity = session.state.identity;
   if (!identity) return !route.meta?.requiresAuth;
   if (passwordChangeRequired(identity)) return route.name === 'password-change';
-  const meta = route.meta || {};
-  return (!meta.permission || session.can(meta.permission))
+  const meta = route.meta || {},access=meta.permissionsByAccountType?.[identity.account.type]||meta;
+  return (!access.permission || session.can(access.permission))
+    && (!access.anyPermissions || access.anyPermissions.some(permission => session.can(permission)))
     && (!meta.accountTypes || meta.accountTypes.includes(identity.account.type))
+    && (!meta.systemScope || hasSystemScope(identity))
+    && (!meta.backupAccess || hasBackupAccess(identity))
     && (!meta.membershipKinds || meta.membershipKinds.includes(identity.membership?.kind));
 }
 
@@ -17,7 +21,7 @@ export function landingRoute(router, session) {
     const route = routes.find(item => item.name === name);
     if (route && routeAllowed(route, session)) return {name};
   }
-  const route = routes.find(item => item.name && item.meta?.permission && routeAllowed(item, session));
+  const route = routes.find(item => item.name && item.meta?.requiresAuth && (item.meta.permission||item.meta.anyPermissions?.length) && routeAllowed(item, session));
   return {name: route?.name || 'no-access'};
 }
 

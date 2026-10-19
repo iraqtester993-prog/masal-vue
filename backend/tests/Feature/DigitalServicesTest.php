@@ -16,6 +16,7 @@ use App\Models\Sales\Sale;
 use App\Services\Digital\DigitalAccess;
 use App\Services\Digital\DigitalOperations;
 use App\Services\Digital\ProviderGateway;
+use App\Services\ManagementAuthority;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Factory;
@@ -131,6 +132,20 @@ class DigitalServicesTest extends TestCase
         Http::fake($responses);
     }
 
+    #[TestWith(['topup'])]
+    #[TestWith(['bundle'])]
+    public function test_pos_history_exposes_topup_recharge_and_bundle_types_without_exposing_private_payloads(string $type): void
+    {
+        $f = $this->fixture('topup');
+        DigitalOffer::whereKey($f['offer']['id'])->update(['type' => $type]);
+        $this->postJson('/api/v1/digital/orders', $this->input($f, 'topup-history-type'))->assertCreated()->assertJsonPath('data.type', $type);
+        $response = $this->getJson('/api/v1/digital/history?per_page=10')->assertOk()->assertJsonPath('data.0.record.type', $type);
+        foreach (['receipt', 'subscriber', 'provider_purchase_response', 'credential'] as $field) {
+            $response->assertJsonMissingPath('data.0.record.'.$field);
+        }
+        $this->assertFundedTopupLedger($f, sales: 1);
+    }
+
     public function test_point_offer_list_does_not_load_other_points_grants_and_observes_revocation(): void
     {
         $f = $this->fixture();
@@ -202,7 +217,7 @@ class DigitalServicesTest extends TestCase
         $f = $this->fixture($provider, false);
         $name = $provider === 'rabiaa' ? 'الرابعة' : 'Topup';
         $this->assertSame(0, CatalogProvider::where('connection', 'API')->count());
-        $this->getJson('/api/v1/digital/offers')->assertOk()->assertJsonPath('data.0.provider_id', null)->assertJsonPath('data.0.company_name', $name)->assertJsonPath('data.0.product_id', $f['product']->id)->assertJsonPath('data.0.product_provider_id', $f['company']->id)->assertJsonPath('data.0.product_provider_name', $f['company']->name)->assertJsonMissingPath('data.0.cost')->assertJsonMissingPath('data.0.credential');
+        $this->getJson('/api/v1/digital/offers')->assertOk()->assertJsonPath('data.0.provider_id', null)->assertJsonPath('data.0.company_name', $name)->assertJsonPath('data.0.product_id', $f['product']->id)->assertJsonPath('data.0.product_provider_id', $f['company']->id)->assertJsonPath('data.0.product_provider_name', $provider === 'topup' ? 'Topup' : $f['company']->name)->assertJsonMissingPath('data.0.cost')->assertJsonMissingPath('data.0.credential');
         $this->getJson('/api/v1/sales/products')->assertOk()->assertJsonCount(0, 'data');
         $this->providerResponse(['*/submit' => Http::response(['status' => 'succeeded', 'transactionId' => 'incoming-provider-confirmed', 'receiptRef' => 'incoming-provider-receipt', 'cost' => '4300.75', 'retail' => '5000.25']), '*/receipt' => Http::response(['code' => 'actual-incoming-token-card', 'serial' => '000000001'])]);
 
@@ -1243,5 +1258,73 @@ class DigitalServicesTest extends TestCase
         $this->assertSame(12000010, DigitalConnection::findOrFail($f['connection']['id'])->company_balance_minor);
         $this->assertFundedTopupLedger($f);
         $this->assertDatabaseHas('finance_wallets', ['account_id' => $f['pos']->id, 'service' => 'topup', 'held_minor' => 500025]);
+    }
+
+    public function test_digital_print_permission_is_independent_from_stock_printing_and_receipt_reading(): void
+    {
+        $f = $this->fixture('topup');
+        $id = $this->postJson('/api/v1/digital/orders', $this->input($f))->assertCreated()->json('data.id');
+        $this->supportGrant($f['seller'], 'digital.print', false);
+        $f['seller']->unsetRelation('membership');
+        $this->asPortalUser($f['seller']);
+        $this->getJson('/api/v1/digital/orders/'.$id.'/receipt')->assertOk();
+        $this->getJson('/api/v1/digital/orders/'.$id.'/print-authorization')->assertForbidden();
+        $this->supportGrant($f['seller'], 'digital.print', true);
+        $this->supportGrant($f['seller'], 'sell.print', false);
+        $f['seller']->unsetRelation('membership');
+        $this->asPortalUser($f['seller']);
+        $this->getJson('/api/v1/digital/orders/'.$id.'/print-authorization')->assertOk()->assertJsonPath('data.authorized', true);
+        $this->assertFundedTopupLedger($f, 1, 0);
+    }
+
+    public function test_digital_csv_uses_the_same_cost_and_profit_redaction_as_json(): void
+    {
+        $f = $this->fixture('topup');
+        $id = $this->postJson('/api/v1/digital/orders', $this->input($f))->assertCreated()->json('data.id');
+        $employee = $this->supportEmployee($f['main'], $f['main'], ['account.view', 'digital.view', 'digital.export']);
+        $this->asPortalUser($employee);
+        $this->getJson('/api/v1/digital/orders/'.$id)->assertOk()->assertJsonMissingPath('data.cost')->assertJsonMissingPath('data.admin_price')->assertJsonMissingPath('data.agent_markup');
+        $csv = $this->get('/api/v1/digital/orders/export')->assertOk()->streamedContent();
+        foreach (['الكلفة', 'سعر المدير', 'زيادة الوكيل', 'actual-test-pin'] as $secret) {
+            $this->assertStringNotContainsString($secret, $csv);
+        }
+        app(ManagementAuthority::class)->replaceProfilePermissions($employee->membership->permission_profile_id, ['account.view', 'digital.view', 'digital.export', 'data.cost']);
+        $employee->unsetRelation('membership');
+        $this->asPortalUser($employee);
+        $this->getJson('/api/v1/digital/orders/'.$id)->assertOk()->assertJsonMissingPath('data.agent_markup')->assertJsonPath('data.admin_price', '5000.25');
+        $csv = $this->get('/api/v1/digital/orders/export')->assertOk()->streamedContent();
+        $this->assertStringContainsString('سعر المدير', $csv);
+        $this->assertStringNotContainsString('زيادة الوكيل', $csv);
+        app(ManagementAuthority::class)->replaceProfilePermissions($employee->membership->permission_profile_id, ['account.view', 'digital.view', 'digital.export', 'data.cost', 'data.profit']);
+        $employee->unsetRelation('membership');
+        $this->asPortalUser($employee);
+        $this->getJson('/api/v1/digital/orders/'.$id)->assertOk()->assertJsonPath('data.agent_markup', '0.00');
+        $this->assertStringContainsString('زيادة الوكيل', $this->get('/api/v1/digital/orders/export')->assertOk()->streamedContent());
+        $this->assertFundedTopupLedger($f, 1, 0);
+    }
+
+    public function test_provider_credentials_and_sync_can_be_delegated_separately(): void
+    {
+        $f = $this->fixture();
+        $employee = $this->supportEmployee($f['system'], $f['main'], ['account.view', 'integrations.view', 'integrations.credentials']);
+        $this->asPortalUser($employee);
+        $count = count(Http::recorded());
+        $id = $f['connection']['id'];
+        $version = DigitalConnection::findOrFail($id)->version;
+        $this->postJson('/api/v1/digital/connections/'.$id.'/catalog', ['version' => $version])->assertForbidden();
+        $this->patchJson('/api/v1/digital/connections/'.$id.'/credential', ['version' => $version, 'credential' => 'replacement-fixture-key', 'reason' => 'Provider key rotated'])->assertOk()->assertJsonMissingPath('data.credential');
+        $this->assertSame('replacement-fixture-key', DigitalConnection::findOrFail($id)->credential);
+        $this->assertSame($count, count(Http::recorded()));
+        $configuration = $f['configuration'];
+        $configuration['version'] = $version + 1;
+        unset($configuration['credential']);
+        $this->putJson('/api/v1/digital/connections/'.$id, $configuration)->assertForbidden();
+        $foreign = DigitalConnection::factory()->create(['account_id' => $this->account(AccountType::MainAgent, $f['system'])->id]);
+        $this->patchJson('/api/v1/digital/connections/'.$foreign->id.'/credential', ['version' => $foreign->version, 'credential' => 'foreign-fixture-key', 'reason' => 'Outside assigned scope'])->assertNotFound();
+        app(ManagementAuthority::class)->replaceProfilePermissions($employee->membership->permission_profile_id, ['account.view', 'integrations.view', 'integrations.sync']);
+        $employee->unsetRelation('membership');
+        $this->asPortalUser($employee);
+        $this->postJson('/api/v1/digital/connections/'.$id.'/catalog', ['version' => $version + 1])->assertOk();
+        $this->patchJson('/api/v1/digital/connections/'.$id.'/credential', ['version' => $version + 1, 'credential' => 'forbidden-fixture-key', 'reason' => 'No credential permission'])->assertForbidden();
     }
 }

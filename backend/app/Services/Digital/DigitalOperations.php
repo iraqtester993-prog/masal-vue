@@ -315,6 +315,7 @@ class DigitalOperations
         return DB::transaction(function () use ($actor, $id, $request): array {
             app(MutationGuard::class)->lock($actor, [], 'digital.print', shareAncestors: true);
             $own = $this->access->own($actor, 'digital.receipt', true);
+            $this->access->require($actor, 'digital.print');
             app(OperationGuard::class)->assertAllowed($own->id, 'printing');
             $this->access->require($actor, 'data.pin');
             $order = $this->access->order($actor, $id, 'digital.receipt', true, true);

@@ -5,8 +5,18 @@ import static org.junit.Assert.*;
 import static iq.dananir.pos.NativeBackDispatch.Action.*;
 
 public class NativeBackDispatchTest {
-    @Test public void homeExitIsEnabledOnlyWhenNativeConfirmationIsAvailable() {
+    @Test public void homeExitAdvertisesDoubleBackAndKeepsTheOlderWebContract() {
         assertTrue(NativeBackDispatch.SCRIPT.contains("exitConfirmationVersion:1"));
+        assertTrue(NativeBackDispatch.SCRIPT.contains("doubleBackExitVersion:1"));
+    }
+
+    @Test public void anExitCarriesOnlyItsOpaqueNavigationGeneration() {
+        NativeBackDispatch back = new NativeBackDispatch();
+        assertEquals(EXIT, back.complete(back.begin(), "\"exit:12\"", false));
+        assertEquals("exit:12", back.exitContext());
+        assertEquals(EXIT, back.complete(back.begin(), "\"exit:14\"", false));
+        assertEquals("exit:14", back.exitContext());
+        assertEquals(FALLBACK, back.complete(back.begin(), "\"exit:bad\"", false));
     }
 
     @Test public void rapidBackWaitsForOneWebDecisionAndDoesNotDoubleNavigate() {

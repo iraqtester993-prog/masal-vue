@@ -18,6 +18,26 @@ async function withModules(run) {
   } finally {await server.close();}
 }
 
+test('support uses a full page with an independent phone tab in every portal',async()=>{
+ await withModules(async({portalContextKey,support})=>{
+  for(const type of ['system','main_agent','pos']){
+   const session={state:reactive({identity:{account:{id:18,type},user:{id:41},membership:{kind:'owner'}}}),can:permission=>['support.view','support.create'].includes(permission),api:{}};
+   const router=createRouter({history:createMemoryHistory(),routes:[{path:'/support',name:'support',component:support}]});
+   await router.push({name:'support',query:{tab:'phones'}});
+   const app=createSSRApp({render:()=>h(support)}).use(router).provide(portalContextKey,{session});
+   const html=await renderToString(app);
+   assert.ok(html.includes('support-full-page'));
+   const phoneTab=html.match(/<button\b[^>]*id="support-phones-tab"[^>]*>/)?.[0];
+   assert.match(phoneTab,/aria-selected="true"/);assert.match(phoneTab,/class="[^"]*primary/);
+   assert.ok(html.includes('id="support-phones-panel"'));
+   const ticketPanel=html.match(/<div\b[^>]*id="support-tickets-panel"[^>]*>/)?.[0];
+   assert.match(ticketPanel,/style="display:none;"/);
+   assert.ok(!html.includes('<dialog'));
+   assert.equal(html.includes('رسائل موقع الشركة'),type==='system');
+  }
+ });
+});
+
 test('support and notifications render in all three portals with current grants, without client storage, fabricated records or mutations',async () => {
   await withModules(async ({portalContextKey,support,notifications}) => {
     for (const [type,kind,permissions] of [
@@ -31,8 +51,8 @@ test('support and notifications render in all three portals with current grants,
       for (const [name,page,label] of [['support',support,'المحادثات'],['notifications',notifications,'لا توجد إشعارات']]) {
         await router.push({name}); const app = createSSRApp({render:() => h(page)}); app.use(router); app.provide(portalContextKey,{session,portal:{id:type === 'system' ? 'admin' : type === 'pos' ? 'pos':'agents'},config:{}});
         const html = await renderToString(app);
-        assert.ok(html.includes(label)); assert.ok(!html.includes('undefined')); assert.ok(!html.includes('localStorage')); assert.ok(!html.includes('بطاقات تجريبية'));
-        if (name === 'support') {assert.ok(html.includes('رسالة جديدة')); assert.equal(html.includes('مستخدمو رسالة الدعم'),permissions.includes('support.broadcast'));}
+        if(type!=='pos'||name!=='support')assert.ok(html.includes(label)); assert.ok(!html.includes('undefined')); assert.ok(!html.includes('localStorage')); assert.ok(!html.includes('بطاقات تجريبية'));
+        if (name === 'support') {assert.equal(html.includes('<h2>رسالة جديدة</h2>'),type!=='pos'); assert.equal(html.includes('مستخدمو رسالة الدعم'),permissions.includes('support.broadcast'));}
         if (name === 'notifications') {assert.equal(html.includes('عنوان الإشعار العربي'),permissions.includes('notifications.send')); assert.equal(html.includes('>تصدير<'),type!=='pos'&&permissions.includes('notifications.export'));}
       }
       assert.deepEqual(requests,[]);

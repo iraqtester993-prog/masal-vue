@@ -4,7 +4,7 @@ export function quickActions(identity, can) {
   if (!identity?.account) return [];
   const types=childTypes(identity.account), type=identity.account.type;
   return [
-    {id:'sell',label:'＋ عملية بيع',symbol:'▣',route:'sell',allowed:['sub_agent','sub_branch','pos'].includes(type)&&can('sell.view')&&can('sell.create')},
+    {id:'sell',label:'＋ عملية بيع',symbol:'▣',route:'sell',allowed:['sub_agent','sub_branch','pos'].includes(type)&&can('sales.view')&&can('sell.create')},
     {id:'import',label:'＋ طلبية جديدة',symbol:'↥',route:'import',allowed:['system','main_agent'].includes(type)&&can('import.view')&&can('import.preview')},
     {id:'agent',label:'إضافة وكيل',symbol:'◇',route:'agents',allowed:types.some(t=>t!=='pos')&&can('account.view')&&can('account.create')},
     {id:'pos',label:'إضافة نقطة بيع',symbol:'▤',route:'pos',allowed:type!=='pos'&&can('account.view')&&can('account.create')},

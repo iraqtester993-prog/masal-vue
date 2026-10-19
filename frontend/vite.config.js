@@ -9,18 +9,6 @@ const ports = { admin: 5173, agents: 5174, pos: 5175, public: 5177 };
 const buildId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 
 export default defineConfig(({ mode }) => {
-  if (mode === 'legacy') {
-    return {
-      root: resolve(frontendRoot, 'legacy'),
-      base: './',
-      plugins: [vue()],
-      resolve: { alias: [{ find: /^vue$/, replacement: 'vue/dist/vue.esm-bundler.js' }] },
-      server: { host: '127.0.0.1', port: 5176, strictPort: true },
-      // Reference-only build: retain the legacy popup's serialized methods.
-      build: { outDir: resolve(frontendRoot, 'dist/legacy'), minify: false },
-    };
-  }
-
   const portal = Object.hasOwn(ports, mode) ? mode : 'admin';
   const env = loadEnv(mode, frontendRoot, '');
   const proxy = {

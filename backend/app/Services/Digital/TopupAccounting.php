@@ -10,6 +10,7 @@ use App\Models\Digital\DigitalOrder;
 use App\Models\Digital\TopupGrant;
 use App\Models\Finance\Invoice;
 use App\Support\RequestReadCache;
+use Illuminate\Support\Collection;
 
 class TopupAccounting
 {
@@ -54,7 +55,27 @@ class TopupAccounting
             return null;
         }
 
-        return max(0, $connection->company_balance_minor - (int) TopupGrant::where('connection_id', $connection->id)->sum('balance_minor'));
+        return RequestReadCache::remember($this->freeKey($connection), fn (): int => max(0, $connection->company_balance_minor - (int) TopupGrant::where('connection_id', $connection->id)->sum('balance_minor')));
+    }
+
+    public function primeFree(Collection $connections): void
+    {
+        if (! request()->isMethod('GET') || ! request()->attributes->has('masal.read_cache')) {
+            return;
+        }
+        $known = $connections->filter(fn ($connection): bool => $connection->provider === 'topup' && $connection->company_balance_minor !== null);
+        if ($known->isEmpty()) {
+            return;
+        }
+        $allocated = TopupGrant::whereIn('connection_id', $known->pluck('id'))->groupBy('connection_id')->selectRaw('connection_id, SUM(balance_minor) AS allocated')->pluck('allocated', 'connection_id');
+        foreach ($known as $connection) {
+            RequestReadCache::remember($this->freeKey($connection), fn (): int => max(0, $connection->company_balance_minor - (int) $allocated->get($connection->id, 0)));
+        }
+    }
+
+    private function freeKey(DigitalConnection $connection): string
+    {
+        return 'TopupAccounting.free:'.$connection->id.':'.$connection->company_balance_minor;
     }
 
     public function reserve(DigitalConnection $connection, Account $pos, DigitalOffer $offer): ?array
@@ -67,7 +88,7 @@ class TopupAccounting
         abort_unless($grant && $grant->active && $grant->connection_id === $connection->id, 403, 'لا توجد حصة Topup مفعلة للوكيل.');
         abort_unless($grant->balance_minor - $grant->held_minor >= $offer->retail_minor, 422, 'رصيد Topup المتاح للوكيل لا يكفي لهذه الفئة.');
         $providerHeld = (int) DigitalOrder::where('connection_id', $connection->id)->where('reservation_active', true)->lockForUpdate()->sum('quoted_cost_minor');
-        abort_unless($connection->company_balance_minor !== null && $connection->company_balance_minor - $providerHeld >= $offer->cost_minor, 422, 'رصيد الشركة غير معلوم أو لا يكفي؛ حدّث رصيد التبب.');
+        abort_unless($connection->company_balance_minor !== null && $connection->company_balance_minor - $providerHeld >= $offer->cost_minor, 422, 'رصيد الشركة غير معلوم أو لا يكفي؛ حدّث رصيد Topup.');
         $wallets = app(TopupWallets::class);
         abort_unless($wallets->initialized($grant), 409, 'رصيد Topup لم يهيأ بعد؛ راجع مدير النظام.');
         $wallet = $wallets->point($grant, $pos);
@@ -87,7 +108,7 @@ class TopupAccounting
         $base = (int) $order->admin_price_minor;
         $wallets = app(TopupWallets::class);
         if ($order->accounted_at === null) {
-            abort_unless($grant->held_minor >= $base, 409, 'حجز رصيد التبب غير مطابق للعملية.');
+            abort_unless($grant->held_minor >= $base, 409, 'حجز رصيد Topup غير مطابق للعملية.');
             $pointBudget = $order->budget_basis === 'point_budget_v1';
             $wallet = $wallets->bound($grant, $pointBudget ? $order->account_id : $grant->target_account_id, $pointBudget ? 'point' : 'main');
             abort_unless(! $pointBudget || $wallet->id === $order->budget_wallet_id, 409, 'محفظة رصيد العملية غير مطابقة.');

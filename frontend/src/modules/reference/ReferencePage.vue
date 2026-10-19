@@ -1,4 +1,6 @@
 <script setup>
+import AppSelect from '../../shared/components/AppSelect.vue';
+import {westernDigits} from '../../shared/numbers.js';
 import FilterBar from '../../shared/components/FilterBar.vue';
 import TablePanel from '../../shared/components/TablePanel.vue';
 
@@ -8,6 +10,7 @@ import {computed, onBeforeUnmount, onMounted, reactive, ref, watch} from 'vue';
 import {useRoute, useRouter} from 'vue-router';
 
 import {usePortal} from '../auth/session.js';
+import {useRouteRefresh} from '../../shared/route-refresh.js';
 
 import CatalogModal from '../catalog/CatalogModal.vue';
 
@@ -61,7 +64,7 @@ async function failure(error) {
 
 }
 
-async function load(page = 1, withOptions = false) {
+async function load(page = 1, withOptions = false, fresh = false) {
 
   readController?.abort(); readController = new AbortController(); const expected = ++revision, signal = readController.signal;
 
@@ -71,7 +74,7 @@ async function load(page = 1, withOptions = false) {
 
     const requestKind = kind.value;
 
-    const [response, options] = await Promise.all([api.list(requestKind, {query:state.q, page, per_page:pageSize.value, ...(requestKind === 'sources' && state.network ? {network_account_id:state.network} : {})}, signal), withOptions && requestKind !== 'governorates' ? api.options(state.network, signal) : Promise.resolve(null)]);
+    const [response, options] = await Promise.all([api.list(requestKind, {query:state.q, page, per_page:pageSize.value, ...(requestKind === 'sources' && state.network ? {network_account_id:state.network} : {})}, signal,{fresh}), withOptions && requestKind !== 'governorates' ? api.options(state.network, signal,{fresh}) : Promise.resolve(null)]);
 
     if (expected !== revision) return;
 
@@ -201,6 +204,7 @@ watch(kind, () => {close(); state.q = ''; state.network = ''; state.success = ''
 
 watch(() => route.query.new, value => { if (value === '1' && !state.busy) edit(); });
 
+useRouteRefresh(async()=>{await load(state.meta.current_page,true,true);return !state.error;},{canRefresh:()=>!state.saving&&!draft.value});
 onMounted(async () => {await load(1, true); if (route.query.new === '1') edit();});
 
 onBeforeUnmount(() => {clearTimeout(timer); readController?.abort(); writeController.abort(); state.saving = false; close();});
@@ -227,15 +231,15 @@ onBeforeUnmount(() => {clearTimeout(timer); readController?.abort(); writeContro
 
         <input v-model="state.q" :placeholder="kind === 'governorates' ? 'بحث عن محافظة' : kind === 'sources' ? 'بحث باسم المصدر أو الشركة' : 'بحث بالاسم أو المحافظة…'" :aria-label="`بحث ${labels[kind]}`" :style="kind==='sources'?'flex:1;max-width:none':'max-width:300px'" />
 
-        <label v-if="kind==='sources' && session.state.identity?.account.type==='system'" class="source-network-inline">الوكيل الرئيسي<select v-model="state.network" aria-label="فلترة الوكيل الرئيسي"><option value="">جميع الوكلاء</option><option v-for="network in networks" :key="network.id" :value="network.id">{{network.name}}</option></select></label>
+        <label v-if="kind==='sources' && session.state.identity?.account.type==='system'" class="source-network-inline">الوكيل الرئيسي<AppSelect v-model="state.network" aria-label="فلترة الوكيل الرئيسي"><option value="">جميع الوكلاء</option><option v-for="network in networks" :key="network.id" :value="network.id">{{network.name}}</option></AppSelect></label>
 
-        <span v-if="kind === 'governorates'">{{state.rows.filter(row => row.active).length}} محافظة مفعلة</span><span v-else-if="kind!=='sources'" class="caption">{{state.meta.total}} سجل</span><template v-if="kind==='sources'"><select v-model.number="pageSize" aria-label="عدد المصادر في الصفحة"><option v-for="n in [10,25,50,100]" :value="n">{{n}}</option></select><small>{{state.meta.total?(state.meta.current_page-1)*pageSize+1:0}}–{{Math.min(state.meta.current_page*pageSize,state.meta.total)}} من {{state.meta.total}}</small></template>
+        <span v-if="kind === 'governorates'">{{state.rows.filter(row => row.active).length}} محافظة مفعلة</span><span v-else-if="kind!=='sources'" class="caption">{{state.meta.total}} سجل</span><template v-if="kind==='sources'"><AppSelect v-model.number="pageSize" aria-label="عدد المصادر في الصفحة"><option v-for="n in [10,25,50,100]" :value="n">{{n}}</option></AppSelect><small>{{state.meta.total?(state.meta.current_page-1)*pageSize+1:0}}–{{Math.min(state.meta.current_page*pageSize,state.meta.total)}} من {{state.meta.total}}</small></template>
 
       </FilterBar>
 
       <form v-if="draft && kind === 'sources'" class="control-inline-form" @submit.prevent="save">
 
-        <div class="formgrid"><label>اسم المصدر<input v-model="draft.name" required maxlength="150" :disabled="state.saving" /></label><label>الشركة<select v-model="draft.provider_id" required :disabled="state.saving"><option value="" disabled>اختر الشركة</option><option v-for="provider in state.options.providers" :key="provider.id" :value="provider.id">{{provider.name}}</option></select></label></div>
+        <div class="formgrid"><label>اسم المصدر<input v-model="draft.name" required maxlength="150" :disabled="state.saving" /></label><label>الشركة<AppSelect v-model="draft.provider_id" required :disabled="state.saving"><option value="" disabled>اختر الشركة</option><option v-for="provider in state.options.providers" :key="provider.id" :value="provider.id">{{provider.name}}</option></AppSelect></label></div>
 
         <p v-if="session.state.identity?.account.type === 'system' && !draft.id && !state.network" class="help">اختر الوكيل الرئيسي للمصدر.</p>
 
@@ -263,7 +267,7 @@ onBeforeUnmount(() => {clearTimeout(timer); readController?.abort(); writeContro
 
         <template v-else-if="kind === 'sources'"><td>{{row.name}}</td><td>{{row.provider_name}}</td></template>
 
-        <template v-else-if="kind === 'representatives'"><td class="mono">{{row.id}}</td><td>{{row.name || '—'}}</td><td>{{row.phone || '—'}}</td><td>{{row.address || '—'}}</td><td>{{row.agent_name}}</td></template>
+        <template v-else-if="kind === 'representatives'"><td class="mono">{{row.id}}</td><td>{{row.name || '—'}}</td><td>{{westernDigits(row.phone) || '—'}}</td><td>{{row.address || '—'}}</td><td>{{row.agent_name}}</td></template>
 
         <template v-else><td class="mono">{{row.id}}</td><td>{{row.name}}</td></template>
 
@@ -283,9 +287,9 @@ onBeforeUnmount(() => {clearTimeout(timer); readController?.abort(); writeContro
 
       <form @submit.prevent="save"><div class="formgrid">
 
-        <template v-if="kind === 'representatives'"><label>اسم المندوب<input v-model="draft.name" maxlength="150" :disabled="state.saving" /></label><label>رقم الهاتف<input v-model="draft.phone" type="tel" maxlength="40" :disabled="state.saving" /></label><label>العنوان<input v-model="draft.address" maxlength="500" :disabled="state.saving" /></label><label>الوكيل<select v-model="draft.agent_account_id" required :disabled="state.saving"><option value="" disabled>اختر الوكيل</option><option v-for="agent in agents" :key="agent.id" :value="agent.id">{{agent.name}}</option></select></label></template>
+        <template v-if="kind === 'representatives'"><label>اسم المندوب<input v-model="draft.name" maxlength="150" :disabled="state.saving" /></label><label>رقم الهاتف<input lang="en" v-model="draft.phone" type="tel" maxlength="40" :disabled="state.saving" /></label><label>العنوان<input v-model="draft.address" maxlength="500" :disabled="state.saving" /></label><label>الوكيل<AppSelect v-model="draft.agent_account_id" required :disabled="state.saving"><option value="" disabled>اختر الوكيل</option><option v-for="agent in agents" :key="agent.id" :value="agent.id">{{agent.name}}</option></AppSelect></label></template>
 
-        <template v-else><label>اسم نوع نقطة البيع<input v-model="draft.name" required maxlength="150" :disabled="state.saving" /></label><label>الحالة<select v-model="draft.status" :disabled="state.saving"><option value="active">مفعل</option><option value="disabled">موقوف</option></select></label></template>
+        <template v-else><label>اسم نوع نقطة البيع<input v-model="draft.name" required maxlength="150" :disabled="state.saving" /></label><label>الحالة<AppSelect v-model="draft.status" :disabled="state.saving"><option value="active">مفعل</option><option value="disabled">موقوف</option></AppSelect></label></template>
 
       </div>
 

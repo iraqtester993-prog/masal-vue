@@ -7,20 +7,19 @@ use App\Models\Account;
 use App\Models\Support\SupportMessage;
 use App\Models\Support\SupportTicket;
 use App\Models\User;
+use App\Services\AccountPrivacy;
 use App\Services\AccountScope;
+use App\Services\ManagementAuthority;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 
 class SupportAccess
 {
-    private ?\WeakMap $permissions = null;
-
     public function __construct(private AccountScope $scope) {}
 
     public function allows(User $actor, string $permission): bool
     {
-        $this->permissions ??= new \WeakMap;
-        $permissions = $this->permissions[$actor] ??= ($actor->isOperational() ? $actor->membership->permissions() : []);
+        $permissions = $actor->isOperational() ? $actor->membership->permissions() : [];
 
         return in_array($permission, $permissions, true);
     }
@@ -28,12 +27,12 @@ class SupportAccess
     public function require(User $actor, string $permission): void
     {
         $module = str_starts_with($permission, 'notifications.') ? 'notifications' : 'support';
-        abort_unless($this->allows($actor, 'account.view') && $this->allows($actor, $module.'.view') && $this->allows($actor, $permission), 403);
+        abort_unless($this->allows($actor, $module.'.view') && $this->allows($actor, $permission), 403);
     }
 
     public function isSystemOwner(User $actor): bool
     {
-        return $actor->membership->kind === 'owner' && $actor->membership->account->type === AccountType::System;
+        return app(ManagementAuthority::class)->hasSystemScope($actor);
     }
 
     public function contacts(User $actor): Builder
@@ -121,7 +120,7 @@ class SupportAccess
         }
         $own = $actor->membership->account;
         $scope = $this->scope->query($actor)->select('id');
-        $members = DB::table('account_memberships')->join('users', 'users.id', '=', 'user_id')->join('accounts', 'accounts.id', '=', 'account_id')->where('users.status', 'active')->where('account_memberships.status', 'active')->where('accounts.status', 'active')->where('users.id', '<>', $actor->id)
+        $members = DB::table('account_memberships')->join('users', 'users.id', '=', 'user_id')->join('accounts', 'accounts.id', '=', 'account_id')->whereNotIn('users.id', app(AccountPrivacy::class)->ownerIds())->where('users.status', 'active')->where('account_memberships.status', 'active')->where('accounts.status', 'active')->where('users.id', '<>', $actor->id)
             ->where(function ($q) use ($actor, $own, $scope, $support): void {
                 if ($this->isSystemOwner($actor)) {
                     return;
@@ -152,6 +151,9 @@ class SupportAccess
                 if (! in_array((int) $member->id, $employeeIds[$member->account_id], true)) {
                     continue;
                 }
+            }
+            if ($member->type === AccountType::System->value) {
+                $member->account_name = 'الدعم الفني';
             }
             $valid[] = (array) $member;
         }

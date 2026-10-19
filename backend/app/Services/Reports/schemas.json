@@ -31,7 +31,7 @@
       },
       {
         "key": "provider",
-        "label": "المزود",
+        "label": "الشركة",
         "type": "text"
       },
       {
@@ -42,24 +42,28 @@
       {
         "key": "price",
         "label": "سعر الوحدة",
-        "type": "money"
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "sales",
-        "label": "المبيعات",
-        "type": "money"
+        "label": "إجمالي البيع",
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "cost",
-        "label": "تكلفة المباع",
+        "label": "تكلفة البطاقات المباعة",
         "type": "money",
-        "permission": "data.cost"
+        "permission": "data.cost",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "profit",
         "label": "الربح الإجمالي",
         "type": "money",
-        "permission": "data.profit"
+        "permission": "data.profit",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "margin",
@@ -69,12 +73,12 @@
       },
       {
         "key": "status",
-        "label": "الحالة",
+        "label": "حالة البيع والطباعة",
         "type": "text"
       },
       {
         "key": "reprints",
-        "label": "إعادة الطباعة",
+        "label": "عدد مرات إعادة الطباعة",
         "type": "number"
       }
     ],
@@ -87,7 +91,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "المعرف",
+        "label": "رقم السجل",
         "type": "text"
       },
       {
@@ -97,7 +101,7 @@
       },
       {
         "key": "transactions",
-        "label": "العمليات",
+        "label": "عدد العمليات",
         "type": "number"
       },
       {
@@ -108,19 +112,22 @@
       {
         "key": "sales",
         "label": "المبيعات",
-        "type": "money"
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "cost",
         "label": "تكلفة المباع",
         "type": "money",
-        "permission": "data.cost"
+        "permission": "data.cost",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "profit",
         "label": "الربح الإجمالي",
         "type": "money",
-        "permission": "data.profit"
+        "permission": "data.profit",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "margin",
@@ -138,7 +145,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "المعرف",
+        "label": "رقم السجل",
         "type": "text"
       },
       {
@@ -148,7 +155,7 @@
       },
       {
         "key": "transactions",
-        "label": "العمليات",
+        "label": "عدد العمليات",
         "type": "number"
       },
       {
@@ -159,19 +166,22 @@
       {
         "key": "sales",
         "label": "المبيعات",
-        "type": "money"
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "cost",
         "label": "تكلفة المباع",
         "type": "money",
-        "permission": "data.cost"
+        "permission": "data.cost",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "profit",
         "label": "الربح الإجمالي",
         "type": "money",
-        "permission": "data.profit"
+        "permission": "data.profit",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "margin",
@@ -189,7 +199,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "المعرف",
+        "label": "رقم السجل",
         "type": "text"
       },
       {
@@ -199,7 +209,7 @@
       },
       {
         "key": "transactions",
-        "label": "العمليات",
+        "label": "عدد العمليات",
         "type": "number"
       },
       {
@@ -210,19 +220,22 @@
       {
         "key": "sales",
         "label": "المبيعات",
-        "type": "money"
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "cost",
         "label": "تكلفة المباع",
         "type": "money",
-        "permission": "data.cost"
+        "permission": "data.cost",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "profit",
         "label": "الربح الإجمالي",
         "type": "money",
-        "permission": "data.profit"
+        "permission": "data.profit",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "margin",
@@ -240,7 +253,7 @@
     "columns": [
       {
         "key": "sale",
-        "label": "رقم العملية",
+        "label": "رقم عملية البيع",
         "type": "text"
       },
       {
@@ -250,7 +263,7 @@
       },
       {
         "key": "user",
-        "label": "المستخدم",
+        "label": "منفذ محاولة الطباعة",
         "type": "text"
       },
       {
@@ -260,12 +273,12 @@
       },
       {
         "key": "status",
-        "label": "الحالة",
+        "label": "نتيجة محاولة الطباعة",
         "type": "text"
       },
       {
         "key": "reason",
-        "label": "السبب",
+        "label": "سبب الفشل / الملاحظة",
         "type": "text"
       }
     ],
@@ -293,7 +306,7 @@
       },
       {
         "key": "product",
-        "label": "المنتج",
+        "label": "الفئة",
         "type": "text"
       },
       {
@@ -320,19 +333,22 @@
         "key": "cost",
         "label": "تكلفة الوحدة",
         "type": "money",
-        "permission": "data.cost"
+        "permission": "data.cost",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "expenses",
         "label": "مصاريف التوريد",
         "type": "money",
-        "permission": "data.cost"
+        "permission": "data.cost",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "total",
         "label": "التكلفة الإجمالية",
         "type": "money",
-        "permission": "data.cost"
+        "permission": "data.cost",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "status",
@@ -354,7 +370,7 @@
       },
       {
         "key": "serial",
-        "label": "سيريال المزود",
+        "label": "الرقم التسلسلي لدى الشركة",
         "type": "text"
       },
       {
@@ -369,7 +385,7 @@
       },
       {
         "key": "product",
-        "label": "المنتج",
+        "label": "الفئة",
         "type": "text"
       },
       {
@@ -396,7 +412,8 @@
         "key": "cost",
         "label": "التكلفة",
         "type": "money",
-        "permission": "data.cost"
+        "permission": "data.cost",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       }
     ],
     "note": "حالة البطاقات الحالية؛ رموز PIN وCVC مستبعدة دائمًا من التقارير."
@@ -408,17 +425,17 @@
     "columns": [
       {
         "key": "id",
-        "label": "المعرف",
+        "label": "رقم السجل",
         "type": "text"
       },
       {
         "key": "name",
-        "label": "المنتج",
+        "label": "الفئة",
         "type": "text"
       },
       {
         "key": "provider",
-        "label": "المزود",
+        "label": "الشركة",
         "type": "text"
       },
       {
@@ -440,7 +457,8 @@
         "key": "min",
         "label": "أقل سعر بيع مسموح",
         "type": "money",
-        "permission": "data.cost"
+        "permission": "data.cost",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "dailyQty",
@@ -450,7 +468,8 @@
       {
         "key": "dailyAmount",
         "label": "الحد المالي اليومي",
-        "type": "money"
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "active",
@@ -462,17 +481,17 @@
   },
   {
     "id": "inventory-providers",
-    "title": "دليل المزودين",
+    "title": "دليل الشركات",
     "snapshot": true,
     "columns": [
       {
         "key": "id",
-        "label": "المعرف",
+        "label": "رقم السجل",
         "type": "text"
       },
       {
         "key": "name",
-        "label": "المزود",
+        "label": "الشركة",
         "type": "text"
       },
       {
@@ -510,7 +529,7 @@
       },
       {
         "key": "product",
-        "label": "المنتج",
+        "label": "الفئة",
         "type": "text"
       },
       {
@@ -567,7 +586,8 @@
         "key": "value",
         "label": "قيمة المخزون المتبقي",
         "type": "money",
-        "permission": "data.cost"
+        "permission": "data.cost",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "status",
@@ -584,43 +604,48 @@
     "columns": [
       {
         "key": "id",
-        "label": "الحساب",
+        "label": "رقم الحساب",
         "type": "text"
       },
       {
         "key": "name",
-        "label": "الاسم",
+        "label": "اسم الحساب",
         "type": "text"
       },
       {
         "key": "service",
-        "label": "المحفظة",
+        "label": "محفظة الخدمة",
         "type": "text"
       },
       {
         "key": "opening",
         "label": "رصيد افتتاح الفترة",
-        "type": "money"
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "credits",
-        "label": "الوارد",
-        "type": "money"
+        "label": "إجمالي المبالغ الواردة",
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "debits",
-        "label": "الصادر",
-        "type": "money"
+        "label": "إجمالي المبالغ الصادرة",
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "closing",
         "label": "رصيد إقفال الفترة",
-        "type": "money"
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "current",
         "label": "الرصيد الحالي",
-        "type": "money"
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       }
     ],
     "note": ""
@@ -632,12 +657,12 @@
     "columns": [
       {
         "key": "id",
-        "label": "القيد",
+        "label": "رقم القيد المالي",
         "type": "text"
       },
       {
         "key": "group",
-        "label": "مرجع العملية",
+        "label": "رقم العملية المالية",
         "type": "text"
       },
       {
@@ -657,36 +682,14 @@
       },
       {
         "key": "kind",
-        "label": "الحركة",
+        "label": "نوع الحركة المالية",
         "type": "text"
       },
       {
         "key": "amount",
-        "label": "المبلغ",
-        "type": "money"
-      }
-    ],
-    "note": ""
-  },
-  {
-    "id": "wallets-legacy",
-    "title": "الأرصدة النقدية السابقة",
-    "snapshot": true,
-    "columns": [
-      {
-        "key": "id",
-        "label": "الحساب",
-        "type": "text"
-      },
-      {
-        "key": "name",
-        "label": "الاسم",
-        "type": "text"
-      },
-      {
-        "key": "current",
-        "label": "الرصيد السابق",
-        "type": "money"
+        "label": "المبلغ المضاف / المخصوم",
+        "type": "money",
+        "source_note": "الإشارة الموجبة إضافة للمحفظة والسالبة خصم منها؛ تُقرأ من القيد المالي الفعلي."
       }
     ],
     "note": ""
@@ -724,19 +727,22 @@
       {
         "key": "amount",
         "label": "قيمة التحميل",
-        "type": "money"
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "cost",
         "label": "التكلفة",
         "type": "money",
-        "permission": "data.cost"
+        "permission": "data.cost",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "profit",
         "label": "ربح ماسال",
         "type": "money",
-        "permission": "data.profit"
+        "permission": "data.profit",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "status",
@@ -753,7 +759,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "المعرف",
+        "label": "رقم السجل",
         "type": "text"
       },
       {
@@ -791,7 +797,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "المعرف",
+        "label": "رقم السجل",
         "type": "text"
       },
       {
@@ -874,13 +880,14 @@
       },
       {
         "key": "product",
-        "label": "المنتج",
+        "label": "الفئة",
         "type": "text"
       },
       {
         "key": "price",
         "label": "السعر",
-        "type": "money"
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "effective",
@@ -962,13 +969,15 @@
         "key": "value",
         "label": "القيمة الأصلية",
         "type": "money",
-        "permission": "data.cost"
+        "permission": "data.cost",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "remaining",
         "label": "القيمة المعلقة",
         "type": "money",
-        "permission": "data.cost"
+        "permission": "data.cost",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "soldBefore",
@@ -988,7 +997,8 @@
       {
         "key": "compensation",
         "label": "التعويض",
-        "type": "money"
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "replacement",
@@ -1020,7 +1030,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "المعرف",
+        "label": "رقم السجل",
         "type": "text"
       },
       {
@@ -1047,7 +1057,8 @@
         "key": "value",
         "label": "التكلفة",
         "type": "money",
-        "permission": "data.cost"
+        "permission": "data.cost",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "reason",
@@ -1139,7 +1150,8 @@
         "key": "credit",
         "label": "الرصيد التشغيلي",
         "type": "money",
-        "permission": "data.cost"
+        "permission": "data.cost",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "status",
@@ -1201,7 +1213,7 @@
       },
       {
         "key": "recipientName",
-        "label": "المستلم",
+        "label": "المستفيد",
         "type": "text"
       },
       {
@@ -1262,7 +1274,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "المعرف",
+        "label": "رقم السجل",
         "type": "text"
       },
       {
@@ -1386,7 +1398,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "المعرف",
+        "label": "رقم السجل",
         "type": "text"
       },
       {
@@ -1396,17 +1408,17 @@
       },
       {
         "key": "name",
-        "label": "المستخدم",
+        "label": "منفذ الإجراء",
         "type": "text"
       },
       {
         "key": "action",
-        "label": "الإجراء",
+        "label": "الإجراء المنفذ",
         "type": "text"
       },
       {
         "key": "entity",
-        "label": "السجل",
+        "label": "السجل المتأثر",
         "type": "text"
       },
       {
@@ -1447,12 +1459,12 @@
       },
       {
         "key": "provider",
-        "label": "المزود",
+        "label": "شركة الخدمة",
         "type": "text"
       },
       {
         "key": "environment",
-        "label": "البيئة",
+        "label": "عنوان خادم الشركة",
         "type": "text"
       },
       {
@@ -1470,7 +1482,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "المعرف",
+        "label": "رقم السجل",
         "type": "text"
       },
       {
@@ -1574,7 +1586,8 @@
       {
         "key": "amount",
         "label": "قيمة التحميل",
-        "type": "money"
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "status",
@@ -1616,7 +1629,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "رقم العملية",
+        "label": "رقم طلب التمويل",
         "type": "text"
       },
       {
@@ -1626,12 +1639,12 @@
       },
       {
         "key": "from",
-        "label": "الممول",
+        "label": "الجهة الممولة",
         "type": "text"
       },
       {
         "key": "to",
-        "label": "المستلم",
+        "label": "المستفيد من التمويل",
         "type": "text"
       },
       {
@@ -1641,8 +1654,9 @@
       },
       {
         "key": "amount",
-        "label": "المبلغ",
-        "type": "money"
+        "label": "المبلغ المطلوب",
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "status",
@@ -1651,13 +1665,14 @@
       },
       {
         "key": "user",
-        "label": "المنفّذ",
+        "label": "مقدم الطلب",
         "type": "text"
       },
       {
         "key": "approvedAmount",
         "label": "المبلغ المعتمد",
-        "type": "money"
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "purpose",
@@ -1666,7 +1681,7 @@
       },
       {
         "key": "reason",
-        "label": "سبب الرفض",
+        "label": "سبب الرفض أو الملاحظة",
         "type": "text"
       },
       {
@@ -1681,17 +1696,17 @@
       },
       {
         "key": "transfer",
-        "label": "التحويل",
+        "label": "رقم التحويل المنفذ",
         "type": "text"
       },
       {
         "key": "batch",
-        "label": "الدفعة",
+        "label": "رقم الدفعة المرتبطة",
         "type": "text"
       },
       {
         "key": "reference",
-        "label": "المرجع",
+        "label": "مرجع التمويل",
         "type": "text"
       }
     ],
@@ -1704,7 +1719,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "رقم العملية",
+        "label": "رقم التحويل",
         "type": "text"
       },
       {
@@ -1714,12 +1729,12 @@
       },
       {
         "key": "from",
-        "label": "الممول",
+        "label": "الجهة الممولة",
         "type": "text"
       },
       {
         "key": "to",
-        "label": "المستلم",
+        "label": "المستفيد من التحويل",
         "type": "text"
       },
       {
@@ -1729,8 +1744,9 @@
       },
       {
         "key": "amount",
-        "label": "المبلغ",
-        "type": "money"
+        "label": "مبلغ التحويل",
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "status",
@@ -1739,7 +1755,7 @@
       },
       {
         "key": "user",
-        "label": "المنفّذ",
+        "label": "منفذ العملية",
         "type": "text"
       },
       {
@@ -1749,60 +1765,7 @@
       },
       {
         "key": "reference",
-        "label": "المرجع",
-        "type": "text"
-      }
-    ],
-    "note": ""
-  },
-  {
-    "id": "wallets-holds",
-    "title": "حجوزات التمويل",
-    "snapshot": false,
-    "columns": [
-      {
-        "key": "id",
-        "label": "رقم العملية",
-        "type": "text"
-      },
-      {
-        "key": "time",
-        "label": "التاريخ والوقت",
-        "type": "date"
-      },
-      {
-        "key": "from",
-        "label": "الممول",
-        "type": "text"
-      },
-      {
-        "key": "to",
-        "label": "المستلم",
-        "type": "text"
-      },
-      {
-        "key": "service",
-        "label": "المحفظة",
-        "type": "text"
-      },
-      {
-        "key": "amount",
-        "label": "المبلغ",
-        "type": "money"
-      },
-      {
-        "key": "status",
-        "label": "الحالة",
-        "type": "text"
-      },
-      {
-        "key": "user",
-        "label": "المنفّذ",
-        "type": "text"
-      },
-      {
-        "key": "request",
-        "label": "طلب التمويل",
+        "label": "مرجع التحويل",
         "type": "text"
       }
     ],
@@ -1815,7 +1778,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "المجموعة",
+        "label": "رقم مجموعة التمويل",
         "type": "text"
       },
       {
@@ -1830,7 +1793,7 @@
       },
       {
         "key": "to",
-        "label": "المستلم",
+        "label": "المستفيد",
         "type": "text"
       },
       {
@@ -1840,8 +1803,9 @@
       },
       {
         "key": "amount",
-        "label": "المبلغ",
-        "type": "money"
+        "label": "مبلغ تمويل المستفيد",
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "status",
@@ -1850,17 +1814,17 @@
       },
       {
         "key": "user",
-        "label": "المنفّذ",
+        "label": "منفذ العملية",
         "type": "text"
       },
       {
         "key": "transfer",
-        "label": "التحويل",
+        "label": "رقم التحويل",
         "type": "text"
       },
       {
         "key": "reference",
-        "label": "المرجع",
+        "label": "مرجع العملية",
         "type": "text"
       }
     ],
@@ -1873,7 +1837,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "رقم التعديل",
+        "label": "رقم طلب تعديل السعر",
         "type": "text"
       },
       {
@@ -1893,22 +1857,25 @@
       },
       {
         "key": "old",
-        "label": "السعر السابق",
-        "type": "money"
+        "label": "سعر البيع السابق",
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "price",
-        "label": "السعر الجديد",
-        "type": "money"
+        "label": "سعر البيع الجديد",
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "difference",
         "label": "فرق السعر",
-        "type": "money"
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "creator",
-        "label": "المنفّذ",
+        "label": "منفذ العملية",
         "type": "text"
       },
       {
@@ -1931,7 +1898,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "المعرف",
+        "label": "رقم السجل",
         "type": "text"
       },
       {
@@ -1979,7 +1946,7 @@
       },
       {
         "key": "user",
-        "label": "المنفّذ",
+        "label": "منفذ العملية",
         "type": "text"
       },
       {
@@ -1997,7 +1964,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "المعرف",
+        "label": "رقم السجل",
         "type": "text"
       },
       {
@@ -2055,7 +2022,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "المعرف",
+        "label": "رقم السجل",
         "type": "text"
       },
       {
@@ -2108,7 +2075,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "المعرف",
+        "label": "رقم السجل",
         "type": "text"
       },
       {
@@ -2136,7 +2103,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "العملية",
+        "label": "رقم عملية التحصيل",
         "type": "text"
       },
       {
@@ -2146,13 +2113,14 @@
       },
       {
         "key": "account",
-        "label": "الحساب",
+        "label": "الحساب المحصل منه",
         "type": "text"
       },
       {
         "key": "amount",
-        "label": "المبلغ",
-        "type": "money"
+        "label": "المبلغ المحصل",
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "method",
@@ -2161,12 +2129,12 @@
       },
       {
         "key": "reference",
-        "label": "المرجع",
+        "label": "مرجع التحصيل",
         "type": "text"
       },
       {
         "key": "user",
-        "label": "المنفّذ",
+        "label": "منفذ العملية",
         "type": "text"
       }
     ],
@@ -2205,7 +2173,8 @@
       {
         "key": "credit",
         "label": "قيمة الحجز",
-        "type": "money"
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "status",
@@ -2270,12 +2239,12 @@
   },
   {
     "id": "sales-services",
-    "title": "طلبات خدمات المزودين",
+    "title": "سجل طلبات خدمات الشركات",
     "snapshot": false,
     "columns": [
       {
         "key": "id",
-        "label": "الطلب",
+        "label": "رقم طلب الخدمة",
         "type": "text"
       },
       {
@@ -2290,44 +2259,47 @@
       },
       {
         "key": "provider",
-        "label": "المزود",
+        "label": "الشركة",
         "type": "text"
       },
       {
         "key": "service",
-        "label": "المحفظة",
+        "label": "الفئة / الخدمة",
         "type": "text"
       },
       {
         "key": "recipient",
-        "label": "المستفيد",
+        "label": "رقم هاتف المستفيد",
         "type": "text"
       },
       {
         "key": "price",
         "label": "سعر البيع",
-        "type": "money"
+        "type": "money",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "cost",
         "label": "التكلفة",
         "type": "money",
-        "permission": "data.cost"
+        "permission": "data.cost",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "profit",
         "label": "الربح",
         "type": "money",
-        "permission": "data.profit"
+        "permission": "data.profit",
+        "source_note": "المبلغ بعملة التقرير المحددة، دون تحويل بين العملات."
       },
       {
         "key": "status",
-        "label": "الحالة",
+        "label": "حالة تنفيذ الخدمة",
         "type": "text"
       },
       {
         "key": "attempts",
-        "label": "المحاولات",
+        "label": "عدد محاولات الإرسال",
         "type": "number"
       }
     ],
@@ -2340,7 +2312,7 @@
     "columns": [
       {
         "key": "id",
-        "label": "المعرف",
+        "label": "رقم السجل",
         "type": "text"
       },
       {
@@ -2426,7 +2398,7 @@
       },
       {
         "key": "user",
-        "label": "المنفّذ",
+        "label": "منفذ العملية",
         "type": "text"
       },
       {
@@ -2436,7 +2408,7 @@
       },
       {
         "key": "entity",
-        "label": "المرجع",
+        "label": "السجل المتأثر",
         "type": "text"
       },
       {
@@ -2446,12 +2418,12 @@
       },
       {
         "key": "before",
-        "label": "قبل التعديل",
+        "label": "القيمة قبل التعديل",
         "type": "text"
       },
       {
         "key": "after",
-        "label": "بعد التعديل",
+        "label": "القيمة بعد التعديل",
         "type": "text"
       }
     ],
@@ -2464,12 +2436,12 @@
     "columns": [
       {
         "key": "id",
-        "label": "التسليم",
+        "label": "رقم سجل التسليم",
         "type": "text"
       },
       {
         "key": "tx",
-        "label": "عملية البيع",
+        "label": "رقم عملية البيع",
         "type": "text"
       },
       {
@@ -2484,56 +2456,13 @@
       },
       {
         "key": "reference",
-        "label": "مرجع الاستلام",
+        "label": "مرجع الاستلام / التسليم",
         "type": "text"
       },
       {
         "key": "user",
-        "label": "المنفّذ",
+        "label": "منفذ العملية",
         "type": "text"
-      }
-    ],
-    "note": ""
-  },
-  {
-    "id": "prices-policies",
-    "title": "قواعد الأسعار المحفوظة",
-    "snapshot": true,
-    "columns": [
-      {
-        "key": "id",
-        "label": "المعرف",
-        "type": "text"
-      },
-      {
-        "key": "agent",
-        "label": "الوكيل",
-        "type": "text"
-      },
-      {
-        "key": "product",
-        "label": "الفئة",
-        "type": "text"
-      },
-      {
-        "key": "city",
-        "label": "المحافظة",
-        "type": "text"
-      },
-      {
-        "key": "finalPrice",
-        "label": "السعر النهائي",
-        "type": "money"
-      },
-      {
-        "key": "effective",
-        "label": "تاريخ النفاذ",
-        "type": "text"
-      },
-      {
-        "key": "time",
-        "label": "تاريخ التسجيل",
-        "type": "date"
       }
     ],
     "note": ""

@@ -11,13 +11,24 @@ const {session,portal}=usePortal();
 const recovery=ref({status:'none'}),identifier=ref(props.login||''),password=ref(''),confirmation=ref('');
 const busy=ref(false),error=ref(''),errors=ref({}),phoneMode=ref(false),dismissedVersion=ref(null);
 const automaticallyOpen=ref(false);
-const controller=new AbortController();let pending=null,timer,generation=0,focusRequested=false;
+const retryUntil=ref(0),retryNow=ref(0),retrySeconds=computed(()=>Math.max(0,Math.ceil((retryUntil.value-retryNow.value)/1000)));
+const controller=new AbortController();let pending=null,timer,retryTimer=null,generation=0,focusRequested=false;
 const deviceAttempt=createRecoveryDeviceAttempt(()=>bootstrapPasswordRecoveryDevice(session.api,{signal:controller.signal}));
 const approved=computed(()=>recovery.value.status==='approved'&&Number.isSafeInteger(recovery.value.version));
 const visible=computed(()=>props.open||automaticallyOpen.value);
 function acceptStatus(value){recovery.value=value;if(value.status==='approved'&&dismissedVersion.value!==value.version)automaticallyOpen.value=true;}
+function coolingDown(){return Date.now()<retryUntil.value;}
+function updateRetryClock(){retryNow.value=Date.now();if(!coolingDown()&&retryTimer!==null){clearInterval(retryTimer);retryTimer=null;}}
+function backoff(failure){
+  if(failure.status!==429)return false;
+  if(controller.signal.aborted)return true;
+  const seconds=Number.isFinite(failure.retryAfter)&&failure.retryAfter>=0?Math.max(1,failure.retryAfter):60;
+  retryUntil.value=Math.max(retryUntil.value,Date.now()+seconds*1000);updateRetryClock();
+  if(retryTimer===null)retryTimer=setInterval(updateRetryClock,1000);
+  error.value='';return true;
+}
 async function refresh(){
-  if(busy.value)return;
+  if(busy.value||coolingDown())return;
   if(typeof document!=='undefined'&&document.visibilityState==='hidden')return;
   if(pending)return pending;
   const expected=generation;
@@ -31,16 +42,16 @@ async function refresh(){
       if(value.status==='none'&&portal.id==='pos'){
         const bound=await deviceAttempt.run({focus});if(expected===generation&&bound&&['pending','approved'].includes(bound.status))acceptStatus(bound);
       }
-    }catch(failure){if(visible.value&&failure.name!=='AbortError')error.value=failure.message;}
+    }catch(failure){if(expected===generation&&failure.name!=='AbortError'&&!backoff(failure)&&visible.value)error.value=failure.message;}
     finally{pending=null;}
   })();return pending;
 }
 async function request(){
-  if(busy.value||!identifier.value.trim())return;busy.value=true;error.value='';errors.value={};generation++;
+  if(busy.value||coolingDown()||!identifier.value.trim())return;busy.value=true;error.value='';errors.value={};generation++;
   try{
     const response=await session.api.requestPasswordRecovery({login:identifier.value.trim()},controller.signal);
     recovery.value=response.data;dismissedVersion.value=null;
-  }catch(failure){if(failure.name!=='AbortError')error.value=Object.values(failure.errors||{}).flat()[0]||failure.message;}
+  }catch(failure){if(failure.name!=='AbortError'&&!backoff(failure))error.value=Object.values(failure.errors||{}).flat()[0]||failure.message;}
   finally{busy.value=false;}
 }
 async function save(){
@@ -55,11 +66,12 @@ async function save(){
 function close(){if(busy.value)return;if(approved.value)dismissedVersion.value=recovery.value.version;automaticallyOpen.value=false;password.value='';confirmation.value='';emit('close');}
 function focused(){focusRequested=true;void refresh();}
 onMounted(()=>{void refresh();timer=setInterval(refresh,5000);window.addEventListener('focus',focused);document.addEventListener('visibilitychange',focused);});
-onBeforeUnmount(()=>{generation++;deviceAttempt.dispose();controller.abort();clearInterval(timer);window.removeEventListener('focus',focused);document.removeEventListener('visibilitychange',focused);password.value='';confirmation.value='';});
+onBeforeUnmount(()=>{generation++;deviceAttempt.dispose();controller.abort();clearInterval(timer);if(retryTimer!==null)clearInterval(retryTimer);window.removeEventListener('focus',focused);document.removeEventListener('visibilitychange',focused);password.value='';confirmation.value='';});
 </script>
 <template>
   <PhoneRecovery v-if="phoneMode" @close="phoneMode=false" @complete="phoneMode=false;emit('complete')"/>
   <AccountModal v-else-if="visible" :title="approved?'تعيين كلمة مرور جديدة':'استعادة الدخول'" section="حماية حسابك" :busy="busy" @close="close">
+    <p v-if="retrySeconds" class="notice warn" role="status">محاولات كثيرة. يمكنك المحاولة بعد {{retrySeconds}} ثانية.</p>
     <form v-if="approved" @submit.prevent="save">
       <p class="help">وافق المسؤول على تغيير كلمة المرور لهذا الجهاز. اختر كلمة جديدة وأكدها، ثم سجل الدخول بها.</p>
       <fieldset class="formgrid" :disabled="busy"><FormField v-model="password" name="recovery-password" label="كلمة المرور الجديدة" type="password" required :minlength="9" :maxlength="72" full :error="errors.password"/><FormField v-model="confirmation" name="recovery-confirmation" label="تأكيد كلمة المرور" type="password" required :minlength="9" :maxlength="72" full :error="errors.password_confirmation"/></fieldset>
@@ -67,9 +79,9 @@ onBeforeUnmount(()=>{generation++;deviceAttempt.dispose();controller.abort();cle
     </form>
     <template v-else>
       <p class="help">تواصل مع وكيلك أو المدير واطلب إعادة تعيين كلمة المرور. ستظهر هنا خانات الكلمة الجديدة بعد موافقته على هذا الجهاز.</p>
-      <p v-if="recovery.trusted" class="notice" role="status">هذا الجهاز معروف للنظام. لا تحتاج رابطًا أو رمزًا؛ انتظر موافقة المسؤول.</p>
-      <p v-else-if="recovery.status==='pending'" class="notice" role="status">طلب هذا الجهاز بانتظار موافقة المسؤول. مرجع الطلب: <b dir="ltr">{{recovery.request_label}}</b></p>
-      <form v-else @submit.prevent="request"><p v-if="recovery.status==='expired'" class="help">انتهت صلاحية الطلب. يمكنك إنشاء طلب جديد لهذا الجهاز.</p><FormField v-model="identifier" name="recovery-login" label="اسم مستخدم تسجيل الدخول" required :maxlength="190"/><footer class="formfoot"><button class="btn primary" :disabled="busy||!identifier.trim()">{{busy?'جارٍ الإرسال…':'طلب الاستعادة لهذا الجهاز'}}</button></footer></form>
+      <p v-if="recovery.trusted&&recovery.status==='pending'" class="notice" role="status">هذا الجهاز معروف للنظام. لا تحتاج رابطًا أو رمزًا؛ انتظر موافقة المسؤول.</p>
+      <p v-if="recovery.status==='pending'" class="notice" role="status">طلب هذا الجهاز بانتظار موافقة المسؤول. مرجع الطلب: <b dir="ltr">{{recovery.request_label}}</b></p>
+      <form v-else @submit.prevent="request"><p v-if="recovery.status==='expired'" class="help">انتهت صلاحية الطلب. يمكنك إنشاء طلب جديد لهذا الجهاز.</p><p v-else-if="recovery.status==='completed'" class="help">انتهى طلب الاستعادة السابق لهذا الجهاز. أنشئ طلبًا جديدًا إذا لم تستعد الدخول.</p><FormField v-model="identifier" name="recovery-login" label="اسم مستخدم تسجيل الدخول" required :maxlength="190"/><footer class="formfoot"><button class="btn primary" :disabled="busy||retrySeconds>0||!identifier.trim()">{{busy?'جارٍ الإرسال…':'طلب الاستعادة لهذا الجهاز'}}</button></footer></form>
       <p v-if="error" class="notice notice-error" role="alert">{{error}}</p>
       <footer class="formfoot"><button type="button" class="btn" :disabled="busy" @click="close">إغلاق</button><button type="button" class="btn" :disabled="busy" @click="phoneMode=true">الاستعادة عبر الهاتف</button></footer>
     </template>
